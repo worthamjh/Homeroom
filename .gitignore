@@ -12,6 +12,12 @@ dist
 dist-ssr
 *.local
 
+# Local secrets (never commit)
+.github_pat
+
+# Preview build output
+.preview-dist
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
