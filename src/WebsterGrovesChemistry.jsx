@@ -206,17 +206,17 @@ function Stars({ height = 68 }) {
 
 function SmartBoard({ src }) {
   return (
-    <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center" }}>
-      <div style={{ width: "100%", background: "#111", borderRadius: "8px 8px 0 0", padding: "8px 8px 0", border: "2px solid #2a2a2a", borderBottom: "none" }}>
-        <div style={{ background: "#0a0a0a", borderRadius: "4px 4px 0 0", aspectRatio: "16/9", overflow: "hidden", border: "1px solid #1a1a1a" }}>
+    <div style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center" }}>
+      <div style={{ flex: 1, minHeight: 0, boxSizing: "border-box", background: "#111", borderRadius: "8px 8px 0 0", padding: "8px 8px 0", border: "2px solid #2a2a2a", borderBottom: "none", display: "flex" }}>
+        <div style={{ flex: 1, minHeight: 0, width: "auto", margin: "0 auto", background: "#0a0a0a", borderRadius: "4px 4px 0 0", aspectRatio: "16/9", overflow: "hidden", border: "1px solid #1a1a1a" }}>
           <iframe src={src} style={{ width: "100%", height: "100%", border: "none", display: "block" }} allowFullScreen title="slides" />
         </div>
       </div>
-      <div style={{ width: "100%", height: 18, background: "#111", border: "2px solid #2a2a2a", borderTop: "1px solid #333", borderRadius: "0 0 6px 6px", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 12px" }}>
+      <div style={{ width: "100%", height: 18, flexShrink: 0, background: "#111", border: "2px solid #2a2a2a", borderTop: "1px solid #333", borderRadius: "0 0 6px 6px", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 12px" }}>
         <span style={{ fontSize: 8, color: "#444", fontFamily: "Oswald, sans-serif", letterSpacing: 2 }}>SMART</span>
         <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#1a6c1a", boxShadow: "0 0 4px #1a6c1a" }} />
       </div>
-      <div style={{ width: "70%", height: 10, background: "#0e0e0e", borderRadius: "0 0 4px 4px", border: "1px solid #222", borderTop: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, padding: "0 12px" }}>
+      <div style={{ width: "70%", height: 10, flexShrink: 0, background: "#0e0e0e", borderRadius: "0 0 4px 4px", border: "1px solid #222", borderTop: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, padding: "0 12px" }}>
         {["#2a2a2a", "#8a1a1a", "#1a4a1a", "#1a1a6a"].map((c, i) => (
           <div key={i} style={{ height: 6, width: 22, borderRadius: 2, background: c }} />
         ))}
@@ -287,7 +287,7 @@ export default function App() {
     <div onClick={() => setOpenDropdown(null)}
       style={isHome
         ? { background: "#1a1a1a", height: "100vh", fontFamily: "Lato, sans-serif", display: "flex", flexDirection: "column", overflow: "hidden" }
-        : { background: "#ded6c0", backgroundImage: CINDERBLOCK_BG, backgroundSize: "160px 80px", minHeight: "100vh", fontFamily: "Lato, sans-serif" }
+        : { background: "#ded6c0", backgroundImage: CINDERBLOCK_BG, backgroundSize: "160px 80px", minHeight: "100vh", fontFamily: "Lato, sans-serif", display: "flex", flexDirection: "column" }
       }>
 
       {/* ── Top bar ── */}
@@ -350,10 +350,10 @@ export default function App() {
       ) : (
       <>
       {/* ── Room ── */}
-      <div style={{ padding: 20, maxWidth: 1700, margin: "0 auto", display: "flex", flexDirection: "column", gap: 16 }}>
+      <div style={{ flex: 1, minHeight: 0, padding: 20, maxWidth: 1700, width: "100%", margin: "0 auto", display: "flex", flexDirection: "column", gap: 16, boxSizing: "border-box" }}>
 
         {/* Board unit */}
-        <div style={{ display: "flex", flexDirection: "column", border: "7px solid #8B6914", borderRadius: 5, overflow: "hidden", boxShadow: "0 4px 18px rgba(0,0,0,0.35)" }}>
+        <div style={{ flex: "1 1 auto", minHeight: "65vh", display: "flex", flexDirection: "column", border: "7px solid #8B6914", borderRadius: 5, overflow: "hidden", boxShadow: "0 4px 18px rgba(0,0,0,0.35)" }}>
 
           {/* Bulletin strip */}
           <div style={{ background: "#1a2a4a", position: "relative", minHeight: 68, flexShrink: 0 }}>
@@ -361,15 +361,15 @@ export default function App() {
           </div>
 
           {/* Chalkboard */}
-          <div style={{ background: "#2d5a2d", borderTop: "4px solid #6B4F10", display: "flex", flexDirection: "column" }}>
-            <div style={{ display: "grid", gridTemplateColumns: "2fr 3fr", minHeight: 360 }}>
+          <div style={{ flex: 1, minHeight: 0, background: "#2d5a2d", borderTop: "4px solid #6B4F10", display: "flex", flexDirection: "column" }}>
+            <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "2fr 3fr" }}>
 
               {/* Slides side */}
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "14px 10px 10px 14px", gap: 10 }}>
-                <div style={{ width: "100%", fontFamily: "Oswald, sans-serif", fontSize: 16, color: "rgba(255,255,255,0.8)", letterSpacing: 2, textShadow: "1px 1px 2px rgba(0,0,0,0.6)" }}>
+              <div style={{ minHeight: 0, display: "flex", flexDirection: "column", alignItems: "center", padding: "14px 10px 10px 14px", gap: 10 }}>
+                <div style={{ width: "100%", flexShrink: 0, fontFamily: "Oswald, sans-serif", fontSize: 16, color: "rgba(255,255,255,0.8)", letterSpacing: 2, textShadow: "1px 1px 2px rgba(0,0,0,0.6)" }}>
                   {boardTitle}
                 </div>
-                <div style={{ width: "100%", maxWidth: 480 }}>
+                <div style={{ flex: 1, minHeight: 0, width: "100%", display: "flex", justifyContent: "center" }}>
                   <SmartBoard src={boardSlides} />
                 </div>
               </div>
