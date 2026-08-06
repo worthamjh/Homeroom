@@ -30,7 +30,7 @@ function ToolsFooter() {
     <div style={{ background: "#1a1a1a", borderTop: "4px solid #E87722", padding: "16px 20px", display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 16, flexShrink: 0 }}>
       {FOOTER_LINKS.map((t, i) => (
         <a key={i} href={t.href} target="_blank" rel="noopener noreferrer" title={t.label}
-          style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 48, height: 48, background: "#fff", borderRadius: 10, padding: 6, transition: "transform 0.15s" }}
+          style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 48, height: 48, background: "transparent", borderRadius: 10, padding: 6, transition: "transform 0.15s" }}
           onMouseEnter={e => e.currentTarget.style.transform = "scale(1.08)"}
           onMouseLeave={e => e.currentTarget.style.transform = "scale(1)"}
         >
