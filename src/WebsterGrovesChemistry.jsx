@@ -362,14 +362,16 @@ export default function App() {
 
           {/* Chalkboard */}
           <div style={{ background: "#2d5a2d", borderTop: "4px solid #6B4F10", display: "flex", flexDirection: "column" }}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 300px", minHeight: 360 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "2fr 3fr", minHeight: 360 }}>
 
               {/* Slides side */}
-              <div style={{ display: "flex", flexDirection: "column", padding: "14px 10px 10px 14px", gap: 10 }}>
-                <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 16, color: "rgba(255,255,255,0.8)", letterSpacing: 2, textShadow: "1px 1px 2px rgba(0,0,0,0.6)" }}>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "14px 10px 10px 14px", gap: 10 }}>
+                <div style={{ width: "100%", fontFamily: "Oswald, sans-serif", fontSize: 16, color: "rgba(255,255,255,0.8)", letterSpacing: 2, textShadow: "1px 1px 2px rgba(0,0,0,0.6)" }}>
                   {boardTitle}
                 </div>
-                <SmartBoard src={boardSlides} />
+                <div style={{ width: "100%", maxWidth: 480 }}>
+                  <SmartBoard src={boardSlides} />
+                </div>
               </div>
 
               {/* Goals / Overview side */}
