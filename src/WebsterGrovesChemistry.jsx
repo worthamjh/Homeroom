@@ -249,12 +249,13 @@ function AssignmentThumb({ label, url, thumb }) {
 }
 
 export default function App() {
-  const [activeUnitIdx, setActiveUnitIdx] = useState(0);
+  const [activeUnitIdx, setActiveUnitIdx] = useState(null);
   const [activeLesson, setActiveLesson] = useState(null);
   const [openDropdown, setOpenDropdown] = useState(null);
   const [checkedGoals, setCheckedGoals] = useState({});
 
-  const activeUnit = curriculum[activeUnitIdx];
+  const isHome = activeUnitIdx === null;
+  const activeUnit = isHome ? null : curriculum[activeUnitIdx];
   const isOverview = activeLesson === null;
 
   const toggleGoal = (lessonTitle, idx) => {
@@ -275,12 +276,12 @@ export default function App() {
   };
 
   // All assignments across the unit in order
-  const allAssignments = activeUnit.lessons.flatMap(l =>
+  const allAssignments = isHome ? [] : activeUnit.lessons.flatMap(l =>
     l.assignments.map(a => ({ ...a, lessonTitle: l.title }))
   );
 
-  const boardSlides = isOverview ? CALENDAR_SRC : activeLesson?.slides;
-  const boardTitle = isOverview ? activeUnit.title : activeLesson?.title;
+  const boardSlides = isHome ? null : (isOverview ? CALENDAR_SRC : activeLesson?.slides);
+  const boardTitle = isHome ? null : (isOverview ? activeUnit.title : activeLesson?.title);
 
   return (
     <div onClick={() => setOpenDropdown(null)}
@@ -289,7 +290,10 @@ export default function App() {
       {/* ── Top bar ── */}
       <div style={{ background: "#1a1a1a", borderBottom: "4px solid #E87722" }}>
         <div style={{ padding: "14px 20px 10px", textAlign: "center" }}>
-          <div style={{ fontFamily: "Oswald, sans-serif", color: "#fff", fontSize: 26, fontWeight: 600, letterSpacing: 2 }}>
+          <div
+            onClick={() => { setActiveUnitIdx(null); setActiveLesson(null); setOpenDropdown(null); }}
+            style={{ fontFamily: "Oswald, sans-serif", color: "#fff", fontSize: 26, fontWeight: 600, letterSpacing: 2, cursor: "pointer", display: "inline-block" }}
+          >
             Webster Groves <span style={{ color: "#E87722" }}>Chemistry</span>
           </div>
         </div>
@@ -333,6 +337,16 @@ export default function App() {
       {/* ── Room ── */}
       <div style={{ padding: 20, maxWidth: 1000, margin: "0 auto", display: "flex", flexDirection: "column", gap: 16 }}>
 
+        {isHome ? (
+          <div style={{ borderRadius: 5, overflow: "hidden", boxShadow: "0 4px 18px rgba(0,0,0,0.35)" }}>
+            <img
+              src="/images/wghs-building.jpg"
+              alt="Webster Groves High School"
+              style={{ width: "100%", display: "block", maxHeight: 520, objectFit: "cover" }}
+            />
+          </div>
+        ) : (
+        <>
         {/* Board unit */}
         <div style={{ display: "flex", flexDirection: "column", border: "7px solid #8B6914", borderRadius: 5, overflow: "hidden", boxShadow: "0 4px 18px rgba(0,0,0,0.35)" }}>
 
@@ -435,6 +449,8 @@ export default function App() {
             )}
           </div>
         </div>
+        </>
+        )}
       </div>
 
       <ToolsFooter />
