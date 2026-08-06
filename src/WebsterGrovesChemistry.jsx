@@ -262,11 +262,6 @@ export default function App() {
     setCheckedGoals(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const handleUnitClick = (idx) => {
-    if (openDropdown === idx) { setOpenDropdown(null); return; }
-    setOpenDropdown(idx);
-  };
-
   const handleLessonClick = (unitIdx, lesson) => {
     setActiveUnitIdx(unitIdx);
     setActiveLesson(lesson);
@@ -302,9 +297,12 @@ export default function App() {
         {/* Unit nav */}
         <div style={{ display: "flex", borderTop: "1px solid #333" }} onClick={e => e.stopPropagation()}>
           {curriculum.map((u, ui) => (
-            <div key={ui} style={{ position: "relative", flex: 1 }}>
+            <div key={ui} style={{ position: "relative", flex: 1 }}
+              onMouseEnter={() => u.lessons.length > 0 && setOpenDropdown(ui)}
+              onMouseLeave={() => setOpenDropdown(prev => (prev === ui ? null : prev))}
+            >
               <button
-                onClick={() => u.lessons.length > 0 ? handleUnitClick(ui) : handleUnitOverview(ui)}
+                onClick={() => handleUnitOverview(ui)}
                 style={{ background: activeUnitIdx === ui && isOverview ? "#fff" : "#E87722", color: activeUnitIdx === ui && isOverview ? "#E87722" : "#1a1a1a", border: "none", borderRight: "1px solid rgba(0,0,0,0.2)", padding: "10px 4px", fontSize: 13, fontFamily: "Oswald, sans-serif", cursor: "pointer", letterSpacing: 0.5, width: "100%", fontWeight: 600, transition: "all 0.15s" }}
                 onMouseEnter={e => { if (!(activeUnitIdx === ui && isOverview)) { e.currentTarget.style.background = "#fff"; e.currentTarget.style.color = "#1a1a1a"; }}}
                 onMouseLeave={e => { if (!(activeUnitIdx === ui && isOverview)) { e.currentTarget.style.background = "#E87722"; e.currentTarget.style.color = "#1a1a1a"; }}}
