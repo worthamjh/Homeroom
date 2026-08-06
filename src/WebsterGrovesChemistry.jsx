@@ -313,14 +313,6 @@ export default function App() {
               {/* Dropdown */}
               {openDropdown === ui && u.lessons.length > 0 && (
                 <div style={{ position: "absolute", top: "100%", left: 0, minWidth: 210, background: "#1a1a1a", border: "1px solid #E87722", borderTop: "none", borderRadius: "0 0 4px 4px", zIndex: 100, overflow: "hidden" }}>
-                  <div
-                    onClick={() => handleUnitOverview(ui)}
-                    style={{ padding: "8px 14px", fontSize: 12, fontFamily: "Lato, sans-serif", fontWeight: 400, color: "#E87722", cursor: "pointer", borderBottom: "1px solid #2a2a2a", letterSpacing: 1, textTransform: "uppercase" }}
-                    onMouseEnter={e => e.currentTarget.style.background = "#2a2a2a"}
-                    onMouseLeave={e => e.currentTarget.style.background = "transparent"}
-                  >
-                    Unit Overview
-                  </div>
                   {u.lessons.map((lesson, li) => (
                     <div key={li}
                       onClick={() => handleLessonClick(ui, lesson)}
