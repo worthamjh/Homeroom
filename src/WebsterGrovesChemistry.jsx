@@ -27,7 +27,7 @@ const FOOTER_LINKS = [
 
 function ToolsFooter() {
   return (
-    <div style={{ background: "#1a1a1a", borderTop: "4px solid #E87722", padding: "16px 20px", display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 16 }}>
+    <div style={{ background: "#1a1a1a", borderTop: "4px solid #E87722", padding: "16px 20px", display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 16, flexShrink: 0 }}>
       {FOOTER_LINKS.map((t, i) => (
         <a key={i} href={t.href} target="_blank" rel="noopener noreferrer" title={t.label}
           style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 48, height: 48, background: "#fff", borderRadius: 10, padding: 6, transition: "transform 0.15s" }}
@@ -285,10 +285,13 @@ export default function App() {
 
   return (
     <div onClick={() => setOpenDropdown(null)}
-      style={{ background: "#ded6c0", backgroundImage: CINDERBLOCK_BG, backgroundSize: "160px 80px", minHeight: "100vh", fontFamily: "Lato, sans-serif" }}>
+      style={isHome
+        ? { background: "#1a1a1a", height: "100vh", fontFamily: "Lato, sans-serif", display: "flex", flexDirection: "column", overflow: "hidden" }
+        : { background: "#ded6c0", backgroundImage: CINDERBLOCK_BG, backgroundSize: "160px 80px", minHeight: "100vh", fontFamily: "Lato, sans-serif" }
+      }>
 
       {/* ── Top bar ── */}
-      <div style={{ background: "#1a1a1a", borderBottom: "4px solid #E87722" }}>
+      <div style={{ background: "#1a1a1a", borderBottom: "4px solid #E87722", flexShrink: 0 }}>
         <div style={{ padding: "14px 20px 10px", textAlign: "center" }}>
           <div
             onClick={() => { setActiveUnitIdx(null); setActiveLesson(null); setOpenDropdown(null); }}
@@ -334,19 +337,19 @@ export default function App() {
         </div>
       </div>
 
+      {isHome ? (
+        <div style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
+          <img
+            src="/images/wghs-building.jpg"
+            alt="Webster Groves High School"
+            style={{ width: "100%", height: "100%", display: "block", objectFit: "cover" }}
+          />
+        </div>
+      ) : (
+      <>
       {/* ── Room ── */}
       <div style={{ padding: 20, maxWidth: 1000, margin: "0 auto", display: "flex", flexDirection: "column", gap: 16 }}>
 
-        {isHome ? (
-          <div style={{ borderRadius: 5, overflow: "hidden", boxShadow: "0 4px 18px rgba(0,0,0,0.35)" }}>
-            <img
-              src="/images/wghs-building.jpg"
-              alt="Webster Groves High School"
-              style={{ width: "100%", display: "block", maxHeight: 520, objectFit: "cover" }}
-            />
-          </div>
-        ) : (
-        <>
         {/* Board unit */}
         <div style={{ display: "flex", flexDirection: "column", border: "7px solid #8B6914", borderRadius: 5, overflow: "hidden", boxShadow: "0 4px 18px rgba(0,0,0,0.35)" }}>
 
@@ -449,9 +452,9 @@ export default function App() {
             )}
           </div>
         </div>
-        </>
-        )}
       </div>
+      </>
+      )}
 
       <ToolsFooter />
     </div>
