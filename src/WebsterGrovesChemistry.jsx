@@ -338,11 +338,11 @@ export default function App() {
       </div>
 
       {isHome ? (
-        <div style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
+        <div style={{ flex: 1, minHeight: 0, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", background: "#1a1a1a" }}>
           <img
             src="/images/wghs-building.jpg"
             alt="Webster Groves High School"
-            style={{ width: "100%", height: "100%", display: "block", objectFit: "cover" }}
+            style={{ width: "100%", height: "100%", display: "block", objectFit: "contain" }}
           />
         </div>
       ) : (
