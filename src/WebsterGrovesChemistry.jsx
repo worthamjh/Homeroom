@@ -350,7 +350,7 @@ export default function App() {
       ) : (
       <>
       {/* ── Room ── */}
-      <div style={{ padding: 20, maxWidth: 1000, margin: "0 auto", display: "flex", flexDirection: "column", gap: 16 }}>
+      <div style={{ padding: 20, maxWidth: 1700, margin: "0 auto", display: "flex", flexDirection: "column", gap: 16 }}>
 
         {/* Board unit */}
         <div style={{ display: "flex", flexDirection: "column", border: "7px solid #8B6914", borderRadius: 5, overflow: "hidden", boxShadow: "0 4px 18px rgba(0,0,0,0.35)" }}>
@@ -362,7 +362,7 @@ export default function App() {
 
           {/* Chalkboard */}
           <div style={{ background: "#2d5a2d", borderTop: "4px solid #6B4F10", display: "flex", flexDirection: "column" }}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 240px", minHeight: 360 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 300px", minHeight: 360 }}>
 
               {/* Slides side */}
               <div style={{ display: "flex", flexDirection: "column", padding: "14px 10px 10px 14px", gap: 10 }}>
@@ -433,7 +433,7 @@ export default function App() {
                     <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 12, color: "#E87722", letterSpacing: 1, textTransform: "uppercase", padding: li === 0 ? "0 0 8px" : "12px 0 8px", borderTop: li === 0 ? "none" : "1px solid #333" }}>
                       {lesson.title}
                     </div>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 10 }}>
                       {lesson.assignments.map((a, ai) => (
                         <AssignmentThumb key={ai} {...a} />
                       ))}
@@ -445,7 +445,7 @@ export default function App() {
               activeLesson?.assignments.length === 0 ? (
                 <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 13, padding: 20, textAlign: "center", fontStyle: "italic" }}>No assignments yet for this lesson.</div>
               ) : (
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 10 }}>
                   {activeLesson?.assignments.map((a, ai) => (
                     <AssignmentThumb key={ai} {...a} />
                   ))}
