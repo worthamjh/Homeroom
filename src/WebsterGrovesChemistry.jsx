@@ -2,6 +2,45 @@ import { useState, useEffect, useRef } from "react";
 
 const THUMB = (id) => `https://drive.google.com/thumbnail?id=${id}&sz=w400`;
 
+// Cinderblock wall texture — real running-bond coursing (offset joints every other row),
+// built as a small tiled SVG so it scales cleanly at any resolution.
+const CINDERBLOCK_TILE = `<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'>
+  <line x1='0' y1='0' x2='0' y2='80' stroke='#c2b89e' stroke-width='2'/>
+  <line x1='160' y1='0' x2='160' y2='80' stroke='#c2b89e' stroke-width='2'/>
+  <line x1='0' y1='80' x2='160' y2='80' stroke='#c2b89e' stroke-width='2'/>
+  <line x1='80' y1='80' x2='80' y2='160' stroke='#c2b89e' stroke-width='2'/>
+  <line x1='0' y1='160' x2='160' y2='160' stroke='#c2b89e' stroke-width='2'/>
+</svg>`;
+const CINDERBLOCK_BG = `url("data:image/svg+xml,${encodeURIComponent(CINDERBLOCK_TILE)}")`;
+
+// Quick-launch tools footer — same tools Jay's students use in class, one click away.
+const FOOTER_LINKS = [
+  { label: "Drive", href: "https://drive.google.com/", icon: "/logos/drive.png" },
+  { label: "Gmail", href: "https://mail.google.com/", icon: "/logos/gmail.png" },
+  { label: "EdPuzzle", href: "https://edpuzzle.com/", icon: "/logos/edpuzzle.png" },
+  { label: "YouTube", href: "https://www.youtube.com/", icon: "/logos/youtube.png" },
+  { label: "Kahoot!", href: "https://kahoot.com/", icon: "/logos/kahoot.png" },
+  { label: "Clever", href: "https://clever.com/", icon: "/logos/clever.png" },
+  { label: "Canvas", href: "https://wgsd.instructure.com/", icon: "/logos/canvas.png" },
+  { label: "WGHS", href: "https://www.webster.k12.mo.us/wghs", icon: "/logos/wghs.png" },
+];
+
+function ToolsFooter() {
+  return (
+    <div style={{ background: "#1a1a1a", borderTop: "4px solid #E87722", padding: "16px 20px", display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 16 }}>
+      {FOOTER_LINKS.map((t, i) => (
+        <a key={i} href={t.href} target="_blank" rel="noopener noreferrer" title={t.label}
+          style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 48, height: 48, background: "#fff", borderRadius: 10, padding: 6, transition: "transform 0.15s" }}
+          onMouseEnter={e => e.currentTarget.style.transform = "scale(1.08)"}
+          onMouseLeave={e => e.currentTarget.style.transform = "scale(1)"}
+        >
+          <img src={t.icon} alt={t.label} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+        </a>
+      ))}
+    </div>
+  );
+}
+
 const curriculum = [
   {
     unit: "Unit 1",
@@ -27,8 +66,8 @@ const curriculum = [
           "I will be able to respond appropriately to a lab emergency.",
         ],
         assignments: [
-          { label: "Science Student Safety Contract", url: "https://kami.app/WWY-kkP-eA6-WHM", thumb: THUMB("18-GHcI5-9fb8RNA5BMURr8OCGBrB6aQ6") },
-          { label: "POGIL — Check Yourself Before You Wreck Yourself", url: "https://kami.app/55C-MEv-uVD-gzG", thumb: THUMB("1qWJWOoFyYyiumNbW8Gq8qLYOxhDUpsn3") },
+          { label: "Science Student Safety Contract", url: "https://kami.app/WWY-kkP-eA6-WHM", thumb: "/assignments/safety-contract.png" },
+          { label: "POGIL — Check Yourself Before You Wreck Yourself", url: "https://kami.app/55C-MEv-uVD-gzG", thumb: "/assignments/pogil-check-yourself.png" },
         ],
       },
       {
@@ -40,7 +79,7 @@ const curriculum = [
           "I will be able to calculate percent error.",
         ],
         assignments: [
-          { label: "POGIL — Accuracy and Precision", url: "https://kami.app/XJ2-Q6N-sW3-EHa", thumb: THUMB("1CLKsC3jLT1sdN3dBzh3AoJ000-oWo4ML") },
+          { label: "POGIL — Accuracy and Precision", url: "https://kami.app/XJ2-Q6N-sW3-EHa", thumb: "/assignments/pogil-accuracy-precision.png" },
         ],
       },
       {
@@ -52,7 +91,7 @@ const curriculum = [
           "I will be able to classify changes in matter as physical or chemical.",
         ],
         assignments: [
-          { label: "Notes — Physical and Chemical Changes", url: "https://kami.app/SmD-k2Y-ttE-TTT", thumb: THUMB("1yU_wJEpxE3gqUPv9kw-moxqPMWttSpP8") },
+          { label: "Notes — Physical and Chemical Changes", url: "https://kami.app/SmD-k2Y-ttE-TTT", thumb: "/assignments/notes-physical-chemical.png" },
         ],
       },
       {
@@ -64,7 +103,7 @@ const curriculum = [
           "I will be able to explain the relative value of a number based on its exponent.",
         ],
         assignments: [
-          { label: "POGIL — Numbers for Nerds", url: "https://kami.app/utL-fgR-m8S-9g1", thumb: THUMB("1k3N49ZqBhycJxyiAHRkDz8SRBsxZenuS") },
+          { label: "POGIL — Numbers for Nerds", url: "https://kami.app/utL-fgR-m8S-9g1", thumb: "/assignments/pogil-numbers-for-nerds.png" },
         ],
       },
       {
@@ -76,7 +115,7 @@ const curriculum = [
           "I will be able to generate scientific questions from observations.",
         ],
         assignments: [
-          { label: "Lab 1A — Observations and Properties", url: "https://kami.app/wDm-NEd-XX8-pnD", thumb: THUMB("1ai2X_EX1gmBuhO9Lka9FbXFlEaj3s9Df") },
+          { label: "Lab 1A — Observations and Properties", url: "https://kami.app/wDm-NEd-XX8-pnD", thumb: "/assignments/lab-1a-observations.png" },
         ],
       },
       {
@@ -88,7 +127,7 @@ const curriculum = [
           "I will be able to describe the difference between a blue and yellow flame.",
         ],
         assignments: [
-          { label: "Lab 1B — Bunsen Burner Lab", url: "https://kami.app/bBB-xTH-Jur-ibZ", thumb: THUMB("12EY6IEUDVmB1nQ_U5TmBBpbXSw0zrLiB") },
+          { label: "Lab 1B — Bunsen Burner Lab", url: "https://kami.app/bBB-xTH-Jur-ibZ", thumb: "/assignments/lab-1b-bunsen-burner.png" },
         ],
       },
       {
@@ -100,7 +139,7 @@ const curriculum = [
           "I will be able to support conclusions with experimental evidence.",
         ],
         assignments: [
-          { label: "Lab 1C — Candle Experiment", url: "https://kami.app/BTu-Kxz-trE-k9d", thumb: THUMB("1hFdz0o2YfS10sUwgeQa_bk_xnllzRAwz") },
+          { label: "Lab 1C — Candle Experiment", url: "https://kami.app/BTu-Kxz-trE-k9d", thumb: "/assignments/lab-1c-candle-experiment.png" },
         ],
       },
       {
@@ -112,7 +151,7 @@ const curriculum = [
           "I will be able to calculate percent error.",
         ],
         assignments: [
-          { label: "Lab 1D — Quantitative Observations in Chemistry", url: "https://kami.app/cEA-dwB-KcJ-tm4", thumb: THUMB("1OZfHXtSSzalZHNy3RHDMKdGGAr82LXyi") },
+          { label: "Lab 1D — Quantitative Observations in Chemistry", url: "https://kami.app/cEA-dwB-KcJ-tm4", thumb: "/assignments/lab-1d-quantitative-observations.png" },
         ],
       },
     ],
@@ -250,7 +289,7 @@ export default function App() {
 
   return (
     <div onClick={() => setOpenDropdown(null)}
-      style={{ background: "#c8b89a", backgroundImage: "repeating-linear-gradient(0deg,transparent,transparent 29px,rgba(0,0,0,0.08) 29px,rgba(0,0,0,0.08) 32px),repeating-linear-gradient(90deg,transparent,transparent 59px,rgba(0,0,0,0.06) 59px,rgba(0,0,0,0.06) 62px)", backgroundSize: "62px 32px", minHeight: "100vh", fontFamily: "Lato, sans-serif" }}>
+      style={{ background: "#ded6c0", backgroundImage: CINDERBLOCK_BG, backgroundSize: "160px 80px", minHeight: "100vh", fontFamily: "Lato, sans-serif" }}>
 
       {/* ── Top bar ── */}
       <div style={{ background: "#1a1a1a", borderBottom: "4px solid #E87722" }}>
@@ -407,6 +446,8 @@ export default function App() {
           </div>
         </div>
       </div>
+
+      <ToolsFooter />
     </div>
   );
 }
