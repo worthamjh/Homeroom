@@ -2,6 +2,12 @@ import { useState, useEffect, useRef } from "react";
 
 const THUMB = (id) => `https://drive.google.com/thumbnail?id=${id}&sz=w400`;
 
+// Spacing scale — sized a step looser than typical web UI since this is read
+// from across a classroom on a projected/flat-panel display, not up close.
+// Structural elements (board border, bulletin strip height, chalk ledge) are
+// intentionally NOT on this scale — those are physical proportions, not content rhythm.
+const SPACE = { xs: 8, sm: 12, md: 16, lg: 24, xl: 32, xxl: 40 };
+
 // Cinderblock wall texture — real running-bond coursing (offset joints every other row),
 // built as a small tiled SVG so it scales cleanly at any resolution.
 const CINDERBLOCK_TILE = `<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'>
@@ -27,7 +33,7 @@ const FOOTER_LINKS = [
 
 function ToolsFooter() {
   return (
-    <div style={{ background: "#1a1a1a", borderTop: "4px solid #E87722", padding: "16px 20px", display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 16, flexShrink: 0 }}>
+    <div style={{ background: "#1a1a1a", borderTop: "4px solid #E87722", padding: `${SPACE.md}px ${SPACE.lg}px`, display: "flex", flexWrap: "wrap", justifyContent: "center", gap: SPACE.md, flexShrink: 0 }}>
       {FOOTER_LINKS.map((t, i) => (
         <a key={i} href={t.href} target="_blank" rel="noopener noreferrer" title={t.label}
           style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 48, height: 48, background: "transparent", borderRadius: 10, padding: 6, transition: "transform 0.15s" }}
@@ -46,40 +52,88 @@ const curriculum = [
     unit: "Unit 1",
     title: "Unit 1 — Matter & Measurement",
     overview: [
-      "Lab Safety",
-      "Accuracy vs. Precision",
-      "Physical vs. Chemical Change",
-      "Scientific Notation",
-      "Lab — Chemistry in a Bag",
-      "Lab 1A — Observations & Properties",
-      "Lab 1B — Bunsen Burner",
-      "Lab 1C — Candle Experiment",
-      "Lab 1D — Quantitative Observations",
+      "Lab Basics",
+      "Scientific Measurement",
+      "Labs",
     ],
     lessons: [
       {
-        title: "Lab Safety",
+        title: "Lab Basics",
         slides: "https://docs.google.com/presentation/d/e/2PACX-1vRUYsT5bi-Ks4gk9i7Ef-fW3QxkbaRLxLFRpVbf7toOUXtqWJamVY9NPWlQIi7U2V9RCC9sEUhrz2Sz/embed?start=false&loop=false&delayms=3000",
         goals: [
           "I will be able to identify key lab safety rules.",
           "I will be able to locate safety equipment in the lab.",
-          "I will be able to respond appropriately to a lab emergency.",
-        ],
-        assignments: [
-          { label: "Science Student Safety Contract", url: "https://kami.app/WWY-kkP-eA6-WHM", thumb: "/assignments/safety-contract.png" },
-          { label: "POGIL — Check Yourself Before You Wreck Yourself", url: "https://kami.app/55C-MEv-uVD-gzG", thumb: "/assignments/pogil-check-yourself.png" },
-        ],
-      },
-      {
-        title: "Accuracy vs. Precision",
-        slides: "https://docs.google.com/presentation/d/e/2PACX-1vToJlUt5KScZu5OkbI62CkRXy0DmT-zj5TF6T7J7B44XEgJQVWHb7l-XsUkt6_cWBaUnJI_UlMuWVP6/embed?start=false&loop=false&delayms=3000",
-        goals: [
           "I will be able to distinguish between accuracy and precision.",
-          "I will be able to identify accurate and precise data sets.",
           "I will be able to calculate percent error.",
         ],
         assignments: [
+          { label: "Science Student Safety Contract", url: "https://kami.app/WWY-kkP-eA6-WHM", thumb: "/assignments/safety-contract.png" },
+          { label: "POGIL — Student Safety", url: "https://kami.app/55C-MEv-uVD-gzG", thumb: "/assignments/pogil-check-yourself.png" },
           { label: "POGIL — Accuracy and Precision", url: "https://kami.app/XJ2-Q6N-sW3-EHa", thumb: "/assignments/pogil-accuracy-precision.png" },
+          { label: "Lab Safety Escape Room", url: "https://docs.google.com/presentation/d/1calYU0qUiI3dMs7ki-oSraAZ52P3TXAmv2amGeuhvPw/edit", thumb: THUMB("1w6FYXKAP5s9uT4j2qzT6YEZ_NrXf_Ivj") },
+        ],
+      },
+      {
+        title: "Scientific Measurement",
+        slides: "https://docs.google.com/presentation/d/e/2PACX-1vSLNTgxmHxGwaF0HF4TQm7SUAeC7O5UIwzDHvld82GF0PQeVtZhgv9XDC6XwLHeLsZouOmpDbm2pjqF/embed?start=false&loop=false&delayms=3000",
+        goals: [
+          "I will be able to convert numbers between decimal and scientific notation.",
+          "I will be able to convert between metric units of measurement.",
+          "I will be able to apply significant figures rules to measurements and calculations.",
+        ],
+        assignments: [
+          { label: "POGIL — Numbers for Nerds", url: "https://kami.app/utL-fgR-m8S-9g1", thumb: "/assignments/pogil-numbers-for-nerds.png" },
+          { label: "Notes — Scientific Notation & Metric System", url: "https://drive.google.com/file/d/14dCvHJeY6rOfdOhCpYHF8gPfki8DaqQK/view", thumb: THUMB("1F7JgvMdVIdnhCx-MbD7wKFO_XdgnIXwf") },
+          { label: "Metric Unit Conversion Practice Worksheet", url: "https://drive.google.com/file/d/1FJHKRGQ1uEdKYdR_y4Kmjgzcgt6_9DHL/view" },
+          { label: "POGIL — Revenge of the Nerds", url: "https://docs.google.com/document/d/1IpstkFfaOCg7Pg3sDqmamzafygyeQ2Kyotjd3VvXYPs/edit" },
+          { label: "POGIL — Significant Digits and Measurement", url: "https://docs.google.com/document/d/1VQqBib-1ya5cJp4_MS1wFSzwXNIraOXDsau5uY3985g/edit" },
+        ],
+      },
+      {
+        title: "Labs",
+        slides: "",
+        goals: [
+          "I will be able to make qualitative and quantitative observations during a lab.",
+          "I will be able to safely operate lab equipment, including a Bunsen burner.",
+          "I will be able to identify physical and chemical properties of matter.",
+          "I will be able to calculate density and percent error from experimental data.",
+        ],
+        assignments: [
+          { label: "Lab 1.0 — Chemistry in a Bag", url: "https://kami.app/as2-4fQ-uvn-FaL" },
+          { label: "Lab 1A — Observations and Properties", url: "https://kami.app/wDm-NEd-XX8-pnD", thumb: "/assignments/lab-1a-observations.png" },
+          { label: "Lab 1B — Bunsen Burner Lab", url: "https://kami.app/bBB-xTH-Jur-ibZ", thumb: "/assignments/lab-1b-bunsen-burner.png" },
+          { label: "Lab 1C — Candle Experiment", url: "https://kami.app/BTu-Kxz-trE-k9d", thumb: "/assignments/lab-1c-candle-experiment.png" },
+          { label: "Lab 1D — Quantitative Observations in Chemistry", url: "https://kami.app/cEA-dwB-KcJ-tm4", thumb: "/assignments/lab-1d-quantitative-observations.png" },
+        ],
+      },
+    ],
+  },
+  {
+    unit: "Unit 2",
+    title: "Unit 2 — Classification of Matter",
+    overview: [
+      "Classification of Matter",
+      "Physical vs. Chemical Change",
+      "Labs",
+    ],
+    lessons: [
+      {
+        title: "Classification of Matter",
+        slides: "",
+        goals: [
+          "I will be able to classify a sample of matter as an element, compound, or mixture.",
+          "I will be able to distinguish between homogeneous and heterogeneous mixtures.",
+          "I will be able to use classification of matter vocabulary correctly in context.",
+          "I will be able to organize classification-of-matter concepts into a concept map.",
+        ],
+        assignments: [
+          { label: "Nuts and Bolts Worksheet", url: "https://kami.app/Prk-LmD-4SR-6EC", thumb: THUMB("1fJrkHQ8OQ3IMLlcAXN8IX6Z3jbxJqV6Q") },
+          { label: "Compounds and Mixtures Worksheet", url: "https://kami.app/JP4-3ZW-Aet-Rxx", thumb: THUMB("1hfFSrsAdt6vhZpPTsdzc53Owwdke4661") },
+          { label: "Compounds and Mixtures Worksheet Key", url: "https://kami.app/hJt-p8N-n9V-52S" },
+          { label: "Chemistry Vocabulary Worksheet", url: "https://kami.app/MBW-WYr-4pt-vSC" },
+          { label: "Chemistry Vocabulary 2", url: "https://kami.app/TXj-1w1-F49-gut" },
+          { label: "Concept Map — Element and Mixture", url: "https://kami.app/wsB-pYp-tQK-B5z" },
+          { label: "Concept Map Template", url: "https://kami.app/b2E-xRQ-V7J-qtC" },
         ],
       },
       {
@@ -92,78 +146,436 @@ const curriculum = [
         ],
         assignments: [
           { label: "Notes — Physical and Chemical Changes", url: "https://kami.app/SmD-k2Y-ttE-TTT", thumb: "/assignments/notes-physical-chemical.png" },
+          { label: "Chemical vs. Physical Change Lab", url: "https://kami.app/mPp-yvW-3LG-E6y", thumb: THUMB("1jZEyMJi-bgNzwNZoqXPvarFrGmF68-v4") },
+          { label: "Lab — Physical vs. Chemical Changes (alt)", url: "https://kami.app/WQN-KEV-5Hd-nwe" },
         ],
       },
       {
-        title: "Scientific Notation",
-        slides: "https://docs.google.com/presentation/d/e/2PACX-1vSLNTgxmHxGwaF0HF4TQm7SUAeC7O5UIwzDHvld82GF0PQeVtZhgv9XDC6XwLHeLsZouOmpDbm2pjqF/embed?start=false&loop=false&delayms=3000",
+        title: "Labs",
+        slides: "",
         goals: [
-          "I will be able to convert numbers from decimal to scientific notation.",
-          "I will be able to convert numbers from scientific notation to decimal notation.",
-          "I will be able to explain the relative value of a number based on its exponent.",
+          "I will be able to separate mixtures into their components using physical methods (chromatography, distillation, evaporation).",
+          "I will be able to record and interpret qualitative and quantitative lab observations.",
+          "I will be able to identify signs that a chemical reaction has taken place.",
+          "I will be able to safely use lab equipment, including a Bunsen burner, during separation and reaction labs.",
         ],
         assignments: [
-          { label: "POGIL — Numbers for Nerds", url: "https://kami.app/utL-fgR-m8S-9g1", thumb: "/assignments/pogil-numbers-for-nerds.png" },
-        ],
-      },
-      {
-        title: "Lab 1A — Observations & Properties",
-        slides: "https://docs.google.com/presentation/d/e/2PACX-1vSgr58tVRgRe--Y5GqxbUDqi4afiWDIxfQwUssHdr5p5gS67dTXyTAMujMTMK0FhYqqT5ZqwV5Rsokn/embed?start=false&loop=false&delayms=3000",
-        goals: [
-          "I will be able to make qualitative observations.",
-          "I will be able to identify physical properties of matter.",
-          "I will be able to generate scientific questions from observations.",
-        ],
-        assignments: [
-          { label: "Lab 1A — Observations and Properties", url: "https://kami.app/wDm-NEd-XX8-pnD", thumb: "/assignments/lab-1a-observations.png" },
-        ],
-      },
-      {
-        title: "Lab 1B — Bunsen Burner",
-        slides: "https://docs.google.com/presentation/d/e/2PACX-1vS2OamHyFdZOA80NpfZ_SkzUAckE1uLN7IxZRUr3Z2xiPPHqpn3VmLV6Rr72qYcWcUkOfG4CQf4i7b1/embed?start=false&loop=false&delayms=3000",
-        goals: [
-          "I will be able to safely light and adjust a Bunsen burner.",
-          "I will be able to identify the parts of a Bunsen burner.",
-          "I will be able to describe the difference between a blue and yellow flame.",
-        ],
-        assignments: [
-          { label: "Lab 1B — Bunsen Burner Lab", url: "https://kami.app/bBB-xTH-Jur-ibZ", thumb: "/assignments/lab-1b-bunsen-burner.png" },
-        ],
-      },
-      {
-        title: "Lab 1C — Candle Experiment",
-        slides: "https://docs.google.com/presentation/d/e/2PACX-1vS2OamHyFdZOA80NpfZ_SkzUAckE1uLN7IxZRUr3Z2xiPPHqpn3VmLV6Rr72qYcWcUkOfG4CQf4i7b1/embed?start=false&loop=false&delayms=3000",
-        goals: [
-          "I will be able to identify the products of combustion.",
-          "I will be able to describe the function of a candle wick.",
-          "I will be able to support conclusions with experimental evidence.",
-        ],
-        assignments: [
-          { label: "Lab 1C — Candle Experiment", url: "https://kami.app/BTu-Kxz-trE-k9d", thumb: "/assignments/lab-1c-candle-experiment.png" },
-        ],
-      },
-      {
-        title: "Lab 1D — Quantitative Observations",
-        slides: "https://docs.google.com/presentation/d/e/2PACX-1vQFIXix7JHDOl79POMoKu3lKugChTwHjh1xPlilu9shY5xtCl10OkvOxj6a2Ah3epSenrI70nW9qkZG/embed?start=false&loop=false&delayms=3000",
-        goals: [
-          "I will be able to differentiate between qualitative and quantitative observations.",
-          "I will be able to calculate density from experimental data.",
-          "I will be able to calculate percent error.",
-        ],
-        assignments: [
-          { label: "Lab 1D — Quantitative Observations in Chemistry", url: "https://kami.app/cEA-dwB-KcJ-tm4", thumb: "/assignments/lab-1d-quantitative-observations.png" },
+          { label: "Lab 2.0 — Mixtures Paper Chromatography", url: "https://kami.app/J4b-MKg-pnh-bPv", thumb: THUMB("1GMCRHhx352LT01gAbScrrTV2j4F1p5a-") },
+          { label: "Lab — Paper Chromatography (alt)", url: "https://kami.app/gpM-t9y-VwG-f2c" },
+          { label: "Lab 2.1 — Mixtures Lab", url: "https://kami.app/qNJ-Ydx-P8T-acM", thumb: THUMB("1F5rSvqbWcnjuoEK5itmSqihprIikDP8w") },
+          { label: "Lab — Mixtures Lab KEY", url: "https://kami.app/xyT-VRg-qPc-U4Y" },
+          { label: "Distillation Lab", url: "https://kami.app/pp9-W2Z-EGg-KXL", thumb: THUMB("1x2zGlXVEHy1W9pBmlDHyOornyCEtQenA") },
+          { label: "Evaporation and Bunsen Burner Lab", url: "https://kami.app/FyN-ZPe-PFH-rs5", thumb: THUMB("1YOeeIkBNFG9y6vN1k1-agsaKtXo5SMcv") },
+          { label: "Lab — Chemical Reactions", url: "https://kami.app/Tq8-yq9-TVt-Gh6" },
+          { label: "Observing a Chemical Reaction", url: "https://kami.app/AQQ-TYx-P3z-pCn" },
         ],
       },
     ],
   },
-  { unit: "Unit 2", title: "Unit 2", overview: [], lessons: [] },
-  { unit: "Unit 3", title: "Unit 3", overview: [], lessons: [] },
-  { unit: "Unit 4", title: "Unit 4", overview: [], lessons: [] },
-  { unit: "Unit 5", title: "Unit 5", overview: [], lessons: [] },
-  { unit: "Unit 6", title: "Unit 6", overview: [], lessons: [] },
-  { unit: "Unit 7", title: "Unit 7", overview: [], lessons: [] },
-  { unit: "Unit 8", title: "Unit 8", overview: [], lessons: [] },
-  { unit: "Unit 9", title: "Unit 9", overview: [], lessons: [] },
+  {
+    unit: "Unit 3",
+    title: "Unit 3 — Atomic Structure",
+    overview: ["Atomic Structure", "Atomic Theory", "Ions", "Isotopes", "Labs"],
+    lessons: [
+      {
+        title: "Atomic Structure",
+        slides: "https://docs.google.com/presentation/d/e/2PACX-1vRI1y8L-6ovJVANVplX1QCKVRU1EV-xFaa_JFR9rB5_-RF7r0jfpogpBwcn46lF4a3SC7k5TQsb7YGF/pubembed?start=false&loop=false&delayms=3000",
+        goals: [
+          "I will be able to identify the subatomic particles that make up an atom.",
+          "I will be able to describe the structure of an atom.",
+          "I will be able to model atomic structure using a diagram.",
+        ],
+        assignments: [
+          { label: "Atom Diagram — Sidewalk Chalk Practice", url: "https://docs.google.com/document/d/1CSN8c-i9W5o-STwuRydBmrpZfct3tFXIbGwuZ_xwyLo/edit" },
+        ],
+      },
+      {
+        title: "Atomic Theory",
+        slides: "https://docs.google.com/presentation/d/e/2PACX-1vRHp-fOmSJeumYdH3qUIQpJGCNKybreml36JpxYZwS6kYmbdd7yrl7Qck8srGDkavAxqxUOnrPznMkG/pubembed?start=false&loop=false&delayms=3000",
+        goals: [
+          "I will be able to describe the historical development of atomic theory.",
+          "I will be able to explain the contributions of major scientists to atomic theory.",
+          "I will be able to summarize the modern atomic model.",
+        ],
+        assignments: [
+          { label: "Notes — The Atom", url: "https://docs.google.com/document/d/1mHuKQJFutQ4-2NXZgWOegsCH2bdpTtMHt3oPgDPh7zs/edit" },
+        ],
+      },
+      {
+        title: "Ions",
+        slides: "https://docs.google.com/presentation/d/e/2PACX-1vTznde9XH-_9UVl4YbF7ULV8r9fbBXVzh9O6BiUCjswH5DUHhzn7RhcT1naXH3bO5CJCJrFjmegaB9F/pubembed?start=false&loop=false&delayms=3000",
+        goals: [
+          "I will be able to determine the charge of an ion based on gained or lost electrons.",
+          "I will be able to distinguish between cations and anions.",
+          "I will be able to write the symbol for an ion.",
+        ],
+        assignments: [
+          { label: "POGIL — Ions", url: "https://docs.google.com/document/d/1H5zGot6adEIPZU2Mq8N7Ttk86onEDMZTYTATMehY7yI/edit" },
+        ],
+      },
+      {
+        title: "Isotopes",
+        slides: "https://docs.google.com/presentation/d/e/2PACX-1vRziU6JlRjEnwmqdvh-E96t3-oiX8XUH5IFVgUp5cxYv-i3hdJ5vSZBYUR8oE-Vx-ZgJT4kBWiQ2YDO/pubembed?start=false&loop=false&delayms=3000",
+        goals: [
+          "I will be able to explain what makes atoms isotopes of the same element.",
+          "I will be able to calculate the number of neutrons in an isotope.",
+          "I will be able to calculate average atomic mass from isotope data.",
+        ],
+        assignments: [
+          { label: "POGIL — Isotopes", url: "https://docs.google.com/document/d/1Qi1dAuXEcDPamO9Cf2XCP7Sl03WzSUrkMFJT0mpma_A/edit" },
+        ],
+      },
+      {
+        title: "Labs",
+        slides: "",
+        goals: [
+          "I will be able to build a model atom given its atomic number and mass number.",
+          "I will be able to determine the identity of an isotope from experimental data.",
+          "I will be able to identify elements based on flame test results.",
+        ],
+        assignments: [
+          { label: "Build an Atom — PhET", url: "https://kami.app/6rz-WUg-pz6-qLp" },
+          { label: "Lab — Atomic Mass and Isotopes", url: "https://kami.app/td6-9KT-Nmj-sWC" },
+          { label: "Lab — Flame Test", url: "https://kami.app/xxh-u8c-Bg5-GR4" },
+        ],
+      },
+    ],
+  },
+  {
+    unit: "Unit 4",
+    title: "Unit 4 — Periodic Table",
+    overview: ["Electron Configuration", "Lewis Dot Structures", "Periodic Trends", "Element Families", "Labs"],
+    lessons: [
+      {
+        title: "Electron Configuration",
+        slides: "https://docs.google.com/presentation/d/e/2PACX-1vSdXS06Q7qC8BFmqYnCNvRTk2Grm26DYshRGlFztAo8QPdNuazF0KuWd93QM52QcybYj1wd_6GGM1SI/pub?start=false&loop=false&delayms=3000",
+        goals: [
+          "I will be able to write the electron configuration for a given element.",
+          "I will be able to determine the number of valence electrons for an element using the periodic table.",
+          "I will be able to write noble gas (shorthand) electron configurations.",
+        ],
+        assignments: [
+          { label: "Using the Periodic Table to Determine Valence Electrons", url: "https://kami.app/ruh-FPb-vgL-KAN" },
+          { label: "Periodic Table Activity", url: "https://kami.app/pWd-SSN-izs-zTm" },
+          { label: "Electron Energy Levels and Sublevels", url: "https://kami.app/GA9-7XZ-p4u-N4k" },
+          { label: "Noble Gas Electron Configuration", url: "https://kami.app/EWf-dyg-WKS-5jT" },
+          { label: "Build Up Process for Determining Orbitals of Electrons", url: "https://kami.app/RfH-KtR-DYy-fFK" },
+        ],
+      },
+      {
+        title: "Lewis Dot Structures",
+        slides: "https://docs.google.com/presentation/d/e/2PACX-1vS136_1qNt3nn0UMVX4JOzBhXnwjKGXNQvlE6LmIAn-cRVjq72J0DnaMhzK0j6t4LcWiyPblRWDCum7/pub?start=false&loop=false&delayms=3000",
+        goals: [
+          "I will be able to draw the Lewis dot structure for an atom based on its valence electrons.",
+          "I will be able to relate electron energy levels to an atom's Lewis dot structure.",
+        ],
+        assignments: [
+          { label: "Electron Energy Levels Mapping", url: "https://kami.app/sBh-SWr-K3J-8UR" },
+        ],
+      },
+      {
+        title: "Periodic Trends",
+        slides: "https://docs.google.com/presentation/d/e/2PACX-1vTJf2vsG6b6XcWwd1B-r_c7ODXqQr4n3laGJPxD-P1f0rdp4jeGwuc5FRz1R_b9lzNbUoSK9rbizCQC/pub?start=false&loop=false&delayms=3000",
+        goals: [
+          "I will be able to describe and explain trends in atomic radius across the periodic table.",
+          "I will be able to describe and explain trends in ionization energy and electronegativity.",
+          "I will be able to use the periodic table to predict relative properties of elements.",
+        ],
+        assignments: [
+          { label: "Trends Table", url: "https://kami.app/wEJ-mcS-M3P-wPW" },
+          { label: "POGIL — The Trendy Periodic Table", url: "https://kami.app/SqX-eaS-X8U-Fex" },
+          { label: "Paint Chip POGIL", url: "https://kami.app/2Nw-48y-EGa-3VC" },
+          { label: "Trends of the Periodic Table — Graphing", url: "https://kami.app/KJQ-FB1-p1C-2m9" },
+          { label: "Trends of the Periodic Table", url: "https://kami.app/9VT-eQZ-dB3-teh" },
+          { label: "Homework Check — Trends of the Periodic Table", url: "https://kami.app/r14-a8S-PcV-vxj" },
+          { label: "Correctives — Periodic Trends", url: "https://kami.app/Jrg-8mC-gZU-TGS" },
+        ],
+      },
+      {
+        title: "Element Families",
+        slides: "",
+        goals: [
+          "I will be able to identify element families/groups on the periodic table and their shared properties.",
+          "I will be able to research and present information about a specific element.",
+        ],
+        assignments: [
+          { label: "Element Project", url: "https://kami.app/DeT-pdb-yUD-Dnm" },
+          { label: "Element Square Gallery Walk", url: "https://kami.app/YSz-4D3-d6Q-bg5" },
+          { label: "Foldable — Periodic Table", url: "https://kami.app/jhB-GiU-ptr-3uA" },
+          { label: "Element Jigsaw", url: "https://kami.app/jfY-H5E-F8V-h8g" },
+          { label: "Element Jigsaw — 45 Questions", url: "https://kami.app/hMt-pCh-Dh5-nsf" },
+        ],
+      },
+      {
+        title: "Labs",
+        slides: "",
+        goals: [
+          "I will be able to observe and record properties of alkaline earth metals through a lab investigation.",
+          "I will be able to relate observed lab properties to periodic trends.",
+        ],
+        assignments: [
+          { label: "Lab — Alkaline Metals", url: "https://kami.app/wRx-fSV-825-6fZ" },
+        ],
+      },
+    ],
+  },
+  {
+    unit: "Unit 5",
+    title: "Unit 5 — Naming & Formulas",
+    overview: ["Chemical Formulas", "Naming Ionic Compounds", "Labs"],
+    lessons: [
+      {
+        title: "Chemical Formulas",
+        slides: "",
+        goals: [
+          "I will be able to write chemical formulas for covalent compounds.",
+          "I will be able to name covalent compounds using prefixes.",
+          "I will be able to apply formula-writing rules to practice problems.",
+        ],
+        assignments: [
+          { label: "POGIL — Formulas and Naming", url: "https://kami.app/FFC-z52-56y-kLX" },
+          { label: "Chemistry Dice", url: "https://kami.app/mCL-svh-5Ew-fs9" },
+          { label: "Chemical Formula Practice 1.3", url: "https://kami.app/77y-YcS-vTE-SrS" },
+          { label: "Chemical Formula Practice 1", url: "https://kami.app/tAG-GkP-PzE-f7J" },
+        ],
+      },
+      {
+        title: "Naming Ionic Compounds",
+        slides: "",
+        goals: [
+          "I will be able to write chemical formulas for ionic compounds.",
+          "I will be able to name ionic compounds, including those with polyatomic ions.",
+        ],
+        assignments: [
+          { label: "POGIL — Naming Ionic Compounds", url: "https://kami.app/P5h-qx6-sp2-mru" },
+          { label: "Chemical Formula Practice 1.2", url: "https://docs.google.com/document/d/1NBmr-aZP80ZDuQvibs2tK0eU7fILb3wbWlLCpCn1BI0/edit" },
+        ],
+      },
+      {
+        title: "Labs",
+        slides: "",
+        goals: [
+          "I will be able to observe and classify chemical reactions in a lab setting.",
+          "I will be able to relate chemical formulas and naming to lab observations.",
+        ],
+        assignments: [
+          { label: "Lab — Types of Chemical Reactions", url: "https://kami.app/pwh-3dQ-N1r-FcT" },
+          { label: "Lab — Chemical Change and Equations", url: "https://kami.app/9cA-pkw-4rM-z15" },
+        ],
+      },
+    ],
+  },
+  {
+    unit: "Unit 6",
+    title: "Unit 6 — Equations & Reactions",
+    overview: ["Balancing Equations", "Types of Reactions", "Labs"],
+    lessons: [
+      {
+        title: "Balancing Equations",
+        slides: "",
+        goals: [
+          "I will be able to balance chemical equations using coefficients.",
+          "I will be able to apply the law of conservation of mass to balance equations.",
+          "I will be able to translate word equations into balanced chemical equations.",
+        ],
+        assignments: [
+          { label: "Balancing Chemical Equations 2", url: "https://kami.app/g1S-mbZ-qjk-kfw" },
+          { label: "Balancing Equations PhET Lab", url: "https://kami.app/k67-Kva-nyc-KKV" },
+          { label: "Balancing Equations Practice", url: "https://kami.app/ZGa-p2E-RVK-FQK" },
+          { label: "POGIL — Balancing Equations", url: "https://kami.app/SyJ-huH-7ne-9t2" },
+          { label: "Word Equations", url: "https://kami.app/Hpx-zZJ-t4X-fq7" },
+        ],
+      },
+      {
+        title: "Types of Reactions",
+        slides: "",
+        goals: [
+          "I will be able to classify a chemical reaction as synthesis, decomposition, single replacement, double replacement, or combustion.",
+          "I will be able to predict the products of a chemical reaction based on its type.",
+        ],
+        assignments: [
+          { label: "Chemical Equations Review Sheet", url: "https://kami.app/Mp7-NzU-4Pg-WvB" },
+          { label: "Combustion Reactions", url: "https://kami.app/TMk-CZu-ruj-Lae" },
+          { label: "Double Replacement Reactions Worksheet", url: "https://kami.app/3pm-cXY-uAW-APX" },
+          { label: "Equations Worksheet", url: "https://kami.app/g8W-3NG-PHJ-cLz" },
+          { label: "Foldable — Types of Reactions", url: "https://kami.app/7f2-SMf-hXF-wWt" },
+          { label: "Single Replacement Worksheet", url: "https://kami.app/APr-GdD-cm9-Nun" },
+        ],
+      },
+      {
+        title: "Labs",
+        slides: "",
+        goals: [
+          "I will be able to observe and record evidence of chemical reactions.",
+          "I will be able to classify reactions performed in lab based on their type.",
+          "I will be able to apply conservation of mass to lab data.",
+        ],
+        assignments: [
+          { label: "Chemical Changes & Equations Lab", url: "https://kami.app/R1y-Q1B-cuW-BpP" },
+          { label: "Chemical Reactions Lab", url: "https://kami.app/4Z1-ptr-73s-WeR" },
+          { label: "Chemical vs. Physical Changes in Matter Lab", url: "https://kami.app/kW4-qiq-S7F-YCx" },
+          { label: "Conservation of Mass Lab", url: "https://kami.app/P1Q-yER-9zs-L5M" },
+          { label: "Cut Outs Lab", url: "https://kami.app/evG-eek-CCM-2kQ" },
+          { label: "Double Replacement Reaction Lab", url: "https://kami.app/PN5-ffe-QZs-yLC" },
+          { label: "Limiting Reagents Lab", url: "https://kami.app/KND-C3p-V4m-ZcN" },
+          { label: "Single Replacement Reaction Lab", url: "https://kami.app/Z9h-HMJ-KDX-HX7" },
+          { label: "Synthesis Reactions Lab", url: "https://kami.app/RFW-Kfg-1Gu-cxA" },
+          { label: "Types of Chemical Reactions Lab", url: "https://kami.app/pWf-M2r-tTP-UCX" },
+        ],
+      },
+    ],
+  },
+  {
+    unit: "Unit 7",
+    title: "Unit 7 — Stoichiometry",
+    overview: ["Stoichiometry", "Labs"],
+    lessons: [
+      {
+        title: "Stoichiometry",
+        slides: "",
+        goals: [
+          "I will be able to convert between moles, mass, and number of particles.",
+          "I will be able to calculate molar mass for a compound.",
+          "I will be able to apply dimensional analysis to solve stoichiometry problems.",
+        ],
+        assignments: [
+          { label: "More Mole Practice Problems", url: "https://kami.app/htv-a6V-cVR-qwT" },
+          { label: "Mole Practice Problems", url: "https://kami.app/YPe-cY8-xiT-Nup" },
+          { label: "Mole Madness", url: "https://kami.app/R3r-rAK-C6Q-QkC" },
+          { label: "Calculating the Mass of an Atom or Molecule", url: "https://kami.app/Mg7-HTe-YgL-V6d" },
+          { label: "Intro to the Mole", url: "https://kami.app/dTN-uec-wH5-MfQ" },
+          { label: "Mass, Mole, or Number of Particles", url: "https://kami.app/Nrj-DNw-1D9-uK9" },
+          { label: "Molar Mass", url: "https://kami.app/SUX-uFa-PYy-Pcs" },
+          { label: "Calculating with Scientific Notation", url: "https://kami.app/6BG-y6K-JjH-t2L" },
+          { label: "POGIL — Mole", url: "https://kami.app/QyP-AYV-yYN-jdk" },
+        ],
+      },
+      {
+        title: "Labs",
+        slides: "",
+        goals: [
+          "I will be able to apply mole conversions to experimental lab data.",
+          "I will be able to calculate molar mass from a lab measurement.",
+        ],
+        assignments: [
+          { label: "Mole Lab", url: "https://kami.app/mcE-Cgg-aXE-Xnp" },
+          { label: "Lab — Molar Masses and Moles", url: "https://kami.app/5mk-wz8-PvZ-kPJ" },
+        ],
+      },
+    ],
+  },
+  {
+    unit: "Unit 8",
+    title: "Unit 8 — Bonding",
+    overview: ["Chemical Bonding", "Ionic Bonding", "VSEPR Theory", "Labs"],
+    lessons: [
+      {
+        title: "Chemical Bonding",
+        slides: "",
+        goals: [
+          "I will be able to distinguish between ionic, covalent, and metallic bonds.",
+          "I will be able to explain how atoms bond to achieve a stable electron configuration.",
+        ],
+        assignments: [
+          { label: "POGIL — Bonding", url: "https://drive.google.com/file/d/1ZzhCXdln84_V_liZwBlsmoPxfZ0C9J0U/view" },
+        ],
+      },
+      {
+        title: "Ionic Bonding",
+        slides: "",
+        goals: [
+          "I will be able to determine the charge of common cations and anions.",
+          "I will be able to write and name formulas for ionic compounds.",
+          "I will be able to explain how electronegativity relates to bond type.",
+        ],
+        assignments: [
+          { label: "Types of Chemical Compounds and Bonding", url: "https://kami.app/nvE-NF2-1Va-xDr" },
+          { label: "Electronegativity and Bond Types Practice", url: "https://kami.app/Mv9-5Hu-Grg-T8b" },
+          { label: "Compound Type and Number of Atoms in a Formula", url: "https://kami.app/sHJ-uw7-8LL-7Bw" },
+          { label: "Compounds Worksheet", url: "https://kami.app/Rz3-DJ8-4vQ-e1G" },
+          { label: "Questions — Simple Ions", url: "https://kami.app/3iB-qYy-aey-PGy" },
+          { label: "Formation of Ionic Compounds Worksheet", url: "https://kami.app/b4R-VD1-6Fy-6hJ" },
+          { label: "Formation of Compounds Worksheet", url: "https://kami.app/4NX-r7K-wFB-M3R" },
+          { label: "Writing Formulas for Ionic Compounds", url: "https://kami.app/mLA-wVq-Sf3-UUJ" },
+          { label: "Determining the Charge of Cations and Anions", url: "https://kami.app/PkH-Gdx-US9-9ia" },
+        ],
+      },
+      {
+        title: "VSEPR Theory",
+        slides: "",
+        goals: [
+          "I will be able to determine molecular shape using VSEPR theory.",
+          "I will be able to relate molecular polarity to molecular shape.",
+        ],
+        assignments: [
+          { label: "Polarity Practice (8)", url: "https://kami.app/MAj-ygv-FAM-KgD" },
+          { label: "Chemical Bonding Homework", url: "https://kami.app/sCm-kLs-85c-vH4" },
+        ],
+      },
+      {
+        title: "Labs",
+        slides: "",
+        goals: [
+          "I will be able to distinguish covalent from ionic bonds based on lab observations.",
+          "I will be able to build molecular models to determine geometry using VSEPR theory.",
+        ],
+        assignments: [
+          { label: "Lab 8C", url: "https://docs.google.com/document/d/1SNKwXHcRlCEvGntM5TBBy6qt1CWcVwhtR3nmZBDmL7w/edit" },
+          { label: "Lab 8A", url: "https://kami.app/pxg-C7C-Pk9-8jq" },
+          { label: "Lab — Formations of Compounds with Polyatomic Ions", url: "https://kami.app/tvc-uHb-ji6-hbn" },
+          { label: "Lab — Properties of Covalent and Ionic Bonds", url: "https://kami.app/EF1-hz1-P7s-wD3" },
+          { label: "Lab — VSEPR Theory Molecular Geometry", url: "https://kami.app/exm-va3-8uu-Pp8" },
+        ],
+      },
+    ],
+  },
+  {
+    unit: "Unit 9",
+    title: "Unit 9 — Heat",
+    overview: ["Heat", "Heating Curves", "Labs"],
+    lessons: [
+      {
+        title: "Heat",
+        slides: "",
+        goals: [
+          "I will be able to calculate heat transfer using q = mcΔT.",
+          "I will be able to distinguish between endothermic and exothermic processes.",
+        ],
+        assignments: [
+          { label: "Copy — Thermochemistry Practice (8)", url: "https://kami.app/Zup-qjw-Asw-U6t" },
+          { label: "Heat Practice Problems", url: "https://kami.app/1mT-qG3-BQP-AcJ" },
+        ],
+      },
+      {
+        title: "Heating Curves",
+        slides: "",
+        goals: [
+          "I will be able to interpret a heating curve for a substance.",
+          "I will be able to identify phase changes and their associated temperature behavior on a heating curve.",
+        ],
+        assignments: [
+          { label: "Heating Curve Worksheet", url: "https://drive.google.com/file/d/1I0vBGH6XD7EUdUZQ4lRQXYauIKm4lUAg/view" },
+          { label: "Copy of Heat Practice Problems", url: "https://kami.app/UEj-Kh8-GNn-Msi" },
+        ],
+      },
+      {
+        title: "Labs",
+        slides: "",
+        goals: [
+          "I will be able to classify a lab process as endothermic or exothermic based on temperature data.",
+          "I will be able to calculate the specific heat of a metal from experimental data.",
+          "I will be able to calculate heat of combustion or crystallization from lab data.",
+        ],
+        assignments: [
+          { label: "Labs — Unit 9", url: "https://kami.app/1RA-pei-8qS-ad7" },
+          { label: "Lab — Endothermic or Exothermic", url: "https://kami.app/CGG-gjb-Kjv-UQB" },
+          { label: "Lab — Heat of Combustion", url: "https://kami.app/Bik-VKW-X55-W2X" },
+          { label: "Lab — Specific Heat of a Metal", url: "https://kami.app/E3R-xZ8-GpF-vE3" },
+          { label: "Lab — Heat of Crystallization of Wax", url: "https://kami.app/eVm-R7V-KSZ-MB7" },
+        ],
+      },
+    ],
+  },
 ];
 
 const CALENDAR_SRC = "https://calendar.google.com/calendar/embed?src=d8adc0fd0dfd1fd97185963e18260409e56291e5b338f237d73cf10f4f7a0b61%40group.calendar.google.com&ctz=America%2FChicago";
@@ -205,18 +617,23 @@ function Stars({ height = 68 }) {
 }
 
 function SmartBoard({ src }) {
+  // Width-driven sizing on purpose: the frame is always exactly the width of
+  // its column (100%) and height falls out of the 16:9 ratio. This makes it
+  // structurally impossible for the board to grow wider than its column,
+  // no matter how much vertical room is available (unlike a height-driven
+  // flex/aspect-ratio approach, which can blow out sideways on tall screens).
   return (
-    <div style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center" }}>
-      <div style={{ flex: 1, minHeight: 0, boxSizing: "border-box", background: "#111", borderRadius: "8px 8px 0 0", padding: "8px 8px 0", border: "2px solid #2a2a2a", borderBottom: "none", display: "flex" }}>
-        <div style={{ flex: 1, minHeight: 0, width: "auto", margin: "0 auto", background: "#0a0a0a", borderRadius: "4px 4px 0 0", aspectRatio: "16/9", overflow: "hidden", border: "1px solid #1a1a1a" }}>
+    <div style={{ width: "100%", maxWidth: "100%", minWidth: 0, height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", boxSizing: "border-box" }}>
+      <div style={{ width: "100%", maxWidth: "100%", boxSizing: "border-box", background: "#111", borderRadius: "8px 8px 0 0", padding: "8px 8px 0", border: "2px solid #2a2a2a", borderBottom: "none" }}>
+        <div style={{ width: "100%", background: "#0a0a0a", borderRadius: "4px 4px 0 0", aspectRatio: "16/9", overflow: "hidden", border: "1px solid #1a1a1a" }}>
           <iframe src={src} style={{ width: "100%", height: "100%", border: "none", display: "block" }} allowFullScreen title="slides" />
         </div>
       </div>
-      <div style={{ width: "100%", height: 18, flexShrink: 0, background: "#111", border: "2px solid #2a2a2a", borderTop: "1px solid #333", borderRadius: "0 0 6px 6px", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 12px" }}>
+      <div style={{ width: "100%", height: 18, flexShrink: 0, boxSizing: "border-box", background: "#111", border: "2px solid #2a2a2a", borderTop: "1px solid #333", borderRadius: "0 0 6px 6px", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 12px" }}>
         <span style={{ fontSize: 8, color: "#444", fontFamily: "Oswald, sans-serif", letterSpacing: 2 }}>SMART</span>
         <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#1a6c1a", boxShadow: "0 0 4px #1a6c1a" }} />
       </div>
-      <div style={{ width: "70%", height: 10, flexShrink: 0, background: "#0e0e0e", borderRadius: "0 0 4px 4px", border: "1px solid #222", borderTop: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, padding: "0 12px" }}>
+      <div style={{ width: "70%", height: 10, flexShrink: 0, boxSizing: "border-box", background: "#0e0e0e", borderRadius: "0 0 4px 4px", border: "1px solid #222", borderTop: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, padding: "0 12px" }}>
         {["#2a2a2a", "#8a1a1a", "#1a4a1a", "#1a1a6a"].map((c, i) => (
           <div key={i} style={{ height: 6, width: 22, borderRadius: 2, background: c }} />
         ))}
@@ -245,6 +662,56 @@ function AssignmentThumb({ label, url, thumb }) {
         {label}
       </div>
     </a>
+  );
+}
+
+function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropdown, setOpenDropdown, handleUnitOverview, handleLessonClick, goHome }) {
+  return (
+    <div style={{ background: "#1a1a1a", borderBottom: "4px solid #E87722", flexShrink: 0 }}>
+      <div style={{ padding: `${SPACE.md}px ${SPACE.lg}px ${SPACE.sm}px`, textAlign: "center" }}>
+        <div
+          onClick={goHome}
+          style={{ fontFamily: "Oswald, sans-serif", color: "#fff", fontSize: 26, fontWeight: 600, letterSpacing: 2, cursor: "pointer", display: "inline-block" }}
+        >
+          Webster Groves <span style={{ color: "#E87722" }}>Chemistry</span>
+        </div>
+      </div>
+
+      {/* Unit nav */}
+      <div style={{ display: "flex", borderTop: "1px solid #333" }} onClick={e => e.stopPropagation()}>
+        {curriculum.map((u, ui) => (
+          <div key={ui} style={{ position: "relative", flex: 1 }}
+            onMouseEnter={() => u.lessons.length > 0 && setOpenDropdown(ui)}
+            onMouseLeave={() => setOpenDropdown(prev => (prev === ui ? null : prev))}
+          >
+            <button
+              onClick={() => handleUnitOverview(ui)}
+              style={{ background: activeUnitIdx === ui && isOverview ? "#fff" : "#E87722", color: activeUnitIdx === ui && isOverview ? "#E87722" : "#1a1a1a", border: "none", borderRight: "1px solid rgba(0,0,0,0.2)", padding: `${SPACE.sm}px ${SPACE.xs}px`, fontSize: 13, fontFamily: "Oswald, sans-serif", cursor: "pointer", letterSpacing: 0.5, width: "100%", fontWeight: 600, transition: "all 0.15s" }}
+              onMouseEnter={e => { if (!(activeUnitIdx === ui && isOverview)) { e.currentTarget.style.background = "#fff"; e.currentTarget.style.color = "#1a1a1a"; }}}
+              onMouseLeave={e => { if (!(activeUnitIdx === ui && isOverview)) { e.currentTarget.style.background = "#E87722"; e.currentTarget.style.color = "#1a1a1a"; }}}
+            >
+              {u.unit}
+            </button>
+
+            {/* Dropdown */}
+            {openDropdown === ui && u.lessons.length > 0 && (
+              <div style={{ position: "absolute", top: "100%", left: 0, minWidth: 210, background: "#1a1a1a", border: "1px solid #E87722", borderTop: "none", borderRadius: "0 0 4px 4px", zIndex: 100, overflow: "hidden" }}>
+                {u.lessons.map((lesson, li) => (
+                  <div key={li}
+                    onClick={() => handleLessonClick(ui, lesson)}
+                    style={{ padding: `${SPACE.sm}px ${SPACE.md}px`, fontSize: 13, fontFamily: "Lato, sans-serif", fontWeight: 700, color: activeLesson?.title === lesson.title ? "#E87722" : "#ccc", cursor: "pointer", borderBottom: "1px solid #2a2a2a", transition: "all 0.12s", whiteSpace: "nowrap", borderLeft: activeLesson?.title === lesson.title ? "3px solid #E87722" : "3px solid transparent", paddingLeft: activeLesson?.title === lesson.title ? SPACE.md - 3 : SPACE.md }}
+                    onMouseEnter={e => { e.currentTarget.style.background = "#E87722"; e.currentTarget.style.color = "#fff"; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = activeLesson?.title === lesson.title ? "#E87722" : "#ccc"; }}
+                  >
+                    {lesson.title}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -283,6 +750,9 @@ export default function App() {
   const boardSlides = isHome ? null : (isOverview ? CALENDAR_SRC : activeLesson?.slides);
   const boardTitle = isHome ? null : (isOverview ? activeUnit.title : activeLesson?.title);
 
+  const goHome = () => { setActiveUnitIdx(null); setActiveLesson(null); setOpenDropdown(null); };
+  const topBarProps = { curriculum, activeUnitIdx, isOverview, activeLesson, openDropdown, setOpenDropdown, handleUnitOverview, handleLessonClick, goHome };
+
   return (
     <div onClick={() => setOpenDropdown(null)}
       style={isHome
@@ -290,93 +760,50 @@ export default function App() {
         : { background: "#ded6c0", backgroundImage: CINDERBLOCK_BG, backgroundSize: "160px 80px", minHeight: "100vh", fontFamily: "Lato, sans-serif", display: "flex", flexDirection: "column" }
       }>
 
-      {/* ── Top bar ── */}
-      <div style={{ background: "#1a1a1a", borderBottom: "4px solid #E87722", flexShrink: 0 }}>
-        <div style={{ padding: "14px 20px 10px", textAlign: "center" }}>
-          <div
-            onClick={() => { setActiveUnitIdx(null); setActiveLesson(null); setOpenDropdown(null); }}
-            style={{ fontFamily: "Oswald, sans-serif", color: "#fff", fontSize: 26, fontWeight: 600, letterSpacing: 2, cursor: "pointer", display: "inline-block" }}
-          >
-            Webster Groves <span style={{ color: "#E87722" }}>Chemistry</span>
-          </div>
-        </div>
-
-        {/* Unit nav */}
-        <div style={{ display: "flex", borderTop: "1px solid #333" }} onClick={e => e.stopPropagation()}>
-          {curriculum.map((u, ui) => (
-            <div key={ui} style={{ position: "relative", flex: 1 }}
-              onMouseEnter={() => u.lessons.length > 0 && setOpenDropdown(ui)}
-              onMouseLeave={() => setOpenDropdown(prev => (prev === ui ? null : prev))}
-            >
-              <button
-                onClick={() => handleUnitOverview(ui)}
-                style={{ background: activeUnitIdx === ui && isOverview ? "#fff" : "#E87722", color: activeUnitIdx === ui && isOverview ? "#E87722" : "#1a1a1a", border: "none", borderRight: "1px solid rgba(0,0,0,0.2)", padding: "10px 4px", fontSize: 13, fontFamily: "Oswald, sans-serif", cursor: "pointer", letterSpacing: 0.5, width: "100%", fontWeight: 600, transition: "all 0.15s" }}
-                onMouseEnter={e => { if (!(activeUnitIdx === ui && isOverview)) { e.currentTarget.style.background = "#fff"; e.currentTarget.style.color = "#1a1a1a"; }}}
-                onMouseLeave={e => { if (!(activeUnitIdx === ui && isOverview)) { e.currentTarget.style.background = "#E87722"; e.currentTarget.style.color = "#1a1a1a"; }}}
-              >
-                {u.unit}
-              </button>
-
-              {/* Dropdown */}
-              {openDropdown === ui && u.lessons.length > 0 && (
-                <div style={{ position: "absolute", top: "100%", left: 0, minWidth: 210, background: "#1a1a1a", border: "1px solid #E87722", borderTop: "none", borderRadius: "0 0 4px 4px", zIndex: 100, overflow: "hidden" }}>
-                  {u.lessons.map((lesson, li) => (
-                    <div key={li}
-                      onClick={() => handleLessonClick(ui, lesson)}
-                      style={{ padding: "9px 14px", fontSize: 13, fontFamily: "Lato, sans-serif", fontWeight: 700, color: activeLesson?.title === lesson.title ? "#E87722" : "#ccc", cursor: "pointer", borderBottom: "1px solid #2a2a2a", transition: "all 0.12s", whiteSpace: "nowrap", borderLeft: activeLesson?.title === lesson.title ? "3px solid #E87722" : "3px solid transparent", paddingLeft: activeLesson?.title === lesson.title ? 11 : 14 }}
-                      onMouseEnter={e => { e.currentTarget.style.background = "#E87722"; e.currentTarget.style.color = "#fff"; }}
-                      onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = activeLesson?.title === lesson.title ? "#E87722" : "#ccc"; }}
-                    >
-                      {lesson.title}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-
       {isHome ? (
-        <div style={{ flex: 1, minHeight: 0, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", background: "#1a1a1a" }}>
-          <div style={{ height: "100%", aspectRatio: "2.1", overflow: "hidden" }}>
-            <img
-              src="/images/wghs-building.jpg"
-              alt="Webster Groves High School"
-              style={{ width: "100%", height: "100%", display: "block", objectFit: "cover" }}
-            />
+        <>
+          <TopBar {...topBarProps} />
+          <div style={{ flex: 1, minHeight: 0, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", background: "#1a1a1a" }}>
+            <div style={{ height: "100%", aspectRatio: "2.1", overflow: "hidden" }}>
+              <img
+                src="/images/wghs-building.jpg"
+                alt="Webster Groves High School"
+                style={{ width: "100%", height: "100%", display: "block", objectFit: "cover" }}
+              />
+            </div>
           </div>
-        </div>
+        </>
       ) : (
       <>
-      {/* ── Room ── */}
-      <div style={{ flex: 1, minHeight: 0, padding: 20, maxWidth: 1700, width: "100%", margin: "0 auto", display: "flex", flexDirection: "column", gap: 16, boxSizing: "border-box" }}>
+      {/* ── First screen: nav + board fill exactly one viewport; assignments live below the fold ── */}
+      <div style={{ height: "100vh", flexShrink: 0, display: "flex", flexDirection: "column", boxSizing: "border-box", overflow: "hidden" }}>
+        <TopBar {...topBarProps} />
 
-        {/* Board unit */}
-        <div style={{ flex: "1 1 auto", minHeight: "65vh", display: "flex", flexDirection: "column", border: "7px solid #8B6914", borderRadius: 5, overflow: "hidden", boxShadow: "0 4px 18px rgba(0,0,0,0.35)" }}>
+        {/* Room */}
+        <div style={{ flex: 1, minHeight: 0, padding: SPACE.lg, maxWidth: 1700, width: "100%", margin: "0 auto", display: "flex", flexDirection: "column", boxSizing: "border-box" }}>
 
-          {/* Bulletin strip */}
-          <div style={{ background: "#1a2a4a", position: "relative", minHeight: 68, flexShrink: 0 }}>
-            <Stars height={68} />
-          </div>
+          {/* Board unit */}
+          <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", border: "7px solid #8B6914", borderRadius: 5, overflow: "hidden", boxShadow: "0 4px 18px rgba(0,0,0,0.35)" }}>
 
-          {/* Chalkboard */}
-          <div style={{ flex: 1, minHeight: 0, background: "#2d5a2d", borderTop: "4px solid #6B4F10", display: "flex", flexDirection: "column" }}>
-            <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "2fr 3fr" }}>
+            {/* Bulletin strip */}
+            <div style={{ background: "#1a2a4a", position: "relative", minHeight: 68, flexShrink: 0 }}>
+              <Stars height={68} />
+            </div>
+
+            {/* Chalkboard */}
+            <div style={{ flex: 1, minHeight: 0, background: "#2d5a2d", borderTop: "4px solid #6B4F10", display: "flex", flexDirection: "column" }}>
+              <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "3fr 2fr", columnGap: SPACE.md }}>
 
               {/* Slides side */}
-              <div style={{ minHeight: 0, display: "flex", flexDirection: "column", alignItems: "center", padding: "14px 10px 10px 14px", gap: 10 }}>
-                <div style={{ width: "100%", flexShrink: 0, fontFamily: "Oswald, sans-serif", fontSize: 16, color: "rgba(255,255,255,0.8)", letterSpacing: 2, textShadow: "1px 1px 2px rgba(0,0,0,0.6)" }}>
-                  {boardTitle}
-                </div>
-                <div style={{ flex: 1, minHeight: 0, width: "100%", display: "flex", justifyContent: "center" }}>
+              <div style={{ minHeight: 0, minWidth: 0, display: "flex", flexDirection: "column", alignItems: "center", padding: SPACE.md, gap: SPACE.sm }}>
+                <div style={{ flex: 1, minHeight: 0, minWidth: 0, width: "100%", maxWidth: "100%", display: "flex", justifyContent: "center", boxSizing: "border-box", overflow: "hidden" }}>
                   <SmartBoard src={boardSlides} />
                 </div>
               </div>
 
               {/* Goals / Overview side */}
-              <div style={{ borderLeft: "1px dashed rgba(255,255,255,0.18)", padding: "14px 14px 10px 16px", display: "flex", flexDirection: "column", gap: 6, overflowY: "auto" }}>
-                <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 12, color: "rgba(255,255,255,0.6)", letterSpacing: 2, textTransform: "uppercase", borderBottom: "1px solid rgba(255,255,255,0.15)", paddingBottom: 6, marginBottom: 4 }}>
+              <div style={{ minWidth: 0, borderLeft: "1px dashed rgba(255,255,255,0.18)", padding: SPACE.md, display: "flex", flexDirection: "column", gap: SPACE.xs, overflowY: "auto", overflowX: "hidden" }}>
+                <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 12, color: "rgba(255,255,255,0.6)", letterSpacing: 2, textTransform: "uppercase", borderBottom: "1px solid rgba(255,255,255,0.15)", paddingBottom: SPACE.xs }}>
                   {isOverview ? "Unit Lessons" : "Learning Goals"}
                 </div>
 
@@ -387,7 +814,7 @@ export default function App() {
                       style={{ display: "flex", alignItems: "flex-start", gap: 8, cursor: activeUnit.lessons.find(l => l.title === item) ? "pointer" : "default", padding: "4px 0", borderBottom: "1px solid rgba(255,255,255,0.07)" }}
                     >
                       <span style={{ fontFamily: "Oswald, sans-serif", fontSize: 11, color: "#E87722", minWidth: 18, opacity: 0.8 }}>{String(i + 1).padStart(2, "0")}</span>
-                      <span style={{ fontFamily: "Caveat, cursive", fontSize: 14, color: "rgba(255,255,255,0.82)", lineHeight: 1.3, textShadow: "1px 1px 2px rgba(0,0,0,0.5)" }}>{item}</span>
+                      <span style={{ fontFamily: "Caveat, cursive", fontSize: 14, color: "rgba(255,255,255,0.82)", lineHeight: 1.3, textShadow: "1px 1px 2px rgba(0,0,0,0.5)", minWidth: 0, wordBreak: "break-word" }}>{item}</span>
                     </div>
                   ))
                 ) : (
@@ -400,7 +827,7 @@ export default function App() {
                         <div style={{ width: 15, height: 15, border: `2px solid ${checked ? "#E87722" : "rgba(255,255,255,0.4)"}`, borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 2, background: checked ? "#E87722" : "transparent", transition: "all 0.15s" }}>
                           {checked && <span style={{ color: "white", fontSize: 9, lineHeight: 1 }}>✓</span>}
                         </div>
-                        <span style={{ fontFamily: "Caveat, cursive", fontSize: 15, color: checked ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.85)", lineHeight: 1.35, textShadow: "1px 1px 2px rgba(0,0,0,0.5)", textDecoration: checked ? "line-through" : "none" }}>
+                        <span style={{ fontFamily: "Caveat, cursive", fontSize: 15, color: checked ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.85)", lineHeight: 1.35, textShadow: "1px 1px 2px rgba(0,0,0,0.5)", textDecoration: checked ? "line-through" : "none", minWidth: 0, wordBreak: "break-word" }}>
                           {goal}
                         </span>
                       </div>
@@ -411,31 +838,34 @@ export default function App() {
             </div>
 
             {/* Chalk ledge */}
-            <div style={{ height: 8, background: "#5c3d0e", borderTop: "2px solid #3a2408", display: "flex", alignItems: "center", padding: "0 10px", gap: 8 }}>
+            <div style={{ height: 8, background: "#5c3d0e", borderTop: "2px solid #3a2408", display: "flex", alignItems: "center", padding: `0 ${SPACE.sm}px`, gap: SPACE.xs }}>
               {[["#f0f0f0", 18], ["#E87722", 18], ["#f0f0f0", 12]].map(([c, w], i) => (
                 <div key={i} style={{ width: w, height: 4, borderRadius: 1, background: c }} />
               ))}
             </div>
           </div>
         </div>
+      </div>
+      </div>
 
-        {/* Assignments section */}
+      {/* ── Assignments — below the fold, scroll to reveal ── */}
+      <div style={{ padding: `0 ${SPACE.lg}px ${SPACE.lg}px`, maxWidth: 1700, width: "100%", margin: "0 auto", boxSizing: "border-box" }}>
         <div style={{ background: "#1a1a1a", border: "3px solid #E87722", borderRadius: 4, overflow: "hidden", boxShadow: "0 3px 12px rgba(0,0,0,0.25)" }}>
-          <div style={{ background: "#E87722", padding: "8px 14px", fontFamily: "Oswald, sans-serif", fontSize: 14, color: "#1a1a1a", letterSpacing: 1, textTransform: "uppercase", fontWeight: 600, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ background: "#E87722", padding: `${SPACE.xs}px ${SPACE.md}px`, fontFamily: "Oswald, sans-serif", fontSize: 14, color: "#1a1a1a", letterSpacing: 1, textTransform: "uppercase", fontWeight: 600, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <span>{isOverview ? `${activeUnit.unit} — All Assignments` : "Assignments & Classwork"}</span>
             {isOverview && <span style={{ fontSize: 11, fontFamily: "Lato, sans-serif", fontWeight: 400, opacity: 0.7, letterSpacing: 0 }}>in curriculum order</span>}
           </div>
-          <div style={{ padding: 12 }}>
+          <div style={{ padding: SPACE.sm }}>
             {isOverview ? (
               activeUnit.lessons.length === 0 ? (
                 <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 13, padding: 20, textAlign: "center", fontStyle: "italic" }}>Content coming soon...</div>
               ) : (
                 activeUnit.lessons.map((lesson, li) => (
                   <div key={li}>
-                    <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 12, color: "#E87722", letterSpacing: 1, textTransform: "uppercase", padding: li === 0 ? "0 0 8px" : "12px 0 8px", borderTop: li === 0 ? "none" : "1px solid #333" }}>
+                    <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 12, color: "#E87722", letterSpacing: 1, textTransform: "uppercase", padding: li === 0 ? `0 0 ${SPACE.xs}px` : `${SPACE.sm}px 0 ${SPACE.xs}px`, borderTop: li === 0 ? "none" : "1px solid #333" }}>
                       {lesson.title}
                     </div>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 10 }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: SPACE.md }}>
                       {lesson.assignments.map((a, ai) => (
                         <AssignmentThumb key={ai} {...a} />
                       ))}
@@ -447,7 +877,7 @@ export default function App() {
               activeLesson?.assignments.length === 0 ? (
                 <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 13, padding: 20, textAlign: "center", fontStyle: "italic" }}>No assignments yet for this lesson.</div>
               ) : (
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 10 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: SPACE.md }}>
                   {activeLesson?.assignments.map((a, ai) => (
                     <AssignmentThumb key={ai} {...a} />
                   ))}
