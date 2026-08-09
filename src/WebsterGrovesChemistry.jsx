@@ -248,7 +248,7 @@ const curriculum = [
     lessons: [
       {
         title: "Electron Configuration",
-        slides: "https://docs.google.com/presentation/d/e/2PACX-1vSdXS06Q7qC8BFmqYnCNvRTk2Grm26DYshRGlFztAo8QPdNuazF0KuWd93QM52QcybYj1wd_6GGM1SI/pub?start=false&loop=false&delayms=3000",
+        slides: "https://docs.google.com/presentation/d/e/2PACX-1vSdXS06Q7qC8BFmqYnCNvRTk2Grm26DYshRGlFztAo8QPdNuazF0KuWd93QM52QcybYj1wd_6GGM1SI/embed?start=false&loop=false&delayms=3000",
         goals: [
           "I will be able to write the electron configuration for a given element.",
           "I will be able to determine the number of valence electrons for an element using the periodic table.",
@@ -264,7 +264,7 @@ const curriculum = [
       },
       {
         title: "Lewis Dot Structures",
-        slides: "https://docs.google.com/presentation/d/e/2PACX-1vS136_1qNt3nn0UMVX4JOzBhXnwjKGXNQvlE6LmIAn-cRVjq72J0DnaMhzK0j6t4LcWiyPblRWDCum7/pub?start=false&loop=false&delayms=3000",
+        slides: "https://docs.google.com/presentation/d/e/2PACX-1vS136_1qNt3nn0UMVX4JOzBhXnwjKGXNQvlE6LmIAn-cRVjq72J0DnaMhzK0j6t4LcWiyPblRWDCum7/embed?start=false&loop=false&delayms=3000",
         goals: [
           "I will be able to draw the Lewis dot structure for an atom based on its valence electrons.",
           "I will be able to relate electron energy levels to an atom's Lewis dot structure.",
@@ -275,7 +275,7 @@ const curriculum = [
       },
       {
         title: "Periodic Trends",
-        slides: "https://docs.google.com/presentation/d/e/2PACX-1vTJf2vsG6b6XcWwd1B-r_c7ODXqQr4n3laGJPxD-P1f0rdp4jeGwuc5FRz1R_b9lzNbUoSK9rbizCQC/pub?start=false&loop=false&delayms=3000",
+        slides: "https://docs.google.com/presentation/d/e/2PACX-1vTJf2vsG6b6XcWwd1B-r_c7ODXqQr4n3laGJPxD-P1f0rdp4jeGwuc5FRz1R_b9lzNbUoSK9rbizCQC/embed?start=false&loop=false&delayms=3000",
         goals: [
           "I will be able to describe and explain trends in atomic radius across the periodic table.",
           "I will be able to describe and explain trends in ionization energy and electronegativity.",
