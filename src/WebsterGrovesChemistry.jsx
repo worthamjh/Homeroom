@@ -84,7 +84,7 @@ const curriculum = [
         assignments: [
           { label: "POGIL — Numbers for Nerds", url: "https://kami.app/utL-fgR-m8S-9g1", thumb: "/assignments/pogil-numbers-for-nerds.png" },
           { label: "Notes — Scientific Notation & Metric System", url: "https://drive.google.com/file/d/14dCvHJeY6rOfdOhCpYHF8gPfki8DaqQK/view", thumb: THUMB("1F7JgvMdVIdnhCx-MbD7wKFO_XdgnIXwf") },
-          { label: "Metric Unit Conversion Practice Worksheet", url: "https://drive.google.com/file/d/1FJHKRGQ1uEdKYdR_y4Kmjgzcgt6_9DHL/view", thumb: THUMB("1FJHKRGQ1uEdKYdR_y4Kmjgzcgt6_9DHL") },
+          { label: "Metric Unit Conversion Visual", url: "https://drive.google.com/file/d/1FJHKRGQ1uEdKYdR_y4Kmjgzcgt6_9DHL/view", thumb: THUMB("1FJHKRGQ1uEdKYdR_y4Kmjgzcgt6_9DHL") },
           { label: "POGIL — Revenge of the Nerds", url: "https://docs.google.com/document/d/1IpstkFfaOCg7Pg3sDqmamzafygyeQ2Kyotjd3VvXYPs/edit", thumb: THUMB("1tHeHlwOOrGN8JETLuEpl4a2_xwwCz-g1") },
           { label: "POGIL — Significant Digits and Measurement", url: "https://docs.google.com/document/d/1VQqBib-1ya5cJp4_MS1wFSzwXNIraOXDsau5uY3985g/edit" , thumb: THUMB("1EKI6MX1h3YBk43fgsNMOKsXEcopieY9w") },
         ],
@@ -222,7 +222,7 @@ const curriculum = [
           "I will be able to calculate average atomic mass from isotope data.",
         ],
         assignments: [
-          { label: "POGIL — Isotopes", url: "https://docs.google.com/document/d/1Qi1dAuXEcDPamO9Cf2XCP7Sl03WzSUrkMFJT0mpma_A/edit" },
+          { label: "POGIL — Isotopes", url: "https://docs.google.com/document/d/1Qi1dAuXEcDPamO9Cf2XCP7Sl03WzSUrkMFJT0mpma_A/edit", thumb: THUMB("1D6gMBZoMdtX7iUOetAMKIsIS5-hjtRrg") },
         ],
       },
       {
@@ -234,7 +234,7 @@ const curriculum = [
           "I will be able to identify elements based on flame test results.",
         ],
         assignments: [
-          { label: "Build an Atom — PhET", url: "https://kami.app/6rz-WUg-pz6-qLp" },
+          { label: "PhET — Build an Atom", url: "https://kami.app/6rz-WUg-pz6-qLp" },
           { label: "Lab — Atomic Mass and Isotopes", url: "https://kami.app/td6-9KT-Nmj-sWC" },
           { label: "Lab — Flame Test", url: "https://kami.app/xxh-u8c-Bg5-GR4" },
         ],
@@ -334,8 +334,8 @@ const curriculum = [
         ],
         assignments: [
           { label: "POGIL — Formulas and Naming", url: "https://kami.app/FFC-z52-56y-kLX", thumb: THUMB("1bW0ugwD5kEoZsYByvvNlsFBIaF_-VrRd") },
-          { label: "Chemistry Dice", url: "https://kami.app/mCL-svh-5Ew-fs9" },
-          { label: "Chemical Formula Practice 1.3", url: "https://kami.app/77y-YcS-vTE-SrS" },
+          { label: "Chemistry Dice", url: "https://kami.app/mCL-svh-5Ew-fs9", thumb: THUMB("1tucJaaZVeVePJqxuV8BN1MttpVuLfLeH") },
+          { label: "Chemical Formula Practice 1.3", url: "https://kami.app/77y-YcS-vTE-SrS", thumb: THUMB("1pQtsdjM2Vw65a4C-SQJVyCahR2xq54af") },
           { label: "Chemical Formula Practice 1", url: "https://kami.app/tAG-GkP-PzE-f7J", thumb: THUMB("1CrvSMXj4T5-ALWAuehAKw8Ngm3Scinik") },
         ],
       },
@@ -348,7 +348,7 @@ const curriculum = [
         ],
         assignments: [
           { label: "POGIL — Naming Ionic Compounds", url: "https://kami.app/P5h-qx6-sp2-mru" },
-          { label: "Chemical Formula Practice 1.2", url: "https://docs.google.com/document/d/1NBmr-aZP80ZDuQvibs2tK0eU7fILb3wbWlLCpCn1BI0/edit" },
+          { label: "Chemical Formula Practice 1.2", url: "https://docs.google.com/document/d/1NBmr-aZP80ZDuQvibs2tK0eU7fILb3wbWlLCpCn1BI0/edit", thumb: THUMB("1pYBv2DSJwCkEH1ifHdszojNUaGAh3DEs") },
         ],
       },
       {
@@ -359,8 +359,8 @@ const curriculum = [
           "I will be able to relate chemical formulas and naming to lab observations.",
         ],
         assignments: [
-          { label: "Lab — Types of Chemical Reactions", url: "https://kami.app/pwh-3dQ-N1r-FcT" },
-          { label: "Lab — Chemical Change and Equations", url: "https://kami.app/9cA-pkw-4rM-z15" },
+          { label: "Lab — Types of Chemical Reactions", url: "https://kami.app/pwh-3dQ-N1r-FcT", thumb: THUMB("1MXj2fWuLzQbFEJDkSOWXTJkKkeHKI8pb") },
+          { label: "Lab — Chemical Change and Equations", url: "https://kami.app/9cA-pkw-4rM-z15", thumb: THUMB("1M2sLugNCZT49rAbqbtC62KqiAPGTU39P") },
         ],
       },
     ],
@@ -417,7 +417,7 @@ const curriculum = [
           { label: "Conservation of Mass Lab", url: "https://kami.app/P1Q-yER-9zs-L5M", thumb: THUMB("126L57KG20r44coSjObgj-eVPnzdSn7Ld") },
           { label: "Cut Outs Lab", url: "https://kami.app/evG-eek-CCM-2kQ", thumb: THUMB("1bIXYmIn93nBtpZzGuws2P2mIUNahD76f") },
           { label: "Double Replacement Reaction Lab", url: "https://kami.app/PN5-ffe-QZs-yLC" },
-          { label: "Limiting Reagents Lab", url: "https://kami.app/KND-C3p-V4m-ZcN" },
+          { label: "Limiting Reactants Lab", url: "https://kami.app/KND-C3p-V4m-ZcN" },
           { label: "Single Replacement Reaction Lab", url: "https://kami.app/Z9h-HMJ-KDX-HX7" },
           { label: "Synthesis Reactions Lab", url: "https://kami.app/RFW-Kfg-1Gu-cxA" },
           { label: "Types of Chemical Reactions Lab", url: "https://kami.app/pWf-M2r-tTP-UCX", thumb: THUMB("1mLEundfK_v86cn2DgPZLtQJwYCmd46qc") },
@@ -439,7 +439,7 @@ const curriculum = [
           "I will be able to apply dimensional analysis to solve stoichiometry problems.",
         ],
         assignments: [
-          { label: "More Mole Practice Problems", url: "https://kami.app/htv-a6V-cVR-qwT" },
+          { label: "More Mole Practice Problems", url: "https://kami.app/htv-a6V-cVR-qwT", thumb: THUMB("1m7oVBeX2KupSycwS38sjC7-zVuHT-Mrd") },
           { label: "Mole Practice Problems", url: "https://kami.app/YPe-cY8-xiT-Nup", thumb: THUMB("1A86BqcxNlJmN2rxhhW3wcTjNhlPVT3_w") },
           { label: "Mole Madness", url: "https://kami.app/R3r-rAK-C6Q-QkC", thumb: THUMB("1CE3SR8dlMf3cNp1ZcKX3H3lk3tRrnFyq") },
           { label: "Calculating the Mass of an Atom or Molecule", url: "https://kami.app/Mg7-HTe-YgL-V6d", thumb: THUMB("19z6uiVB_4UGVpWBRENmF16WdTg0t-HtW") },
@@ -520,8 +520,8 @@ const curriculum = [
           "I will be able to build molecular models to determine geometry using VSEPR theory.",
         ],
         assignments: [
-          { label: "Lab 8C", url: "https://docs.google.com/document/d/1SNKwXHcRlCEvGntM5TBBy6qt1CWcVwhtR3nmZBDmL7w/edit" },
-          { label: "Lab 8A", url: "https://kami.app/pxg-C7C-Pk9-8jq" },
+          { label: "Lab — Polarity and Solubility", url: "https://docs.google.com/document/d/1SNKwXHcRlCEvGntM5TBBy6qt1CWcVwhtR3nmZBDmL7w/edit", thumb: THUMB("18Yjeka1Ga_7MNMVnMXB-pohHqgPLAyAd") },
+          { label: "Lab — Properties of Ionic and Covalent Substances", url: "https://kami.app/pxg-C7C-Pk9-8jq", thumb: THUMB("1H6VSSX8ZvWm_dJc5CYuNB64UnXdlHxTI") },
           { label: "Lab — Formations of Compounds with Polyatomic Ions", url: "https://kami.app/tvc-uHb-ji6-hbn", thumb: THUMB("1uut6bDKH5SLHkJs5D5QYhP2Y0ncMmkez") },
           { label: "Lab — Properties of Covalent and Ionic Bonds", url: "https://kami.app/EF1-hz1-P7s-wD3", thumb: THUMB("1qTxOpVGJEsGZNLRlzxSSq0_zf3F-tduO") },
           { label: "Lab — VSEPR Theory Molecular Geometry", url: "https://kami.app/exm-va3-8uu-Pp8", thumb: THUMB("148SNPyns-FdCIDsS_PUZe6-B2pr2Fcl_") },
