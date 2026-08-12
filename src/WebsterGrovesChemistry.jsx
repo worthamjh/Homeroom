@@ -129,7 +129,6 @@ const curriculum = [
         assignments: [
           { label: "Nuts and Bolts Worksheet", url: "https://kami.app/Prk-LmD-4SR-6EC", thumb: THUMB("1fJrkHQ8OQ3IMLlcAXN8IX6Z3jbxJqV6Q") },
           { label: "Compounds and Mixtures Worksheet", url: "https://kami.app/JP4-3ZW-Aet-Rxx", thumb: THUMB("1hfFSrsAdt6vhZpPTsdzc53Owwdke4661") },
-          { label: "Compounds and Mixtures Worksheet Key", url: "https://kami.app/hJt-p8N-n9V-52S" },
           { label: "Chemistry Vocabulary Worksheet", url: "https://kami.app/MBW-WYr-4pt-vSC" , thumb: THUMB("1z35eB2eAOSCoPVslvyPApLXX2dLGek0D") },
           { label: "Chemistry Vocabulary 2", url: "https://kami.app/TXj-1w1-F49-gut" , thumb: THUMB("1AvCsqtJ2LUnsFDEAr38mk_LV9iAOzoFe") },
           { label: "Concept Map — Element and Mixture", url: "https://kami.app/wsB-pYp-tQK-B5z" , thumb: THUMB("1lu4vdCwxwnVTFOX_7b9R0qdI8AGka8kw") },
@@ -145,7 +144,6 @@ const curriculum = [
           "I will be able to classify changes in matter as physical or chemical.",
         ],
         assignments: [
-          { label: "Notes — Physical and Chemical Changes", url: "https://kami.app/SmD-k2Y-ttE-TTT", thumb: "/assignments/notes-physical-chemical.png" },
           { label: "Chemical vs. Physical Change Lab", url: "https://kami.app/mPp-yvW-3LG-E6y", thumb: THUMB("1jZEyMJi-bgNzwNZoqXPvarFrGmF68-v4") },
           { label: "Lab — Physical vs. Chemical Changes (alt)", url: "https://kami.app/WQN-KEV-5Hd-nwe" , thumb: THUMB("1CT0MtBkZKwpQ4GXXXRRt5zq19cHB_Lsz") },
         ],
@@ -161,12 +159,9 @@ const curriculum = [
         ],
         assignments: [
           { label: "Lab 2.0 — Mixtures Paper Chromatography", url: "https://kami.app/J4b-MKg-pnh-bPv", thumb: THUMB("1GMCRHhx352LT01gAbScrrTV2j4F1p5a-") },
-          { label: "Lab — Paper Chromatography (alt)", url: "https://kami.app/gpM-t9y-VwG-f2c" },
           { label: "Lab 2.1 — Mixtures Lab", url: "https://kami.app/qNJ-Ydx-P8T-acM", thumb: THUMB("1F5rSvqbWcnjuoEK5itmSqihprIikDP8w") },
-          { label: "Lab — Mixtures Lab KEY", url: "https://kami.app/xyT-VRg-qPc-U4Y" },
           { label: "Distillation Lab", url: "https://kami.app/pp9-W2Z-EGg-KXL", thumb: THUMB("1x2zGlXVEHy1W9pBmlDHyOornyCEtQenA") },
           { label: "Evaporation and Bunsen Burner Lab", url: "https://kami.app/FyN-ZPe-PFH-rs5", thumb: THUMB("1YOeeIkBNFG9y6vN1k1-agsaKtXo5SMcv") },
-          { label: "Lab — Chemical Reactions", url: "https://kami.app/Tq8-yq9-TVt-Gh6" },
           { label: "Observing a Chemical Reaction", url: "https://kami.app/AQQ-TYx-P3z-pCn" , thumb: THUMB("1mawhs62Ak3QpdGyu6fT_MgQTVcpK9lMT") },
         ],
       },
@@ -198,7 +193,6 @@ const curriculum = [
           "I will be able to summarize the modern atomic model.",
         ],
         assignments: [
-          { label: "Notes — The Atom", url: "https://docs.google.com/document/d/1mHuKQJFutQ4-2NXZgWOegsCH2bdpTtMHt3oPgDPh7zs/edit" },
         ],
       },
       {
@@ -288,7 +282,6 @@ const curriculum = [
           { label: "Trends of the Periodic Table — Graphing", url: "https://kami.app/KJQ-FB1-p1C-2m9", thumb: THUMB("1GmpkQGgtfnTGCy357CIMBwRXR6oaDmXX") },
           { label: "Trends of the Periodic Table", url: "https://kami.app/9VT-eQZ-dB3-teh", thumb: THUMB("17quNsqYrk4LnCO0Y60qlsLIK0riIzFPB") },
           { label: "Homework Check — Trends of the Periodic Table", url: "https://kami.app/r14-a8S-PcV-vxj", thumb: THUMB("181EZrVZMsVNaoGzV_2-2tXVmfOrPHxfo") },
-          { label: "Correctives — Periodic Trends", url: "https://kami.app/Jrg-8mC-gZU-TGS" },
         ],
       },
       {
@@ -394,12 +387,8 @@ const curriculum = [
           "I will be able to predict the products of a chemical reaction based on its type.",
         ],
         assignments: [
-          { label: "Chemical Equations Review Sheet", url: "https://kami.app/Mp7-NzU-4Pg-WvB" },
-          { label: "Combustion Reactions", url: "https://kami.app/TMk-CZu-ruj-Lae" },
-          { label: "Double Replacement Reactions Worksheet", url: "https://kami.app/3pm-cXY-uAW-APX" },
           { label: "Equations Worksheet", url: "https://kami.app/g8W-3NG-PHJ-cLz", thumb: THUMB("1-s19NEUJ60kIalc4cyeSxMM8fUhMJ5gt") },
           { label: "Foldable — Types of Reactions", url: "https://kami.app/7f2-SMf-hXF-wWt", thumb: THUMB("17NqzUlpRJFbt14BxDEHpgc98hSu0mwy0") },
-          { label: "Single Replacement Worksheet", url: "https://kami.app/APr-GdD-cm9-Nun" },
         ],
       },
       {
@@ -459,8 +448,6 @@ const curriculum = [
                                                                   "I will be able to apply dimensional analysis to stoichiometry calculations.",
                                                                           ],
                                                                                   assignments: [
-                                                                                            { label: "Dimensional Analysis Template", url: "https://docs.google.com/presentation/d/1Llq20FLtaqr9L5ZJB4avQXLvkj9C37qkeIgGJNn1Hho/edit" },
-                                                                                                      { label: "Dimensional Analysis Visual", url: "https://docs.google.com/document/d/1HSEhHGzYwXKpdELBHZG_0JM-KAYWbVx44wEEzaFh1k4/edit" },
                                                                                                                 { label: "Dimensional Analysis Paper Visual", url: "https://drive.google.com/file/d/1I8KUBx9h_qxPkhzz0nvF_mVQRX9vOlIg/view", thumb: THUMB("1I8KUBx9h_qxPkhzz0nvF_mVQRX9vOlIg") },
                                                                                                                         ],
                                                                                                                               },
@@ -581,7 +568,6 @@ const curriculum = [
           "I will be able to calculate heat of combustion or crystallization from lab data.",
         ],
         assignments: [
-          { label: "Labs — Unit 9", url: "https://kami.app/1RA-pei-8qS-ad7" },
           { label: "Lab — Endothermic or Exothermic", url: "https://kami.app/CGG-gjb-Kjv-UQB", thumb: THUMB("1oHlMcv5-TQZ4oUs-F2PPl4T7DTik1s59") },
           { label: "Lab — Heat of Combustion", url: "https://kami.app/Bik-VKW-X55-W2X", thumb: THUMB("1BEy-vSPAmVEW_ObM4kMbPosFiordiAC7") },
           { label: "Lab — Specific Heat of a Metal", url: "https://kami.app/E3R-xZ8-GpF-vE3", thumb: THUMB("1ZtOvl0Ukd1nv_EYIYeBNa57kWE54jse1") },
