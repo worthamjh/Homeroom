@@ -119,7 +119,7 @@ const curriculum = [
     lessons: [
       {
         title: "Classification of Matter",
-        slides: "",
+                slides: "https://docs.google.com/presentation/d/e/2PACX-1vRRiPlYui1CKiBWlxRyXy8p4yE0Iq8hRQ5UwIyecuWVPked0R675vMeuNWneU8G_IxHvHwonezuFqsH/embed?start=false&loop=false&delayms=3000",
         goals: [
           "I will be able to classify a sample of matter as an element, compound, or mixture.",
           "I will be able to distinguish between homogeneous and heterogeneous mixtures.",
@@ -293,7 +293,7 @@ const curriculum = [
       },
       {
         title: "Element Families",
-        slides: "",
+                slides: "https://docs.google.com/presentation/d/e/2PACX-1vRhwyUwWm1Ur6KnY9fCqcQyxAMzgNtq2qsFM3J1GEkIPdYXZwZiaJ_eTUW-i7XqMABA1SinRMBapoF5/embed?start=false&loop=false&delayms=3000",
         goals: [
           "I will be able to identify element families/groups on the periodic table and their shared properties.",
           "I will be able to research and present information about a specific element.",
@@ -326,7 +326,7 @@ const curriculum = [
     lessons: [
       {
         title: "Chemical Formulas",
-        slides: "",
+                slides: "https://docs.google.com/presentation/d/e/2PACX-1vRjA63m58vjezymAZNDMyEmVSeX03egixKj2QvFgPfCUKUPYmplqg3-dLA1JANPOWuPXH9icbulbusz/embed?start=false&loop=false&delayms=3000",
         goals: [
           "I will be able to write chemical formulas for covalent compounds.",
           "I will be able to name covalent compounds using prefixes.",
@@ -341,7 +341,7 @@ const curriculum = [
       },
       {
         title: "Naming Ionic Compounds",
-        slides: "",
+                slides: "https://docs.google.com/presentation/d/e/2PACX-1vSafEEi6_IQRask7DU3lcrkTzu_YUuQ7KfBDGvxC3i6ro0mt7vkV8J0UVqQimYkghz99bNl0YhpTsPh/embed?start=false&loop=false&delayms=3000",
         goals: [
           "I will be able to write chemical formulas for ionic compounds.",
           "I will be able to name ionic compounds, including those with polyatomic ions.",
@@ -372,7 +372,7 @@ const curriculum = [
     lessons: [
       {
         title: "Balancing Equations",
-        slides: "",
+                slides: "https://docs.google.com/presentation/d/e/2PACX-1vT7gI1H8fKy3R_RCRwsV73eo9GGsmyD_u3lq2QDDD692f5X3IwRYPDVbJBkPpJYGKNrnFWPQwPp0Edb/embed?start=false&loop=false&delayms=3000",
         goals: [
           "I will be able to balance chemical equations using coefficients.",
           "I will be able to apply the law of conservation of mass to balance equations.",
@@ -388,7 +388,7 @@ const curriculum = [
       },
       {
         title: "Types of Reactions",
-        slides: "",
+                slides: "https://docs.google.com/presentation/d/e/2PACX-1vR7Hir8345SRdnhDV1N0cloHujFOfqN_d-Xmxl3bAZRt0df1gr9lgr93bINj8RnO4pr0uWJeEz3enWu/embed?start=false&loop=false&delayms=3000",
         goals: [
           "I will be able to classify a chemical reaction as synthesis, decomposition, single replacement, double replacement, or combustion.",
           "I will be able to predict the products of a chemical reaction based on its type.",
@@ -428,11 +428,11 @@ const curriculum = [
   {
     unit: "Unit 7",
     title: "Unit 7 — Stoichiometry",
-    overview: ["Stoichiometry", "Labs"],
+              overview: ["Stoichiometry", "Dimensional Analysis", "Labs"],
     lessons: [
       {
         title: "Stoichiometry",
-        slides: "",
+                slides: "https://docs.google.com/presentation/d/e/2PACX-1vS0Y0UUVGfIrgMRFZrswelu3hgIDeG9fOlFiUFiGrAtMeUbJy-w9RcFkgNzwS3SrHcJMU005WgsJTpz/embed?start=false&loop=false&delayms=3000",
         goals: [
           "I will be able to convert between moles, mass, and number of particles.",
           "I will be able to calculate molar mass for a compound.",
@@ -450,6 +450,20 @@ const curriculum = [
           { label: "POGIL — Mole", url: "https://kami.app/QyP-AYV-yYN-jdk", thumb: THUMB("1vztc2_lphV_dunIUZrFUApdprSXhdMkw") },
         ],
       },
+            {
+                    title: "Dimensional Analysis",
+                            slides: "https://docs.google.com/presentation/d/e/2PACX-1vQs1oUezLchahvMBJXLb4amlIuJI7Hzm0RmMOAikCUE37pY5YP1px8zsM_XDJ6oLaK_5QEuikygPlJ4/embed?start=false&loop=false&delayms=3000",
+                                    goals: [
+                                              "I will be able to convert between units using dimensional analysis (conversion factors).",
+                                                        "I will be able to set up and solve multi-step unit conversion problems.",
+                                                                  "I will be able to apply dimensional analysis to stoichiometry calculations.",
+                                                                          ],
+                                                                                  assignments: [
+                                                                                            { label: "Dimensional Analysis Template", url: "https://docs.google.com/presentation/d/1Llq20FLtaqr9L5ZJB4avQXLvkj9C37qkeIgGJNn1Hho/edit" },
+                                                                                                      { label: "Dimensional Analysis Visual", url: "https://docs.google.com/document/d/1HSEhHGzYwXKpdELBHZG_0JM-KAYWbVx44wEEzaFh1k4/edit" },
+                                                                                                                { label: "Dimensional Analysis Paper Visual", url: "https://drive.google.com/file/d/1I8KUBx9h_qxPkhzz0nvF_mVQRX9vOlIg/view", thumb: THUMB("1I8KUBx9h_qxPkhzz0nvF_mVQRX9vOlIg") },
+                                                                                                                        ],
+                                                                                                                              },
       {
         title: "Labs",
         slides: "",
@@ -471,7 +485,7 @@ const curriculum = [
     lessons: [
       {
         title: "Chemical Bonding",
-        slides: "",
+                slides: "https://docs.google.com/presentation/d/e/2PACX-1vTmWpXf7rM9odTapShV7XwtAceq3juyju9_WcNXs4ydTF51uHjJ3-5a7zMmsY3dn3qICmZbahxpp1c7/embed?start=false&loop=false&delayms=3000",
         goals: [
           "I will be able to distinguish between ionic, covalent, and metallic bonds.",
           "I will be able to explain how atoms bond to achieve a stable electron configuration.",
@@ -502,7 +516,7 @@ const curriculum = [
       },
       {
         title: "VSEPR Theory",
-        slides: "",
+                slides: "https://docs.google.com/presentation/d/e/2PACX-1vQDKRh_NJffDvUHc6QIxsOsIr_pvTdJCmHGwkbDNaRxLilmdbCzN8EJAm71N1eRTjtTodkwG8lhbaDc/embed?start=false&loop=false&delayms=3000",
         goals: [
           "I will be able to determine molecular shape using VSEPR theory.",
           "I will be able to relate molecular polarity to molecular shape.",
@@ -536,7 +550,7 @@ const curriculum = [
     lessons: [
       {
         title: "Heat",
-        slides: "",
+                slides: "https://docs.google.com/presentation/d/e/2PACX-1vQS-3mNRDqBvdzPgDUhIJTSG8nYNdKnS20n1YiK-0-ABteTqzYhSdxiATVHFCrCNW8_0jxvdRVSGMfF/embed?start=false&loop=false&delayms=3000",
         goals: [
           "I will be able to calculate heat transfer using q = mcΔT.",
           "I will be able to distinguish between endothermic and exothermic processes.",
@@ -548,7 +562,7 @@ const curriculum = [
       },
       {
         title: "Heating Curves",
-        slides: "",
+                slides: "https://docs.google.com/presentation/d/e/2PACX-1vQqscjI-MYcAWSnZQu3iroertkeyG0Hp0yaij0U9BetCPXmIh7M20rnUdxtCheOeHlk5VTspWjEDg6U/embed?start=false&loop=false&delayms=3000",
         goals: [
           "I will be able to interpret a heating curve for a substance.",
           "I will be able to identify phase changes and their associated temperature behavior on a heating curve.",
