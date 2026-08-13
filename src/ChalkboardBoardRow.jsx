@@ -250,10 +250,21 @@ export default function ChalkboardBoardRow({
                         e.g. board 1 of 3, board 2 of 3 — rather than one
                         counter for the whole component that only ever
                         reflected the current board. */}
-                    <div style={{ position: "absolute", right: 30, bottom: 5, fontFamily: "Lato, sans-serif", fontSize: 10, color: "#4a4a4a", pointerEvents: "none" }}>
+                    <div style={{ position: "absolute", right: 30, bottom: 5, fontFamily: "Lato, sans-serif", fontSize: 10, fontWeight: 700, color: "#333333", pointerEvents: "none", zIndex: 2100 }}>
                       {i + 1}/{panels.length}
                     </div>
                   </>
+                )}
+
+                {isBackBoard && (
+                  // The fixed board gets the same "N of total" label as
+                  // every movable one before it, just no handle — there's
+                  // nothing further to slide it past. Styled for the flush
+                  // green board rather than the metal frame, since it
+                  // doesn't have one.
+                  <div style={{ position: "absolute", right: 8, bottom: 6, fontFamily: "Lato, sans-serif", fontSize: 10, color: "rgba(255,255,255,0.35)", pointerEvents: "none", zIndex: 2100 }}>
+                    {i + 1}/{panels.length}
+                  </div>
                 )}
 
                 {/* Face */}

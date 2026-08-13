@@ -580,7 +580,7 @@ const curriculum = [
   {
     unit: "Unit 10",
     title: "Unit 10 — Testing",
-    overview: ["Testing"],
+    overview: ["Testing", "Testing 2"],
     lessons: [
       {
         title: "Testing",
@@ -601,6 +601,31 @@ const curriculum = [
           ]},
           { label: "5th period", goals: [
             "Pick up where 2nd period left off — continue Word Equations practice.",
+          ]},
+        ],
+        assignments: [],
+      },
+      {
+        title: "Testing 2",
+        slides: "",
+        // Same mechanic as "Testing," but with five total panels (four
+        // movable + the fixed back board) instead of three, to check the
+        // fan-out docking holds up with more layers in the pile.
+        goalPanels: [
+          { label: "Day 1", goals: [
+            "I can balance a chemical equation.",
+          ]},
+          { label: "Day 2", goals: [
+            "I can classify a reaction by type.",
+          ]},
+          { label: "Day 3", goals: [
+            "I can calculate moles from mass.",
+          ]},
+          { label: "Day 4", goals: [
+            "I can apply stoichiometric ratios.",
+          ]},
+          { label: "5th period", goals: [
+            "Continue Word Equations practice.",
           ]},
         ],
         assignments: [],
