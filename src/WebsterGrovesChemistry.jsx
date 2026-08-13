@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import ChalkboardBoardRow, { toGoalPanels } from "./ChalkboardBoardRow";
 
 const THUMB = (id) => `https://drive.google.com/thumbnail?id=${id}&sz=w400`;
 
@@ -576,6 +577,36 @@ const curriculum = [
       },
     ],
   },
+  {
+    unit: "Unit 10",
+    title: "Unit 10 — Testing",
+    overview: ["Testing"],
+    lessons: [
+      {
+        title: "Testing",
+        slides: "",
+        // goalPanels exercises the sliding chalkboard mechanic: multiple
+        // learning-goal panels stacked behind each other, revealed by
+        // pulling the handle on the rail. A lesson with a plain `goals`
+        // array (like every other lesson above) still works unchanged —
+        // this is the one place we're testing the multi-panel path.
+        goalPanels: [
+          { label: "Day 1", goals: [
+            "I can balance a chemical equation using coefficients.",
+            "I can apply the law of conservation of mass.",
+          ]},
+          { label: "Day 2", goals: [
+            "I can classify a reaction as synthesis, decomposition, or combustion.",
+            "I can predict the products of a reaction based on its type.",
+          ]},
+          { label: "5th period", goals: [
+            "Pick up where 2nd period left off — continue Word Equations practice.",
+          ]},
+        ],
+        assignments: [],
+      },
+    ],
+  },
 ];
 
 const CALENDAR_SRC = "https://calendar.google.com/calendar/embed?src=d8adc0fd0dfd1fd97185963e18260409e56291e5b338f237d73cf10f4f7a0b61%40group.calendar.google.com&ctz=America%2FChicago";
@@ -725,8 +756,8 @@ export default function App() {
   const activeUnit = isHome ? null : curriculum[activeUnitIdx];
   const isOverview = activeLesson === null;
 
-  const toggleGoal = (lessonTitle, idx) => {
-    const key = `${lessonTitle}-${idx}`;
+  const toggleGoal = (panelKey, idx) => {
+    const key = `${panelKey}-${idx}`;
     setCheckedGoals(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
@@ -792,49 +823,19 @@ export default function App() {
 
             {/* Chalkboard */}
             <div style={{ flex: 1, minHeight: 0, background: "#2d5a2d", borderTop: "4px solid #6B4F10", display: "flex", flexDirection: "column" }}>
-              <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "3fr 2fr", columnGap: SPACE.md }}>
-
-              {/* Slides side */}
-              <div style={{ minHeight: 0, minWidth: 0, display: "flex", flexDirection: "column", alignItems: "center", padding: SPACE.md, gap: SPACE.sm }}>
-                <div style={{ flex: 1, minHeight: 0, minWidth: 0, width: "100%", maxWidth: "100%", display: "flex", justifyContent: "center", boxSizing: "border-box", overflow: "hidden" }}>
-                  <SmartBoard src={boardSlides} />
-                </div>
-              </div>
-
-              {/* Goals / Overview side */}
-              <div style={{ minWidth: 0, borderLeft: "1px dashed rgba(255,255,255,0.18)", padding: SPACE.md, display: "flex", flexDirection: "column", gap: SPACE.xs, overflowY: "auto", overflowX: "hidden" }}>
-                <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 12, color: "rgba(255,255,255,0.6)", letterSpacing: 2, textTransform: "uppercase", borderBottom: "1px solid rgba(255,255,255,0.15)", paddingBottom: SPACE.xs }}>
-                  {isOverview ? "Unit Lessons" : "Learning Goals"}
-                </div>
-
-                {isOverview ? (
-                  activeUnit.overview.map((item, i) => (
-                    <div key={i}
-                      onClick={() => { const lesson = activeUnit.lessons.find(l => l.title === item); if (lesson) setActiveLesson(lesson); }}
-                      style={{ display: "flex", alignItems: "flex-start", gap: 8, cursor: activeUnit.lessons.find(l => l.title === item) ? "pointer" : "default", padding: "4px 0", borderBottom: "1px solid rgba(255,255,255,0.07)" }}
-                    >
-                      <span style={{ fontFamily: "Oswald, sans-serif", fontSize: 11, color: "#E87722", minWidth: 18, opacity: 0.8 }}>{String(i + 1).padStart(2, "0")}</span>
-                      <span style={{ fontFamily: "Caveat, cursive", fontSize: 14, color: "rgba(255,255,255,0.82)", lineHeight: 1.3, textShadow: "1px 1px 2px rgba(0,0,0,0.5)", minWidth: 0, wordBreak: "break-word" }}>{item}</span>
-                    </div>
-                  ))
-                ) : (
-                  activeLesson?.goals.map((goal, i) => {
-                    const key = `${activeLesson.title}-${i}`;
-                    const checked = checkedGoals[key];
-                    return (
-                      <div key={i} onClick={() => toggleGoal(activeLesson.title, i)}
-                        style={{ display: "flex", alignItems: "flex-start", gap: 8, cursor: "pointer", padding: "4px 0" }}>
-                        <div style={{ width: 15, height: 15, border: `2px solid ${checked ? "#E87722" : "rgba(255,255,255,0.4)"}`, borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 2, background: checked ? "#E87722" : "transparent", transition: "all 0.15s" }}>
-                          {checked && <span style={{ color: "white", fontSize: 9, lineHeight: 1 }}>✓</span>}
-                        </div>
-                        <span style={{ fontFamily: "Caveat, cursive", fontSize: 15, color: checked ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.85)", lineHeight: 1.35, textShadow: "1px 1px 2px rgba(0,0,0,0.5)", textDecoration: checked ? "line-through" : "none", minWidth: 0, wordBreak: "break-word" }}>
-                          {goal}
-                        </span>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
+              <ChalkboardBoardRow
+                smartBoardSrc={boardSlides}
+                isOverview={isOverview}
+                overviewItems={isOverview ? activeUnit.overview : []}
+                onOverviewItemClick={(item) => {
+                  const lesson = activeUnit.lessons.find(l => l.title === item);
+                  if (lesson) setActiveLesson(lesson);
+                }}
+                panels={isOverview ? [] : toGoalPanels(activeLesson)}
+                checkedGoals={checkedGoals}
+                toggleGoal={toggleGoal}
+                SmartBoard={SmartBoard}
+              />
             </div>
 
             {/* Chalk ledge */}
@@ -845,7 +846,6 @@ export default function App() {
             </div>
           </div>
         </div>
-      </div>
       </div>
 
       {/* ── Assignments — below the fold, scroll to reveal ── */}
