@@ -726,7 +726,7 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
 
             {/* Dropdown */}
             {openDropdown === ui && u.lessons.length > 0 && (
-              <div style={{ position: "absolute", top: "100%", left: 0, minWidth: 210, background: "#1a1a1a", border: "1px solid #E87722", borderTop: "none", borderRadius: "0 0 4px 4px", zIndex: 100, overflow: "hidden" }}>
+              <div style={{ position: "absolute", top: "100%", left: 0, minWidth: 210, background: "#1a1a1a", border: "1px solid #E87722", borderTop: "none", borderRadius: "0 0 4px 4px", zIndex: 5000, overflow: "hidden" }}>
                 {u.lessons.map((lesson, li) => (
                   <div key={li}
                     onClick={() => handleLessonClick(ui, lesson)}
