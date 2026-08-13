@@ -41,22 +41,31 @@ export function toGoalPanels(lesson) {
 }
 
 // A muted, slightly different green per stacked panel so parked boards
-// read as distinct physical slabs rather than one repeating color.
-const PANEL_TONES = [
-  { face: "#2d5a2d", top: "#4d7a4d", bottom: "#163016", left: "#245024", spine: "#1a3319" },
-  { face: "#295228", top: "#4a754a", bottom: "#142c14", left: "#204a20", spine: "#173015" },
-  { face: "#254a24", top: "#476f47", bottom: "#122712", left: "#1c451c", spine: "#152a13" },
-  { face: "#21421f", top: "#43693f", bottom: "#102310", left: "#183f18", spine: "#132810" },
-];
+// One tone, reused by every panel — same #2d5a2d green as the main
+// chalkboard itself, so a sliding panel doesn't visually announce
+// itself as a "different" board mid-slide. Depth still comes through
+// via the top/bottom/left bevel and drop shadow, just not a color
+// shift.
+const PANEL_TONE = { face: "#2d5a2d", top: "#4d7a4d", bottom: "#163016", left: "#245024", spine: "#1a3319" };
 
 // A plain metal track — real sliding-chalkboard rail systems are
 // aluminum/steel, and that reads better against the wood frame than
 // trying to force the rail into the board's own wood/chalk palette.
+//
+// Runs the full width of the board, not just the goals column, since a
+// real rail spans the whole wall the boards hang on — the panels just
+// happen to park under the SmartBoard's footprint when pulled all the
+// way over. z-index sits below the SmartBoard's wrapper (1000) so the
+// rail visually passes behind it rather than drawing on top of it.
+// Pinned flush to top: 0 / bottom: 0 so it butts right up against the
+// wood-brown border (the 4px top border above the chalkboard, and the
+// chalk ledge below it) instead of floating a couple pixels inside the
+// green board.
 function Rail({ top }) {
   return (
-    <div style={{ position: "absolute", left: "60%", [top ? "top" : "bottom"]: 2, width: "40%", height: 4, boxSizing: "border-box", background: "#8a8a8a", borderTop: "1px solid #c7c7c7", borderBottom: "1px solid #4a4a4a", zIndex: 1800, display: "flex", alignItems: "center", justifyContent: "space-evenly", pointerEvents: "none" }}>
-      {[0, 1, 2, 3, 4].map((i) => (
-        <div key={i} style={{ width: 3, height: 3, borderRadius: "50%", background: "#3a3a3a" }} />
+    <div style={{ position: "absolute", left: 0, [top ? "top" : "bottom"]: 0, width: "100%", height: 4, boxSizing: "border-box", background: "#8a8a8a", borderTop: "1px solid #c7c7c7", borderBottom: "1px solid #4a4a4a", zIndex: 900, display: "flex", alignItems: "center", justifyContent: "space-evenly", pointerEvents: "none" }}>
+      {Array.from({ length: 12 }).map((_, i) => (
+        <div key={i} style={{ width: 3, height: 3, borderRadius: "50%", background: "#3a3a3a", flexShrink: 0 }} />
       ))}
     </div>
   );
@@ -74,14 +83,41 @@ export default function ChalkboardBoardRow({
 }) {
   const [current, setCurrent] = useState(0);
 
-  const handleReveal = () => {
-    setCurrent((c) => (c + 1) % panels.length);
-  };
+  // One handle per movable board (every panel except the fixed back board).
+  // Handle i is physically attached to board i — pulling it slides that
+  // board (and anything still in front of it) out of the way, landing on
+  // board i+1. A teacher can also jump straight to an earlier board by
+  // clicking a docked handle — that pushes the boards in between back
+  // into place instead of only ever advancing by one.
+  const handleCount = Math.max(panels.length - 1, 0);
+  // The first board docked goes all the way to the SmartBoard's far edge
+  // (0%). Every board docked after that stops just short of the one
+  // before it — DOCK_STEP_PX further right, in pixels rather than a
+  // percentage — so its frame peeks out past the board in front of it
+  // without exposing a wide strip of the writing surface. The step has to
+  // be at least as wide as the corner handle's own footprint (4px inset +
+  // 22px wide = 26px) or the handle would land half-buried under the
+  // board in front of it — clickable, but only across part of itself.
+  // 30px clears that with a little room to spare.
+  const DOCK_STEP_PX = 30;
+  const dockedLeftFor = (i) => `${i * DOCK_STEP_PX}px`;
 
   return (
     <div style={{ flex: 1, minHeight: 0, position: "relative", overflow: "hidden" }}>
-      {/* Slides column — stays put, high z-index so it visually occludes parked panels */}
-      <div style={{ position: "absolute", left: 0, top: 0, width: "60%", height: "100%", zIndex: 1000, boxSizing: "border-box", padding: 16, display: "flex", justifyContent: "center" }}>
+      {/* Slides column — stays put, high z-index so it visually occludes parked
+          panels. This rectangle spans the full 60% column, well past where
+          any docked board actually sits, and SmartBoard doesn't fill it edge
+          to edge (there's padding, plus SmartBoard vertically centers a
+          shorter device mockup within its own 100%-height box). Without
+          pointerEvents: "none" here, all of that empty space — invisible,
+          but still real elements sitting on top in z-order — would silently
+          swallow every click meant for a docked board's handle underneath,
+          no matter how far it peeks out. "auto" is restored individually on
+          SmartBoard's three actually-visible pieces (the frame, the SMART
+          label bar, the marker tray) inside the component itself, so the
+          board and its buttons stay clickable, but the genuinely empty
+          margin around it doesn't. */}
+      <div style={{ position: "absolute", left: 0, top: 0, width: "60%", height: "100%", zIndex: 1000, boxSizing: "border-box", padding: 16, display: "flex", justifyContent: "center", pointerEvents: "none" }}>
         <SmartBoard src={smartBoardSrc} />
       </div>
 
@@ -104,71 +140,171 @@ export default function ChalkboardBoardRow({
           {panels.length > 1 && <Rail top />}
           {panels.length > 1 && <Rail />}
 
-          {/* Handle — grabs the rail and pulls the current board along it */}
-          {panels.length > 1 && (
-            <button
-              onClick={handleReveal}
-              aria-label="Slide the board to reveal the next layer"
-              style={{
-                position: "absolute", right: 3, top: "50%", transform: "translateY(-50%)",
-                width: 14, height: 52, borderRadius: 3, border: "2px solid #E87722",
-                background: "#c9622b", boxShadow: "0 2px 5px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.3)",
-                cursor: "pointer", zIndex: 2100, padding: 0,
-              }}
-            />
-          )}
-
-          {/* Label overlay, always shows the current panel's label */}
-          <div style={{ position: "absolute", left: "60%", top: 9, width: "40%", boxSizing: "border-box", paddingLeft: 16, fontFamily: "Oswald, sans-serif", fontSize: 12, color: "rgba(255,255,255,0.65)", letterSpacing: 2, textTransform: "uppercase", zIndex: 1900, pointerEvents: "none" }}>
-            {panels[current].label || "Learning Goals"}
-          </div>
-
           {panels.map((panel, i) => {
             const parked = i < current;
             const panelKey = panel.label || `panel-${i}`;
-            const tone = PANEL_TONES[i % PANEL_TONES.length];
+            const tone = PANEL_TONE;
+            // The last panel represents the fixed board the whole rail system
+            // is mounted in front of — not another movable slab. It never has
+            // a slab behind it to slide over, so it renders flush with the
+            // chalkboard itself (same green, same dashed seam the goals column
+            // has always used) instead of getting its own spine/bevel/shadow.
+            const isBackBoard = i === panels.length - 1;
+            const isFront = i === current;
             return (
               <div
                 key={panelKey}
                 style={{
                   position: "absolute",
-                  left: parked ? "0%" : "60%",
+                  left: parked ? dockedLeftFor(i) : "60%",
                   top: 0,
                   width: "40%",
                   height: "100%",
                   boxSizing: "border-box",
                   transition: "left 750ms cubic-bezier(0.4, 0, 0.2, 1)",
+                  // A single, constant stacking order for every board, parked
+                  // or not: lower index always stays on top. While waiting
+                  // its turn, that's what keeps the current board on top of
+                  // the ones behind it. Once docked, that same rule means the
+                  // first board ever pulled aside stays in front and every
+                  // board docked after it slides in behind it — which, since
+                  // z-index never actually changes for a given board, is also
+                  // what makes the reveal-through sweep work without any
+                  // extra timing logic: the outgoing board is guaranteed to
+                  // already be above whatever's coming up behind it, for the
+                  // entire slide, not just at the end.
                   zIndex: panels.length - i,
                 }}
               >
-                {/* Spine — the board's visible edge/thickness. It also doubles as
-                    the visible "reveal line": since it's pinned to this panel's
-                    trailing edge, it's the seam you actually see sweeping across
-                    the board behind as this one slides away. */}
-                <div style={{ position: "absolute", right: -7, top: 3, bottom: 3, width: 7, background: tone.spine, border: "1px solid rgba(0,0,0,0.5)", borderRadius: "0 2px 2px 0" }} />
+                {!isBackBoard && (
+                  // Spine — the board's visible edge/thickness. It also doubles
+                  // as the visible "reveal line": since it's pinned to this
+                  // panel's trailing edge, it's the seam you actually see
+                  // sweeping across the board behind as this one slides away.
+                  <div style={{ position: "absolute", right: -7, top: 3, bottom: 3, width: 7, background: "#7a7a7a", border: "1px solid #4a4a4a", borderRadius: "0 2px 2px 0" }} />
+                )}
+
+                {!isBackBoard && (
+                  // Handles — physically part of this board, not separately
+                  // animated elements, so they ride along for the whole
+                  // slide. One on each bottom corner of the frame: whichever
+                  // side of this particular board ends up peeking out (left
+                  // side for a board buried under later ones, right side for
+                  // whichever board is fanned furthest right), there's a
+                  // handle sitting right there and reachable.
+                  <>
+                    <button
+                      // Docked boards slide back to their starting spot on
+                      // click; boards still up front slide away as before.
+                      onClick={() => setCurrent(parked ? i : i + 1)}
+                      aria-label={parked ? `Slide board ${i + 1} back to its starting position` : `Slide board ${i + 1} to reveal the next layer`}
+                      title={panel.label ? (parked ? `Bring "${panel.label}" back` : `Slide past "${panel.label}"`) : undefined}
+                      style={{
+                        position: "absolute",
+                        left: 4,
+                        bottom: 4,
+                        width: 22, height: 14, borderRadius: 3,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        // Docked handles stay fully active (not dimmed) — they're
+                        // just as clickable as the front one, since clicking them
+                        // is how a board gets pulled back to its starting spot.
+                        // Muted brown for "not your turn yet" keeps it out of the
+                        // way visually; orange only lights up once a board is
+                        // actually actionable (front or docked).
+                        border: `2px solid ${isFront || parked ? "#E87722" : "#a3703f"}`,
+                        background: isFront || parked ? "#c9622b" : "#8a5a34",
+                        boxShadow: "0 2px 5px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.3)",
+                        cursor: "pointer", zIndex: 2100, padding: 0, opacity: 1,
+                      }}
+                    >
+                      {/* Chevron reads as "slide this direction" rather than
+                          a plain colored tab — points left ("pull me away")
+                          when up front, right ("bring me back") once docked. */}
+                      <span aria-hidden="true" style={{ fontSize: 10, lineHeight: 1, color: "rgba(0,0,0,0.55)", fontWeight: 700 }}>
+                        {parked ? "›" : "‹"}
+                      </span>
+                    </button>
+                    <button
+                      onClick={() => setCurrent(parked ? i : i + 1)}
+                      aria-label={parked ? `Slide board ${i + 1} back to its starting position` : `Slide board ${i + 1} to reveal the next layer`}
+                      title={panel.label ? (parked ? `Bring "${panel.label}" back` : `Slide past "${panel.label}"`) : undefined}
+                      style={{
+                        position: "absolute",
+                        right: 4,
+                        bottom: 4,
+                        width: 22, height: 14, borderRadius: 3,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        border: `2px solid ${isFront || parked ? "#E87722" : "#a3703f"}`,
+                        background: isFront || parked ? "#c9622b" : "#8a5a34",
+                        boxShadow: "0 2px 5px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.3)",
+                        cursor: "pointer", zIndex: 2100, padding: 0, opacity: 1,
+                      }}
+                    >
+                      <span aria-hidden="true" style={{ fontSize: 10, lineHeight: 1, color: "rgba(0,0,0,0.55)", fontWeight: 700 }}>
+                        {parked ? "›" : "‹"}
+                      </span>
+                    </button>
+
+                    {/* This board's own position in the stack, sitting right
+                        on the metal frame to the left of its slide button —
+                        e.g. board 1 of 3, board 2 of 3 — rather than one
+                        counter for the whole component that only ever
+                        reflected the current board. */}
+                    <div style={{ position: "absolute", right: 30, bottom: 5, fontFamily: "Lato, sans-serif", fontSize: 10, color: "#4a4a4a", pointerEvents: "none" }}>
+                      {i + 1}/{panels.length}
+                    </div>
+                  </>
+                )}
 
                 {/* Face */}
                 <div
-                  style={{
-                    position: "absolute", inset: 0,
-                    background: `
-                      radial-gradient(ellipse 70px 18px at 22% 25%, rgba(255,255,255,0.05), transparent 70%),
-                      radial-gradient(ellipse 90px 16px at 68% 55%, rgba(255,255,255,0.04), transparent 70%),
-                      radial-gradient(ellipse 60px 14px at 40% 85%, rgba(255,255,255,0.05), transparent 70%),
-                      ${tone.face}
-                    `,
-                    borderTop: `2px solid ${tone.top}`,
-                    borderBottom: `3px solid ${tone.bottom}`,
-                    borderLeft: `2px solid ${tone.left}`,
-                    boxShadow: "6px 0 14px rgba(0,0,0,0.45)",
-                    boxSizing: "border-box",
-                    padding: "34px 16px 16px",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 8,
-                    overflowY: "auto",
-                  }}
+                  style={
+                    isBackBoard
+                      ? {
+                          position: "absolute", inset: 0,
+                          background: "#2d5a2d",
+                          borderLeft: "1px dashed rgba(255,255,255,0.18)",
+                          boxSizing: "border-box",
+                          padding: 16,
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 8,
+                          overflowY: "auto",
+                        }
+                      : {
+                          position: "absolute", inset: 0,
+                          background: `
+                            radial-gradient(ellipse 70px 18px at 22% 25%, rgba(255,255,255,0.05), transparent 70%),
+                            radial-gradient(ellipse 90px 16px at 68% 55%, rgba(255,255,255,0.04), transparent 70%),
+                            radial-gradient(ellipse 60px 14px at 40% 85%, rgba(255,255,255,0.05), transparent 70%),
+                            ${tone.face}
+                          `,
+                          // Aluminum frame all the way around the segment, like
+                          // a real sliding-chalkboard panel — a light outer
+                          // edge catching light, same idea real extruded-
+                          // aluminum trim uses. Thick enough to give the
+                          // corner handle somewhere real to sit. One flat
+                          // light gray all the way through — no separate
+                          // darker inner ring — so it reads as one solid
+                          // metal frame rather than frame-plus-groove.
+                          border: "11px solid #9a9a9a",
+                          boxShadow: "6px 0 14px rgba(0,0,0,0.45), inset 0 0 0 12px #9a9a9a",
+                          boxSizing: "border-box",
+                          padding: 16,
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 8,
+                          overflowY: "auto",
+                        }
+                  }
                 >
+                  {/* Printed on the panel itself now, not a floating overlay —
+                      so it slides away with this board and the next panel's
+                      own header comes with it when it's revealed. */}
+                  <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 12, color: "rgba(255,255,255,0.65)", letterSpacing: 2, textTransform: "uppercase", borderBottom: "1px solid rgba(255,255,255,0.15)", paddingBottom: 8, marginBottom: 2 }}>
+                    Learning Goals
+                  </div>
+
                   {panel.goals.map((goal, gi) => {
                     const key = `${panelKey}-${gi}`;
                     const checked = checkedGoals[key];
@@ -189,11 +325,6 @@ export default function ChalkboardBoardRow({
             );
           })}
 
-          {panels.length > 1 && (
-            <div style={{ position: "absolute", right: 8, bottom: 4, fontFamily: "Lato, sans-serif", fontSize: 10, color: "rgba(255,255,255,0.35)", zIndex: 1900 }}>
-              {current + 1} / {panels.length}
-            </div>
-          )}
         </>
       )}
     </div>

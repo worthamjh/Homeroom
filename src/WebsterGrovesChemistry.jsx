@@ -655,16 +655,16 @@ function SmartBoard({ src }) {
   // flex/aspect-ratio approach, which can blow out sideways on tall screens).
   return (
     <div style={{ width: "100%", maxWidth: "100%", minWidth: 0, height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", boxSizing: "border-box" }}>
-      <div style={{ width: "100%", maxWidth: "100%", boxSizing: "border-box", background: "#111", borderRadius: "8px 8px 0 0", padding: "8px 8px 0", border: "2px solid #2a2a2a", borderBottom: "none" }}>
+      <div style={{ width: "100%", maxWidth: "100%", boxSizing: "border-box", background: "#111", borderRadius: "8px 8px 0 0", padding: "8px 8px 0", border: "2px solid #2a2a2a", borderBottom: "none", pointerEvents: "auto" }}>
         <div style={{ width: "100%", background: "#0a0a0a", borderRadius: "4px 4px 0 0", aspectRatio: "16/9", overflow: "hidden", border: "1px solid #1a1a1a" }}>
           <iframe src={src} style={{ width: "100%", height: "100%", border: "none", display: "block" }} allowFullScreen title="slides" />
         </div>
       </div>
-      <div style={{ width: "100%", height: 18, flexShrink: 0, boxSizing: "border-box", background: "#111", border: "2px solid #2a2a2a", borderTop: "1px solid #333", borderRadius: "0 0 6px 6px", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 12px" }}>
+      <div style={{ width: "100%", height: 18, flexShrink: 0, boxSizing: "border-box", background: "#111", border: "2px solid #2a2a2a", borderTop: "1px solid #333", borderRadius: "0 0 6px 6px", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 12px", pointerEvents: "auto" }}>
         <span style={{ fontSize: 8, color: "#444", fontFamily: "Oswald, sans-serif", letterSpacing: 2 }}>SMART</span>
         <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#1a6c1a", boxShadow: "0 0 4px #1a6c1a" }} />
       </div>
-      <div style={{ width: "70%", height: 10, flexShrink: 0, boxSizing: "border-box", background: "#0e0e0e", borderRadius: "0 0 4px 4px", border: "1px solid #222", borderTop: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, padding: "0 12px" }}>
+      <div style={{ width: "70%", height: 10, flexShrink: 0, boxSizing: "border-box", background: "#0e0e0e", borderRadius: "0 0 4px 4px", border: "1px solid #222", borderTop: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, padding: "0 12px", pointerEvents: "auto" }}>
         {["#2a2a2a", "#8a1a1a", "#1a4a1a", "#1a1a6a"].map((c, i) => (
           <div key={i} style={{ height: 6, width: 22, borderRadius: 2, background: c }} />
         ))}
@@ -823,19 +823,68 @@ export default function App() {
 
             {/* Chalkboard */}
             <div style={{ flex: 1, minHeight: 0, background: "#2d5a2d", borderTop: "4px solid #6B4F10", display: "flex", flexDirection: "column" }}>
-              <ChalkboardBoardRow
-                smartBoardSrc={boardSlides}
-                isOverview={isOverview}
-                overviewItems={isOverview ? activeUnit.overview : []}
-                onOverviewItemClick={(item) => {
-                  const lesson = activeUnit.lessons.find(l => l.title === item);
-                  if (lesson) setActiveLesson(lesson);
-                }}
-                panels={isOverview ? [] : toGoalPanels(activeLesson)}
-                checkedGoals={checkedGoals}
-                toggleGoal={toggleGoal}
-                SmartBoard={SmartBoard}
-              />
+              {!isOverview && activeLesson?.goalPanels ? (
+                // Sliding multi-panel chalkboard — opt-in only, currently just
+                // Unit 10's Testing lesson (the only place with `goalPanels`
+                // instead of a plain `goals` array). Every other lesson and
+                // every overview screen falls through to the original static
+                // layout below, unchanged.
+                <ChalkboardBoardRow
+                  smartBoardSrc={boardSlides}
+                  isOverview={false}
+                  overviewItems={[]}
+                  onOverviewItemClick={() => {}}
+                  panels={toGoalPanels(activeLesson)}
+                  checkedGoals={checkedGoals}
+                  toggleGoal={toggleGoal}
+                  SmartBoard={SmartBoard}
+                />
+              ) : (
+                <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "3fr 2fr", columnGap: SPACE.md }}>
+
+                {/* Slides side */}
+                <div style={{ minHeight: 0, minWidth: 0, display: "flex", flexDirection: "column", alignItems: "center", padding: SPACE.md, gap: SPACE.sm }}>
+                  <div style={{ flex: 1, minHeight: 0, minWidth: 0, width: "100%", maxWidth: "100%", display: "flex", justifyContent: "center", boxSizing: "border-box", overflow: "hidden" }}>
+                    <SmartBoard src={boardSlides} />
+                  </div>
+                </div>
+
+                {/* Goals / Overview side */}
+                <div style={{ minWidth: 0, borderLeft: "1px dashed rgba(255,255,255,0.18)", padding: SPACE.md, display: "flex", flexDirection: "column", gap: SPACE.xs, overflowY: "auto", overflowX: "hidden" }}>
+                  <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 12, color: "rgba(255,255,255,0.6)", letterSpacing: 2, textTransform: "uppercase", borderBottom: "1px solid rgba(255,255,255,0.15)", paddingBottom: SPACE.xs }}>
+                    {isOverview ? "Unit Lessons" : "Learning Goals"}
+                  </div>
+
+                  {isOverview ? (
+                    activeUnit.overview.map((item, i) => (
+                      <div key={i}
+                        onClick={() => { const lesson = activeUnit.lessons.find(l => l.title === item); if (lesson) setActiveLesson(lesson); }}
+                        style={{ display: "flex", alignItems: "flex-start", gap: 8, cursor: activeUnit.lessons.find(l => l.title === item) ? "pointer" : "default", padding: "4px 0", borderBottom: "1px solid rgba(255,255,255,0.07)" }}
+                      >
+                        <span style={{ fontFamily: "Oswald, sans-serif", fontSize: 11, color: "#E87722", minWidth: 18, opacity: 0.8 }}>{String(i + 1).padStart(2, "0")}</span>
+                        <span style={{ fontFamily: "Caveat, cursive", fontSize: 14, color: "rgba(255,255,255,0.82)", lineHeight: 1.3, textShadow: "1px 1px 2px rgba(0,0,0,0.5)", minWidth: 0, wordBreak: "break-word" }}>{item}</span>
+                      </div>
+                    ))
+                  ) : (
+                    activeLesson?.goals.map((goal, i) => {
+                      const key = `${activeLesson.title}-${i}`;
+                      const checked = checkedGoals[key];
+                      return (
+                        <div key={i} onClick={() => toggleGoal(activeLesson.title, i)}
+                          style={{ display: "flex", alignItems: "flex-start", gap: 8, cursor: "pointer", padding: "4px 0" }}>
+                          <div style={{ width: 15, height: 15, border: `2px solid ${checked ? "#E87722" : "rgba(255,255,255,0.4)"}`, borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 2, background: checked ? "#E87722" : "transparent", transition: "all 0.15s" }}>
+                            {checked && <span style={{ color: "white", fontSize: 9, lineHeight: 1 }}>✓</span>}
+                          </div>
+                          <span style={{ fontFamily: "Caveat, cursive", fontSize: 15, color: checked ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.85)", lineHeight: 1.35, textShadow: "1px 1px 2px rgba(0,0,0,0.5)", textDecoration: checked ? "line-through" : "none", minWidth: 0, wordBreak: "break-word" }}>
+                            {goal}
+                          </span>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+              )}
             </div>
 
             {/* Chalk ledge */}
