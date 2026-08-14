@@ -842,9 +842,7 @@ export default function App() {
           <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", border: "7px solid #8B6914", borderRadius: 5, overflow: "hidden", boxShadow: "0 4px 18px rgba(0,0,0,0.35)" }}>
 
             {/* Bulletin strip */}
-            <div style={{ background: "#1a2a4a", position: "relative", minHeight: 68, flexShrink: 0 }}>
-              <Stars height={68} />
-            </div>
+            <div style={{ background: "#1a2a4a", position: "relative", minHeight: 112, flexShrink: 0 }} />
 
             {/* Chalkboard */}
             <div style={{ flex: 1, minHeight: 0, background: "#2d5a2d", borderTop: "4px solid #6B4F10", display: "flex", flexDirection: "column" }}>
