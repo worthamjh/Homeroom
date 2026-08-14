@@ -9,6 +9,19 @@ const THUMB = (id) => `https://drive.google.com/thumbnail?id=${id}&sz=w400`;
 // intentionally NOT on this scale — those are physical proportions, not content rhythm.
 const SPACE = { xs: 8, sm: 12, md: 16, lg: 24, xl: 32, xxl: 40 };
 
+// Board arrangement presets — "presets first, advanced options second":
+// teachers pick from a short list of pre-built layouts rather than tweaking
+// raw values. Only one preset exists today (the original layout), but every
+// place that renders the board reads from this config instead of hardcoding
+// column widths/order, so adding a second preset later is a data change, not
+// a rewrite. `order` controls which side (slides vs goals) renders first;
+// `gridTemplateColumns` should list widths in that same order.
+const BOARD_ARRANGEMENTS = {
+  classic: { id: "classic", label: "Classic — Slides Left / Goals Right", gridTemplateColumns: "3fr 2fr", order: ["slides", "goals"] },
+};
+const DEFAULT_ARRANGEMENT = "classic";
+const ARRANGEMENT_STORAGE_KEY = "homeroom:boardArrangement";
+
 // Cinderblock wall texture — real running-bond coursing (offset joints every other row),
 // built as a small tiled SVG so it scales cleanly at any resolution.
 const CINDERBLOCK_TILE = `<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'>
@@ -721,15 +734,50 @@ function AssignmentThumb({ label, url, thumb }) {
   );
 }
 
-function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropdown, setOpenDropdown, handleUnitOverview, handleLessonClick, goHome }) {
+function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropdown, setOpenDropdown, handleUnitOverview, handleLessonClick, goHome, arrangementKey, setArrangementKey, showArrangementMenu, setShowArrangementMenu }) {
   return (
     <div style={{ background: "#1a1a1a", borderBottom: "4px solid #E87722", flexShrink: 0 }}>
-      <div style={{ padding: `${SPACE.md}px ${SPACE.lg}px ${SPACE.sm}px`, textAlign: "center" }}>
+      <div style={{ padding: `${SPACE.md}px ${SPACE.lg}px ${SPACE.sm}px`, textAlign: "center", position: "relative" }}>
         <div
           onClick={goHome}
           style={{ fontFamily: "Oswald, sans-serif", color: "#fff", fontSize: 26, fontWeight: 600, letterSpacing: 2, cursor: "pointer", display: "inline-block" }}
         >
           Webster Groves <span style={{ color: "#E87722" }}>Chemistry</span>
+        </div>
+
+        {/* Board layout presets — "presets first": a short list of pre-built
+            arrangements a teacher can pick from, no free-form controls. Only
+            one preset exists today; this menu is the extension point for
+            future ones. */}
+        <div style={{ position: "absolute", right: SPACE.lg, top: "50%", transform: "translateY(-50%)" }} onClick={e => e.stopPropagation()}>
+          <button
+            onClick={() => setShowArrangementMenu(v => !v)}
+            title="Board layout"
+            aria-label="Board layout presets"
+            style={{ width: 34, height: 34, borderRadius: "50%", border: "1px solid rgba(255,255,255,0.25)", background: showArrangementMenu ? "#E87722" : "transparent", color: showArrangementMenu ? "#1a1a1a" : "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, transition: "all 0.15s" }}
+          >
+            ⚙
+          </button>
+          {showArrangementMenu && (
+            <div style={{ position: "absolute", top: "calc(100% + 8px)", right: 0, minWidth: 240, background: "#1a1a1a", border: "1px solid #E87722", borderRadius: 4, zIndex: 5000, overflow: "hidden", boxShadow: "0 4px 18px rgba(0,0,0,0.4)" }}>
+              <div style={{ padding: `${SPACE.xs}px ${SPACE.md}px`, fontFamily: "Oswald, sans-serif", fontSize: 11, color: "rgba(255,255,255,0.5)", letterSpacing: 1.5, textTransform: "uppercase", borderBottom: "1px solid #2a2a2a" }}>
+                Board Layout
+              </div>
+              {Object.values(BOARD_ARRANGEMENTS).map(a => (
+                <div key={a.id}
+                  onClick={() => { setArrangementKey(a.id); setShowArrangementMenu(false); }}
+                  style={{ padding: `${SPACE.sm}px ${SPACE.md}px`, fontSize: 13, fontFamily: "Lato, sans-serif", fontWeight: 700, color: arrangementKey === a.id ? "#E87722" : "#ccc", cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}
+                  onMouseEnter={e => { e.currentTarget.style.background = "#2a2a2a"; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}
+                >
+                  <span style={{ width: 14, height: 14, borderRadius: "50%", border: `2px solid ${arrangementKey === a.id ? "#E87722" : "rgba(255,255,255,0.4)"}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    {arrangementKey === a.id && <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#E87722" }} />}
+                  </span>
+                  {a.label}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -776,6 +824,18 @@ export default function App() {
   const [activeLesson, setActiveLesson] = useState(null);
   const [openDropdown, setOpenDropdown] = useState(null);
   const [checkedGoals, setCheckedGoals] = useState({});
+  const [arrangementKey, setArrangementKey] = useState(() => {
+    if (typeof window === "undefined") return DEFAULT_ARRANGEMENT;
+    const saved = window.localStorage.getItem(ARRANGEMENT_STORAGE_KEY);
+    return saved && BOARD_ARRANGEMENTS[saved] ? saved : DEFAULT_ARRANGEMENT;
+  });
+  const [showArrangementMenu, setShowArrangementMenu] = useState(false);
+
+  useEffect(() => {
+    window.localStorage.setItem(ARRANGEMENT_STORAGE_KEY, arrangementKey);
+  }, [arrangementKey]);
+
+  const arrangement = BOARD_ARRANGEMENTS[arrangementKey] || BOARD_ARRANGEMENTS[DEFAULT_ARRANGEMENT];
 
   const isHome = activeUnitIdx === null;
   const activeUnit = isHome ? null : curriculum[activeUnitIdx];
@@ -807,7 +867,10 @@ export default function App() {
   const boardTitle = isHome ? null : (isOverview ? activeUnit.title : activeLesson?.title);
 
   const goHome = () => { setActiveUnitIdx(null); setActiveLesson(null); setOpenDropdown(null); };
-  const topBarProps = { curriculum, activeUnitIdx, isOverview, activeLesson, openDropdown, setOpenDropdown, handleUnitOverview, handleLessonClick, goHome };
+  const topBarProps = {
+    curriculum, activeUnitIdx, isOverview, activeLesson, openDropdown, setOpenDropdown, handleUnitOverview, handleLessonClick, goHome,
+    arrangementKey, setArrangementKey, showArrangementMenu, setShowArrangementMenu,
+  };
 
   return (
     <div onClick={() => setOpenDropdown(null)}
@@ -862,52 +925,63 @@ export default function App() {
                   toggleGoal={toggleGoal}
                   SmartBoard={SmartBoard}
                 />
-              ) : (
-                <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "3fr 2fr", columnGap: SPACE.md }}>
-
-                {/* Slides side */}
-                <div style={{ minHeight: 0, minWidth: 0, display: "flex", flexDirection: "column", alignItems: "center", padding: SPACE.md, gap: SPACE.sm }}>
-                  <div style={{ flex: 1, minHeight: 0, minWidth: 0, width: "100%", maxWidth: "100%", display: "flex", justifyContent: "center", boxSizing: "border-box", overflow: "hidden" }}>
-                    <SmartBoard src={boardSlides} />
+              ) : (() => {
+                // Rendered according to the selected board arrangement preset
+                // (see BOARD_ARRANGEMENTS) rather than a fixed left/right
+                // layout — `order` decides which side renders first, and the
+                // divider follows whichever side ends up second.
+                const slidesNode = (
+                  <div key="slides" style={{ minHeight: 0, minWidth: 0, display: "flex", flexDirection: "column", alignItems: "center", padding: SPACE.md, gap: SPACE.sm }}>
+                    <div style={{ flex: 1, minHeight: 0, minWidth: 0, width: "100%", maxWidth: "100%", display: "flex", justifyContent: "center", boxSizing: "border-box", overflow: "hidden" }}>
+                      <SmartBoard src={boardSlides} />
+                    </div>
                   </div>
-                </div>
+                );
 
-                {/* Goals / Overview side */}
-                <div style={{ minWidth: 0, borderLeft: "1px dashed rgba(255,255,255,0.18)", padding: SPACE.md, display: "flex", flexDirection: "column", gap: SPACE.xs, overflowY: "auto", overflowX: "hidden" }}>
-                  <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 12, color: "rgba(255,255,255,0.6)", letterSpacing: 2, textTransform: "uppercase", borderBottom: "1px solid rgba(255,255,255,0.15)", paddingBottom: SPACE.xs }}>
-                    {isOverview ? "Unit Lessons" : "Learning Goals"}
-                  </div>
+                const goalsIsSecond = arrangement.order[1] === "goals";
+                const goalsNode = (
+                  <div key="goals" style={{ minWidth: 0, [goalsIsSecond ? "borderLeft" : "borderRight"]: "1px dashed rgba(255,255,255,0.18)", padding: SPACE.md, display: "flex", flexDirection: "column", gap: SPACE.xs, overflowY: "auto", overflowX: "hidden" }}>
+                    <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 12, color: "rgba(255,255,255,0.6)", letterSpacing: 2, textTransform: "uppercase", borderBottom: "1px solid rgba(255,255,255,0.15)", paddingBottom: SPACE.xs }}>
+                      {isOverview ? "Unit Lessons" : "Learning Goals"}
+                    </div>
 
-                  {isOverview ? (
-                    activeUnit.overview.map((item, i) => (
-                      <div key={i}
-                        onClick={() => { const lesson = activeUnit.lessons.find(l => l.title === item); if (lesson) setActiveLesson(lesson); }}
-                        style={{ display: "flex", alignItems: "flex-start", gap: 8, cursor: activeUnit.lessons.find(l => l.title === item) ? "pointer" : "default", padding: "4px 0", borderBottom: "1px solid rgba(255,255,255,0.07)" }}
-                      >
-                        <span style={{ fontFamily: "Oswald, sans-serif", fontSize: 11, color: "#E87722", minWidth: 18, opacity: 0.8 }}>{String(i + 1).padStart(2, "0")}</span>
-                        <span style={{ fontFamily: "Caveat, cursive", fontSize: 14, color: "rgba(255,255,255,0.82)", lineHeight: 1.3, textShadow: "1px 1px 2px rgba(0,0,0,0.5)", minWidth: 0, wordBreak: "break-word" }}>{item}</span>
-                      </div>
-                    ))
-                  ) : (
-                    activeLesson?.goals.map((goal, i) => {
-                      const key = `${activeLesson.title}-${i}`;
-                      const checked = checkedGoals[key];
-                      return (
-                        <div key={i} onClick={() => toggleGoal(activeLesson.title, i)}
-                          style={{ display: "flex", alignItems: "flex-start", gap: 8, cursor: "pointer", padding: "4px 0" }}>
-                          <div style={{ width: 15, height: 15, border: `2px solid ${checked ? "#E87722" : "rgba(255,255,255,0.4)"}`, borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 2, background: checked ? "#E87722" : "transparent", transition: "all 0.15s" }}>
-                            {checked && <span style={{ color: "white", fontSize: 9, lineHeight: 1 }}>✓</span>}
-                          </div>
-                          <span style={{ fontFamily: "Caveat, cursive", fontSize: 15, color: checked ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.85)", lineHeight: 1.35, textShadow: "1px 1px 2px rgba(0,0,0,0.5)", textDecoration: checked ? "line-through" : "none", minWidth: 0, wordBreak: "break-word" }}>
-                            {goal}
-                          </span>
+                    {isOverview ? (
+                      activeUnit.overview.map((item, i) => (
+                        <div key={i}
+                          onClick={() => { const lesson = activeUnit.lessons.find(l => l.title === item); if (lesson) setActiveLesson(lesson); }}
+                          style={{ display: "flex", alignItems: "flex-start", gap: 8, cursor: activeUnit.lessons.find(l => l.title === item) ? "pointer" : "default", padding: "4px 0", borderBottom: "1px solid rgba(255,255,255,0.07)" }}
+                        >
+                          <span style={{ fontFamily: "Oswald, sans-serif", fontSize: 11, color: "#E87722", minWidth: 18, opacity: 0.8 }}>{String(i + 1).padStart(2, "0")}</span>
+                          <span style={{ fontFamily: "Caveat, cursive", fontSize: 14, color: "rgba(255,255,255,0.82)", lineHeight: 1.3, textShadow: "1px 1px 2px rgba(0,0,0,0.5)", minWidth: 0, wordBreak: "break-word" }}>{item}</span>
                         </div>
-                      );
-                    })
-                  )}
-                </div>
-              </div>
-              )}
+                      ))
+                    ) : (
+                      activeLesson?.goals.map((goal, i) => {
+                        const key = `${activeLesson.title}-${i}`;
+                        const checked = checkedGoals[key];
+                        return (
+                          <div key={i} onClick={() => toggleGoal(activeLesson.title, i)}
+                            style={{ display: "flex", alignItems: "flex-start", gap: 8, cursor: "pointer", padding: "4px 0" }}>
+                            <div style={{ width: 15, height: 15, border: `2px solid ${checked ? "#E87722" : "rgba(255,255,255,0.4)"}`, borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 2, background: checked ? "#E87722" : "transparent", transition: "all 0.15s" }}>
+                              {checked && <span style={{ color: "white", fontSize: 9, lineHeight: 1 }}>✓</span>}
+                            </div>
+                            <span style={{ fontFamily: "Caveat, cursive", fontSize: 15, color: checked ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.85)", lineHeight: 1.35, textShadow: "1px 1px 2px rgba(0,0,0,0.5)", textDecoration: checked ? "line-through" : "none", minWidth: 0, wordBreak: "break-word" }}>
+                              {goal}
+                            </span>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                );
+
+                const nodesByKey = { slides: slidesNode, goals: goalsNode };
+                return (
+                  <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: arrangement.gridTemplateColumns, columnGap: SPACE.md }}>
+                    {arrangement.order.map(k => nodesByKey[k])}
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Chalk ledge */}
