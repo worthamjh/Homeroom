@@ -3,11 +3,34 @@ import ChalkboardBoardRow, { toGoalPanels } from "./ChalkboardBoardRow";
 
 const THUMB = (id) => `https://drive.google.com/thumbnail?id=${id}&sz=w400`;
 
+// Video library — lesson videos are entered manually in the curriculum data
+// (a `videos: [{ title, id }]` array per lesson, same pattern as
+// `assignments`), no YouTube API/backend needed. `id` accepts either a bare
+// video ID or a full YouTube URL — this pulls the ID out of the common URL
+// shapes so pasting a link straight from the address bar just works.
+function extractYouTubeId(input) {
+  if (!input) return null;
+  const match = input.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([\w-]{11})/);
+  return match ? match[1] : input;
+}
+const youtubeThumb = (id) => `https://img.youtube.com/vi/${extractYouTubeId(id)}/hqdefault.jpg`;
+const youtubeEmbed = (id) => `https://www.youtube.com/embed/${extractYouTubeId(id)}?autoplay=1`;
+
 // Spacing scale — sized a step looser than typical web UI since this is read
 // from across a classroom on a projected/flat-panel display, not up close.
 // Structural elements (board border, bulletin strip height, chalk ledge) are
 // intentionally NOT on this scale — those are physical proportions, not content rhythm.
 const SPACE = { xs: 8, sm: 12, md: 16, lg: 24, xl: 32, xxl: 40 };
+
+// Placeholder for real identity (teacher/classroom account) — there's no
+// login yet, and building one now would likely just get thrown out once
+// this plugs into a publisher's actual SSO (Clever/Canvas, already in the
+// footer links) rather than a homegrown one. But everything saved locally
+// (customizations, goal-completion) is namespaced under this ID now, so
+// swapping it for a real logged-in user ID later is a storage-layer change,
+// not a redesign of how state is shaped.
+const CURRENT_USER_ID = "local-teacher";
+const scopedKey = (key) => `homeroom:${CURRENT_USER_ID}:${key}`;
 
 // Board arrangement presets — "presets first, advanced options second":
 // teachers pick from a short list of pre-built layouts rather than tweaking
@@ -17,10 +40,32 @@ const SPACE = { xs: 8, sm: 12, md: 16, lg: 24, xl: 32, xxl: 40 };
 // a rewrite. `order` controls which side (slides vs goals) renders first;
 // `gridTemplateColumns` should list widths in that same order.
 const BOARD_ARRANGEMENTS = {
-  classic: { id: "classic", label: "Classic — Slides Left / Goals Right", gridTemplateColumns: "3fr 2fr", order: ["slides", "goals"] },
+  classic: { id: "classic", label: "Classic (Slides Left)", gridTemplateColumns: "3fr 2fr", order: ["slides", "goals"] },
+  inverse: { id: "inverse", label: "Inverse (Slides Right)", gridTemplateColumns: "2fr 3fr", order: ["goals", "slides"] },
 };
 const DEFAULT_ARRANGEMENT = "classic";
-const ARRANGEMENT_STORAGE_KEY = "homeroom:boardArrangement";
+const ARRANGEMENT_STORAGE_KEY = "boardArrangement";
+
+// Bulletin strip presets — same "presets first" approach as board
+// arrangement: a short list of pre-built looks (solid color, or a color plus
+// a decorative dot-trim border like real classroom bulletin board tape),
+// not a free-form color picker. `trim`, when set, is a small repeating SVG
+// tile drawn along the top and bottom edges of the strip.
+const DOT_TRIM = (dot, bg) =>
+  `url("data:image/svg+xml,${encodeURIComponent(
+    `<svg xmlns='http://www.w3.org/2000/svg' width='24' height='12'><rect width='24' height='12' fill='${bg}'/><circle cx='6' cy='6' r='3' fill='${dot}'/><circle cx='18' cy='6' r='3' fill='${dot}'/></svg>`
+  )}")`;
+
+const BULLETIN_STYLES = {
+  navy: { id: "navy", label: "Navy (Classic)", background: "#1a2a4a", trim: null },
+  orange: { id: "orange", label: "Webster Orange", background: "#E87722", trim: null },
+  black: { id: "black", label: "Chalkboard Black", background: "#1a1a1a", trim: null },
+  navyTrim: { id: "navyTrim", label: "Navy + Orange Trim", background: "#1a2a4a", trim: DOT_TRIM("#E87722", "#1a1a1a") },
+  orangeTrim: { id: "orangeTrim", label: "Orange + Black Trim", background: "#E87722", trim: DOT_TRIM("#1a1a1a", "#E87722") },
+};
+const DEFAULT_BULLETIN = "navy";
+const BULLETIN_STORAGE_KEY = "bulletinStyle";
+const GOALS_STORAGE_KEY = "checkedGoals";
 
 // Cinderblock wall texture — real running-bond coursing (offset joints every other row),
 // built as a small tiled SVG so it scales cleanly at any resolution.
@@ -86,6 +131,14 @@ const curriculum = [
           { label: "POGIL — Accuracy and Precision", url: "https://kami.app/XJ2-Q6N-sW3-EHa", thumb: THUMB("1CLKsC3jLT1sdN3dBzh3AoJ000-oWo4ML") },
           { label: "Lab Safety Escape Room", url: "https://docs.google.com/presentation/d/1calYU0qUiI3dMs7ki-oSraAZ52P3TXAmv2amGeuhvPw/edit", thumb: THUMB("1w6FYXKAP5s9uT4j2qzT6YEZ_NrXf_Ivj") },
         ],
+        videos: [
+          { title: "General Lab Safety", id: "MEIXRLcC6RA" },
+          { title: "Top 10 Rules of Science Lab Safety", id: "s6lOQ5_Vlok" },
+          { title: "Lab Techniques & Safety: Crash Course Chemistry #21", id: "VRWRmIEHr3A" },
+          { title: "Accuracy and Precision and the Percent Error Equation", id: "vMNflBQFNaw" },
+          { title: "Precision, Accuracy & Significant Figures in Chemistry", id: "tuzJtpC_P_4" },
+          { title: "Accuracy and Precision with Percent Error and Percent Deviation", id: "loduc50moIQ" },
+        ],
       },
       {
         title: "Scientific Measurement",
@@ -101,6 +154,14 @@ const curriculum = [
           { label: "Metric Unit Conversion Visual", url: "https://drive.google.com/file/d/1FJHKRGQ1uEdKYdR_y4Kmjgzcgt6_9DHL/view", thumb: THUMB("1FJHKRGQ1uEdKYdR_y4Kmjgzcgt6_9DHL") },
           { label: "POGIL — Revenge of the Nerds", url: "https://docs.google.com/document/d/1IpstkFfaOCg7Pg3sDqmamzafygyeQ2Kyotjd3VvXYPs/edit", thumb: THUMB("1tHeHlwOOrGN8JETLuEpl4a2_xwwCz-g1") },
           { label: "POGIL — Significant Digits and Measurement", url: "https://docs.google.com/document/d/1VQqBib-1ya5cJp4_MS1wFSzwXNIraOXDsau5uY3985g/edit" , thumb: THUMB("1EKI6MX1h3YBk43fgsNMOKsXEcopieY9w") },
+        ],
+        videos: [
+          { title: "Unit Conversion & Significant Figures: Crash Course Chemistry #2", id: "hQpQ0hxVNTg" },
+          { title: "Learn Unit Conversions, Metric System & Scientific Notation", id: "W_SMypXo7tc" },
+          { title: "Significant Figures, Measurement in Science, and Scientific Notation", id: "btXoAPefDlM" },
+          { title: "Scientific Notation, Metric Prefixes, and Conversion Factors", id: "1tEbgdmwoKM" },
+          { title: "Significant Figures Made Easy!", id: "9WFxkxFXb20" },
+          { title: "Significant Figures and Unit Conversions", id: "izgHBIEWfKY" },
         ],
       },
       {
@@ -148,6 +209,14 @@ const curriculum = [
           { label: "Concept Map — Element and Mixture", url: "https://kami.app/wsB-pYp-tQK-B5z" , thumb: THUMB("1lu4vdCwxwnVTFOX_7b9R0qdI8AGka8kw") },
           { label: "Concept Map Template", url: "https://kami.app/b2E-xRQ-V7J-qtC" , thumb: THUMB("1lu4vdCwxwnVTFOX_7b9R0qdI8AGka8kw") },
         ],
+        videos: [
+          { title: "Types of Matter: Mixtures, Elements, & Compounds", id: "EXIBrrUBaz4" },
+          { title: "Homogeneous and Heterogeneous Mixtures Examples", id: "eI-tmv4DLEk" },
+          { title: "Classifying Matter: Elements, Compounds, Mixtures", id: "IK6EgLdnWIU" },
+          { title: "Elements, Compounds, and Mixtures: How to Classify Matter", id: "gVNQkbkssZ4" },
+          { title: "Types of Matter - Elements, Compounds, Mixtures, and Pure Substances", id: "SSKvnWYbrwM" },
+          { title: "Classifying Matter - Elements, Compounds & Mixtures", id: "rEDjDCzYPuA" },
+        ],
       },
       {
         title: "Physical vs. Chemical Change",
@@ -160,6 +229,14 @@ const curriculum = [
         assignments: [
           { label: "Chemical vs. Physical Change Lab", url: "https://kami.app/mPp-yvW-3LG-E6y", thumb: THUMB("1jZEyMJi-bgNzwNZoqXPvarFrGmF68-v4") },
           { label: "Lab — Physical vs. Chemical Changes (alt)", url: "https://kami.app/WQN-KEV-5Hd-nwe" , thumb: THUMB("1CT0MtBkZKwpQ4GXXXRRt5zq19cHB_Lsz") },
+        ],
+        videos: [
+          { title: "Physical Vs. Chemical Changes - Explained", id: "4ZGULLWEy1c" },
+          { title: "Physical and chemical changes | Khan Academy", id: "n5cZ5CWuUJA" },
+          { title: "Physical & Chemical Properties, Physical & Chemical Changes", id: "Kdk8rIUW1xU" },
+          { title: "Physical vs. Chemical Changes: How to Tell the Difference (4 Easy Clues)", id: "qllh0__-J8s" },
+          { title: "Physical Change vs. Chemical Change (ft. mini quiz)", id: "V1Tt-kQPhKk" },
+          { title: "Physical vs Chemical Changes", id: "k57xIG67rAA" },
         ],
       },
       {
@@ -197,6 +274,14 @@ const curriculum = [
         assignments: [
           { label: "Atom Diagram — Sidewalk Chalk Practice", url: "https://docs.google.com/document/d/1CSN8c-i9W5o-STwuRydBmrpZfct3tFXIbGwuZ_xwyLo/edit", thumb: THUMB("15uM5LI4VUnPzdYLIPXk1nvwwSrMLNP8T") },
         ],
+        videos: [
+          { title: "Structure of the Atom - Subatomic Particles", id: "g6FXlee_wHc" },
+          { title: "Protons, neutrons, and electrons in atoms | Khan Academy", id: "lz_gMkQr7YE" },
+          { title: "Atomic Structure: Subatomic Particles (Protons, Neutrons, & Electrons)", id: "KUVG4qD7lDo" },
+          { title: "Protons, Neutrons, and Electrons (Intro to Subatomic Particles!)", id: "QRdkQ6SFhQw" },
+          { title: "Atomic Structure: Protons, Electrons & Neutrons", id: "EMDrb2LqL7E" },
+          { title: "Atomic Structure Basics: Protons, Neutrons and Electrons and Reading the Periodic Table", id: "IAeMiOjO2f0" },
+        ],
       },
       {
         title: "Atomic Theory",
@@ -207,6 +292,14 @@ const curriculum = [
           "I will be able to summarize the modern atomic model.",
         ],
         assignments: [
+        ],
+        videos: [
+          { title: "Chemistry & Physics: History of the Atom (Dalton, Thomson, Rutherford, and Bohr Models)", id: "-4Us5PTb4J8" },
+          { title: "Early Atomic Theory Explained: Dalton, Thomson, Rutherford & Millikan", id: "Z8FnIQfyu0M" },
+          { title: "The History of Atomic Theories | Dalton | Thomson | Rutherford | Bohr", id: "NUbs5MCty9M" },
+          { title: "What Are The Different Atomic Models? Dalton, Rutherford, Bohr and Heisenberg", id: "v48u8hjqNBU" },
+          { title: "Early Atomic Theory: Dalton, Thomson, Rutherford and Millikan", id: "UDIprICe9kg" },
+          { title: "Atomic Theory | John Dalton | J.J. Thomson | Ernest Rutherford | Niels Bohr", id: "UIvaNirdavY" },
         ],
       },
       {
@@ -220,6 +313,14 @@ const curriculum = [
         assignments: [
           { label: "POGIL — Ions", url: "https://docs.google.com/document/d/1H5zGot6adEIPZU2Mq8N7Ttk86onEDMZTYTATMehY7yI/edit", thumb: THUMB("120Zjgo5q5JKAcQWcu3uKXaoT2jo_qK-y") },
         ],
+        videos: [
+          { title: "What Are Ions? | Cations and Anions Explained", id: "xDj_lfM2ZRA" },
+          { title: "Introduction to Ions | Khan Academy", id: "zTUnjPALX_U" },
+          { title: "Ions Explained - Cations, Anions, Polyatomic Ions", id: "cAeHHhPhbcc" },
+          { title: "Atoms, Molecules, and Ions: What are Cations and Anions?", id: "A0PnEYo3JX8" },
+          { title: "IONS EXPLAINED: How Ions Form (Cations vs Anions)", id: "ME16VVASTq0" },
+          { title: "Chemistry Revision - Ions (Cation, Anion, Bonds)", id: "sa508x9xtUA" },
+        ],
       },
       {
         title: "Isotopes",
@@ -231,6 +332,14 @@ const curriculum = [
         ],
         assignments: [
           { label: "POGIL — Isotopes", url: "https://docs.google.com/document/d/1Qi1dAuXEcDPamO9Cf2XCP7Sl03WzSUrkMFJT0mpma_A/edit", thumb: THUMB("1D6gMBZoMdtX7iUOetAMKIsIS5-hjtRrg") },
+        ],
+        videos: [
+          { title: "Average Atomic Mass Practice Problems", id: "rgixSP7PxS0" },
+          { title: "How To Calculate The Average Atomic Mass", id: "JT18bDAadQ0" },
+          { title: "Isotopes Part 2: Calculating Average Atomic Mass", id: "qZEKmKCWUNw" },
+          { title: "Calculate the Average Atomic Mass From Isotopes", id: "kIvfX-PqkzI" },
+          { title: "Calculating Atomic Mass Using Isotopes", id: "Aby7CYJJDOw" },
+          { title: "Isotopes, Percent Abundance, Atomic Mass | How to Pass Chemistry", id: "ZtKuHxJXH6I" },
         ],
       },
       {
@@ -269,6 +378,14 @@ const curriculum = [
           { label: "Noble Gas Electron Configuration", url: "https://kami.app/EWf-dyg-WKS-5jT", thumb: THUMB("17wDiMn2k_vfFINOSncVFQe86uaCyh783") },
           { label: "Build Up Process for Determining Orbitals of Electrons", url: "https://kami.app/RfH-KtR-DYy-fFK", thumb: THUMB("1se_wRO58cBmvMBlH4hsduLckMXhNvbhl") },
         ],
+        videos: [
+          { title: "Electron Configuration With Noble Gas Notation", id: "6MAKMnZdfbs" },
+          { title: "How to Write Electron Configuration (Full & Noble Gas Notation)", id: "LdeYIjQP6vs" },
+          { title: "How to Write Noble Gas Electron Configuration", id: "48ifv5QHXuQ" },
+          { title: "Noble Gas Electron Configuration Made Easy", id: "xbYlMtSVAmI" },
+          { title: "Shorthand Notation of Electron Configurations", id: "T8KZnI1v4X4" },
+          { title: "Abbreviated Electron Configurations", id: "Ysc8eUgOMp0" },
+        ],
       },
       {
         title: "Lewis Dot Structures",
@@ -279,6 +396,14 @@ const curriculum = [
         ],
         assignments: [
           { label: "Electron Energy Levels Mapping", url: "https://kami.app/sBh-SWr-K3J-8UR", thumb: THUMB("1umvAg-dnbhjo0RMpFE-pWlltfh_o-5Vy") },
+        ],
+        videos: [
+          { title: "How To Draw Lewis Dot Diagrams: Easy Chemistry Guide to Valence Electrons", id: "BXWALYoprEY" },
+          { title: "Valence Electrons and Lewis Dot Structures", id: "hm3WUFaXwtA" },
+          { title: "Lewis Dot Diagrams", id: "cnHYtjioC4s" },
+          { title: "Lewis Dot Structures of Atoms", id: "LmRM76Fe0uI" },
+          { title: "Valence Electrons Explained in 5 Minutes", id: "ov2ZHoXIBF0" },
+          { title: "Lewis Dot Structures of Covalent Compounds", id: "KLOGiTtrcWk" },
         ],
       },
       {
@@ -297,6 +422,14 @@ const curriculum = [
           { label: "Trends of the Periodic Table", url: "https://kami.app/9VT-eQZ-dB3-teh", thumb: THUMB("17quNsqYrk4LnCO0Y60qlsLIK0riIzFPB") },
           { label: "Homework Check — Trends of the Periodic Table", url: "https://kami.app/r14-a8S-PcV-vxj", thumb: THUMB("181EZrVZMsVNaoGzV_2-2tXVmfOrPHxfo") },
         ],
+        videos: [
+          { title: "Periodic Trends - Atomic/Ionic Radius, Ionization Energy, Electronegativity, Metallic Character", id: "BH4kUx_lT0M" },
+          { title: "Periodic Trends: Electronegativity, Ionization Energy, Atomic Radius", id: "0h8q1GIQ-H4" },
+          { title: "Ionization Energy, Electron Affinity, Atomic Radius, Ionic Radii, Electronegativity, Metal Character", id: "Gy9HR65DpYQ" },
+          { title: "Periodic Trends: Electronegativity, Ionization Energy, Atomic Radius, and Electron Affinity", id: "E0YdrosU0lk" },
+          { title: "Periodic Trends - Atomic Radius, Electronegativity, Ionization Energy", id: "7cEtOHLZQ2A" },
+          { title: "Periodic Table of Elements - Trends (Atomic Size, Ionization Energy, Electronegativity, Ion Size)", id: "vXch_c1e77U" },
+        ],
       },
       {
         title: "Element Families",
@@ -311,6 +444,14 @@ const curriculum = [
           { label: "Foldable — Periodic Table", url: "https://kami.app/jhB-GiU-ptr-3uA", thumb: THUMB("19Yf3SKFgiPFnQ2L0U8YckPbUQX5KhhT8") },
           { label: "Element Jigsaw", url: "https://kami.app/jfY-H5E-F8V-h8g", thumb: THUMB("1P2Ts8M2IfCYRRBGbyczI0q_UE_epO2bG") },
           { label: "Element Jigsaw — 45 Questions", url: "https://kami.app/hMt-pCh-Dh5-nsf", thumb: THUMB("1dv0sRj1YdGRY-NQWwVLLWCQ6jDAAHEYQ") },
+        ],
+        videos: [
+          { title: "The 8 Groups of the Periodic Table", id: "6-7nS3vjqMg" },
+          { title: "Groups of the Periodic Table | Khan Academy", id: "LDHg7Vgzses" },
+          { title: "Groups of the Periodic Table: Alkali Metals, Alkaline Metals, Halogens, & Noble Gases", id: "v1GyV43H2uI" },
+          { title: "Periodic Table Families | Learn Easily with Desserts", id: "So-KCcsh4GE" },
+          { title: "Families of the Periodic Table", id: "gFfug4V_-sw" },
+          { title: "All Families In The Periodic Table Explained!", id: "roYiPCcMnzc" },
         ],
       },
       {
@@ -345,6 +486,14 @@ const curriculum = [
           { label: "Chemical Formula Practice 1.3", url: "https://kami.app/77y-YcS-vTE-SrS", thumb: THUMB("1pQtsdjM2Vw65a4C-SQJVyCahR2xq54af") },
           { label: "Chemical Formula Practice 1", url: "https://kami.app/tAG-GkP-PzE-f7J", thumb: THUMB("1CrvSMXj4T5-ALWAuehAKw8Ngm3Scinik") },
         ],
+        videos: [
+          { title: "Writing Chemical Formulas For Ionic Compounds", id: "GJ4Mds0CWLE" },
+          { title: "Writing Formulas for Ionic Compounds", id: "RKbPc-QkMC0" },
+          { title: "Writing Ionic Formulas - Basic Introduction", id: "jJUO0Vqd3QE" },
+          { title: "Writing Ionic Compounds Formulas | Fast & Easy Way | Practice Examples", id: "xAJQr5Owa68" },
+          { title: "Writing Ionic Formulas: Introduction", id: "URc75hoKGLY" },
+          { title: "Writing Ionic Formulas: Practice Problems", id: "X_LVANMpJ0c" },
+        ],
       },
       {
         title: "Naming Ionic Compounds",
@@ -356,6 +505,14 @@ const curriculum = [
         assignments: [
           { label: "POGIL — Naming Ionic Compounds", url: "https://kami.app/P5h-qx6-sp2-mru", thumb: THUMB("1WqGZm1fzDFz9ieOoTwwNYlQsgMo34cPm") },
           { label: "Chemical Formula Practice 1.2", url: "https://docs.google.com/document/d/1NBmr-aZP80ZDuQvibs2tK0eU7fILb3wbWlLCpCn1BI0/edit", thumb: THUMB("1pYBv2DSJwCkEH1ifHdszojNUaGAh3DEs") },
+        ],
+        videos: [
+          { title: "Naming Compounds with Polyatomic Ions", id: "PPfLDdIfOVA" },
+          { title: "How To Name Ionic Compounds With Transition Metals", id: "eM5mDnQX0k8" },
+          { title: "Naming Ionic Compounds with Polyatomic Ions!", id: "LZsEiFDtdO4" },
+          { title: "How to Name Ionic Compounds with Polyatomic Ions", id: "eTNSij-GVHk" },
+          { title: "Compounds Containing Polyatomic Ions - Naming and Writing Chemical Formulas", id: "BT9XUoXKzmc" },
+          { title: "Naming Ionic Compounds with Polyatomic Ions Examples & Practice Problems", id: "gt44MueXBso" },
         ],
       },
       {
@@ -392,6 +549,14 @@ const curriculum = [
           { label: "POGIL — Balancing Equations", url: "https://kami.app/SyJ-huH-7ne-9t2", thumb: THUMB("1__moV7RqRrDljNkRMqzW4M1uOA-5f8he") },
           { label: "Word Equations", url: "https://kami.app/Hpx-zZJ-t4X-fq7", thumb: THUMB("1w3_E_xQkS4jhgxLJb5bD3kF4XY3sGiTx") },
         ],
+        videos: [
+          { title: "Balancing Chemical Equations | Law of Conservation of Mass | Chemistry 101", id: "fBFETm36Tc4" },
+          { title: "Balancing Chemical Equations: Conservation of Mass Explained for Beginners", id: "8bF82Zooaos" },
+          { title: "Law of Conservation of Mass & Balancing Chemical Equation", id: "nJScfxbwXGw" },
+          { title: "Law of Conservation of Mass (Balancing Reactions)", id: "SjOcBr_6xvE" },
+          { title: "Law of Conservation of Mass & Balancing Chemical Equations", id: "DXW367itRiA" },
+          { title: "How Do Balanced Equations Ensure Conservation of Mass?", id: "ZOlpH-3UfQU" },
+        ],
       },
       {
         title: "Types of Reactions",
@@ -403,6 +568,14 @@ const curriculum = [
         assignments: [
           { label: "Equations Worksheet", url: "https://kami.app/g8W-3NG-PHJ-cLz", thumb: THUMB("1-s19NEUJ60kIalc4cyeSxMM8fUhMJ5gt") },
           { label: "Foldable — Types of Reactions", url: "https://kami.app/7f2-SMf-hXF-wWt", thumb: THUMB("17NqzUlpRJFbt14BxDEHpgc98hSu0mwy0") },
+        ],
+        videos: [
+          { title: "Types of Chemical Reactions (Synthesis, Decomposition, Single & Double Replacement, Combustion)", id: "OYW4pJvs3AU" },
+          { title: "Types of Reaction: Single Displacement, Double Displacement, Synthesis, Decomposition, Combustion", id: "eUs2__t--3s" },
+          { title: "Classifying Types of Chemical Reactions Practice Problems", id: "2qX9MOQOmAM" },
+          { title: "Chemical Reactions Types - Single vs Double Displacement, Combination, Decomposition & Combustion", id: "427ZnkhE1cQ" },
+          { title: "Classifying and Balancing Single, Double Replacement, Synthesis & Decomposition", id: "WQv-mFXVskE" },
+          { title: "Chemical Reactions - Combination, Decomposition, Combustion, Single & Double Displacement", id: "1IG7t3kheGk" },
         ],
       },
       {
@@ -452,6 +625,14 @@ const curriculum = [
           { label: "Calculating with Scientific Notation", url: "https://kami.app/6BG-y6K-JjH-t2L", thumb: THUMB("1OSNyQmv7cw4PIDGtsAR9omFAGKbmDWQt") },
           { label: "POGIL — Mole", url: "https://kami.app/QyP-AYV-yYN-jdk", thumb: THUMB("1vztc2_lphV_dunIUZrFUApdprSXhdMkw") },
         ],
+        videos: [
+          { title: "Stoichiometry Basic Introduction, Mole to Mole, Grams to Grams, Mole Ratio Practice Problems", id: "7Cfq0ilw7ps" },
+          { title: "Stoichiometry Mole to Mole Conversions - Molar Ratio Practice Problems", id: "3zmeVamEsWI" },
+          { title: "Stoichiometry 4: Mole to Mass Stoichiometry (Mole to Grams)", id: "PAyADIBpclk" },
+          { title: "Mass-Mass Stoichiometry", id: "3-rk3axcoYw" },
+          { title: "Stoichiometry | Mole to Mole | Grams to Grams | Mole to Grams | Grams to Mole | Mole Ratio", id: "guuo5P9p-XU" },
+          { title: "Stoichiometry: Mole to Mole and Mole to Mass Conversions", id: "nTuriINaT2I" },
+        ],
       },
             {
                     title: "Dimensional Analysis",
@@ -464,6 +645,14 @@ const curriculum = [
                                                                                   assignments: [
                                                                                                                 { label: "Dimensional Analysis Paper Visual", url: "https://drive.google.com/file/d/1I8KUBx9h_qxPkhzz0nvF_mVQRX9vOlIg/view", thumb: THUMB("1I8KUBx9h_qxPkhzz0nvF_mVQRX9vOlIg") },
                                                                                                                         ],
+        videos: [
+          { title: "Unit Conversion & Dimensional Analysis | How to Pass Chemistry", id: "0W1e-dAnRrE" },
+          { title: "Dimensional Analysis/Factor Label Method - Chemistry Tutorial", id: "DsTg1CeWchc" },
+          { title: "Unit Conversion Using Dimensional Analysis Tutorial (Factor Label Method)", id: "cbPmLTIe4A4" },
+          { title: "Dimensional Analysis for Chemistry Conversions: The 3 Step Method for Unit Factors", id: "9nFmrMuBmR8" },
+          { title: "How to Use Dimensional Analysis to Convert Units", id: "ktxdJZmMJbY" },
+          { title: "Dimensional Analysis: Converting Units with 3 Conversion Factors", id: "eKDePGWNAHo" },
+        ],
                                                                                                                               },
       {
         title: "Labs",
@@ -494,6 +683,14 @@ const curriculum = [
         assignments: [
           { label: "POGIL — Bonding", url: "https://drive.google.com/file/d/1ZzhCXdln84_V_liZwBlsmoPxfZ0C9J0U/view", thumb: THUMB("1ZzhCXdln84_V_liZwBlsmoPxfZ0C9J0U") },
         ],
+        videos: [
+          { title: "Chemical Bonding Explained: Ionic, Covalent & Metallic", id: "YPUosyliWNo" },
+          { title: "Types of Bonding (Ionic, Covalent, Metallic) - GCSE Chemistry Revision", id: "vUbUoyR6Log" },
+          { title: "Chemical Bonding Explained (Ionic, Covalent, Metallic)", id: "7YZjhi0f1es" },
+          { title: "8.1 Ionic, Covalent, and Metallic Bonding | High School Chemistry", id: "Ef9605V0wz8" },
+          { title: "Chemical Bonding: Introduction to Covalent, Ionic, and Metallic Bonds!", id: "u_Y1sC58C7M" },
+          { title: "Ionic, Covalent, and Metallic Bonds | Khan Academy", id: "ZnDbJx0R5Eg" },
+        ],
       },
       {
         title: "Ionic Bonding",
@@ -514,6 +711,14 @@ const curriculum = [
           { label: "Writing Formulas for Ionic Compounds", url: "https://kami.app/mLA-wVq-Sf3-UUJ", thumb: THUMB("1bNwP8Kse0tfYXCfhdw02hBpg8xbSNOz3") },
           { label: "Determining the Charge of Cations and Anions", url: "https://kami.app/PkH-Gdx-US9-9ia", thumb: THUMB("1cDcZXBg51fdhFZoqRJzgUzIUj10hAIjM") },
         ],
+        videos: [
+          { title: "Ionic Bonding Intro - How Cations and Anions Bond Together", id: "MpaLHoc-_xg" },
+          { title: "Ionic Bonding: How Cations and Anions Form Ionic Lattices", id: "vj6PurxiFHs" },
+          { title: "Ionic Bonds: Cations and Anions", id: "C1GsMv8B2Fg" },
+          { title: "Ionic Bonding", id: "hiyTfhjeF_U" },
+          { title: "How Does Electronegativity Relate To Ionic Bonds?", id: "JUQ-EHqssSg" },
+          { title: "How Do Ionic Bonds Form?", id: "2vD-LuqTzLY" },
+        ],
       },
       {
         title: "VSEPR Theory",
@@ -525,6 +730,14 @@ const curriculum = [
         assignments: [
           { label: "Polarity Practice (8)", url: "https://kami.app/MAj-ygv-FAM-KgD", thumb: THUMB("1irBbQpaPJl6VyWrfS8CwigLke3b_pBhj") },
           { label: "Chemical Bonding Homework", url: "https://kami.app/sCm-kLs-85c-vH4", thumb: THUMB("1sKZ_gXq2gKccYw_19IwpJffCKgewhztq") },
+        ],
+        videos: [
+          { title: "Chemistry II: Video 6-1: VSEPR Theory and Polarity", id: "FZvZd4VNe9o" },
+          { title: "VSEPR & Molecular Polarity", id: "GlU9epvu268" },
+          { title: "Molecules EXPLAINED | VSEPR Theory, Polarity, Intermolecular Forces", id: "-PESqwqXNxU" },
+          { title: "Polarity in VSEPR Shapes", id: "NZ5Wf_dPcOM" },
+          { title: "VSEPR Theory - Basic Introduction", id: "DBrq31w8vC4" },
+          { title: "Polar vs. Nonpolar Using VSEPR Theory", id: "h-YQbEJwcNs" },
         ],
       },
       {
@@ -560,6 +773,14 @@ const curriculum = [
           { label: "Copy — Thermochemistry Practice (8)", url: "https://kami.app/Zup-qjw-Asw-U6t", thumb: THUMB("1fv-AN0WmEwOPvba-fVcRinLUx2-SrXWT") },
           { label: "Heat Practice Problems", url: "https://kami.app/1mT-qG3-BQP-AcJ", thumb: THUMB("1FZBM4GMPBY_xCOGN3e-BZwD_Fqp3L0NZ") },
         ],
+        videos: [
+          { title: "Calorimetry Specific Heat Capacity q=mcΔT Made Super Simple", id: "SCjFC_Vy1cY" },
+          { title: "Heat and Calorimetry | How to Use the Equation Q=MCΔT in Chemistry", id: "mYFgaVqeIm4" },
+          { title: "Specific Heat Capacity (q=mCΔT) Examples, Practice Problems", id: "LWTbCetd5EM" },
+          { title: "Calorimetry, Specific Heat Capacity, and Q=MCΔT", id: "Xn-vRyWu7mI" },
+          { title: "Heat Transfer and Specific Heat Capacity", id: "q6u6Rf2-1Jo" },
+          { title: "Energy Changes in Chemical Reactions - Exothermic and Endothermic Reactions", id: "RysUDc8aIYA" },
+        ],
       },
       {
         title: "Heating Curves",
@@ -571,6 +792,14 @@ const curriculum = [
         assignments: [
           { label: "Heating Curve Worksheet", url: "https://drive.google.com/file/d/1I0vBGH6XD7EUdUZQ4lRQXYauIKm4lUAg/view", thumb: THUMB("1I0vBGH6XD7EUdUZQ4lRQXYauIKm4lUAg") },
           { label: "Copy of Heat Practice Problems", url: "https://kami.app/UEj-Kh8-GNn-Msi", thumb: THUMB("1pTlEjn-YU4hj6YhPvc_oVS5F0l4mZhh-") },
+        ],
+        videos: [
+          { title: "What Are the Phase Changes in Chemistry | Why Does the Heating Curve Look Like That", id: "2rIYaJDetkM" },
+          { title: "It's THIS Easy!? Reading a Heating Curve (Phase Change Diagram)", id: "gMLxKRr3L54" },
+          { title: "Phase Diagrams and Heating/Cooling Curves", id: "0TfYd9B6ttM" },
+          { title: "IGCSE Chemistry | Heating & Cooling Curves Explained", id: "MmrkoKhRGaQ" },
+          { title: "Heating Curves Tutorial: How to Calculate Enthalpy Changes in Heating & Cooling", id: "MGcPQtaQHeA" },
+          { title: "Heating Curve for Water | Khan Academy", id: "MqAVc_XaIXQ" },
         ],
       },
       {
@@ -734,9 +963,70 @@ function AssignmentThumb({ label, url, thumb }) {
   );
 }
 
-function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropdown, setOpenDropdown, handleUnitOverview, handleLessonClick, goHome, arrangementKey, setArrangementKey, showArrangementMenu, setShowArrangementMenu }) {
+function VideoThumb({ title, id, onPlay }) {
   return (
-    <div style={{ background: "#1a1a1a", borderBottom: "4px solid #E87722", flexShrink: 0 }}>
+    <button
+      onClick={() => onPlay(id)}
+      style={{ background: "#000", borderRadius: 3, overflow: "hidden", cursor: "pointer", position: "relative", border: "2px solid transparent", transition: "all 0.15s", aspectRatio: "16/9", display: "block", padding: 0, textAlign: "left", width: "100%" }}
+      onMouseEnter={e => { e.currentTarget.style.borderColor = "#E87722"; e.currentTarget.style.transform = "translateY(-2px)"; }}
+      onMouseLeave={e => { e.currentTarget.style.borderColor = "transparent"; e.currentTarget.style.transform = "translateY(0)"; }}
+    >
+      <img src={youtubeThumb(id)} alt={title} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+      <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ width: 44, height: 32, borderRadius: 6, background: "rgba(232,119,34,0.92)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 8px rgba(0,0,0,0.4)" }}>
+          <div style={{ width: 0, height: 0, borderTop: "8px solid transparent", borderBottom: "8px solid transparent", borderLeft: "13px solid white", marginLeft: 3 }} />
+        </div>
+      </div>
+      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "rgba(0,0,0,0.75)", color: "white", fontSize: 11, fontFamily: "Oswald, sans-serif", padding: "5px 8px", letterSpacing: 0.3 }}>
+        {title}
+      </div>
+    </button>
+  );
+}
+
+function VideoLibrary({ videos, playingVideoId, setPlayingVideoId }) {
+  if (!videos || videos.length === 0) return null;
+  const playing = videos.find(v => extractYouTubeId(v.id) === playingVideoId);
+  return (
+    <div style={{ padding: `0 ${SPACE.lg}px ${SPACE.lg}px`, maxWidth: 1700, width: "100%", margin: "0 auto", boxSizing: "border-box" }}>
+      <div style={{ background: "#1a1a1a", border: "3px solid #E87722", borderRadius: 4, overflow: "hidden", boxShadow: "0 3px 12px rgba(0,0,0,0.25)" }}>
+        <div style={{ background: "#E87722", padding: `${SPACE.xs}px ${SPACE.md}px`, fontFamily: "Oswald, sans-serif", fontSize: 14, color: "#1a1a1a", letterSpacing: 1, textTransform: "uppercase", fontWeight: 600 }}>
+          Video Library
+        </div>
+        <div style={{ padding: SPACE.sm }}>
+          {playing && (
+            <div style={{ marginBottom: SPACE.sm }}>
+              <div style={{ width: "100%", aspectRatio: "16/9", background: "#000", borderRadius: 3, overflow: "hidden" }}>
+                <iframe
+                  src={youtubeEmbed(playing.id)}
+                  title={playing.title}
+                  style={{ width: "100%", height: "100%", border: "none", display: "block" }}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              </div>
+              <button
+                onClick={() => setPlayingVideoId(null)}
+                style={{ marginTop: SPACE.xs, background: "transparent", border: "1px solid rgba(255,255,255,0.3)", color: "#ccc", fontFamily: "Lato, sans-serif", fontSize: 12, padding: "4px 10px", borderRadius: 3, cursor: "pointer" }}
+              >
+                ✕ Close player
+              </button>
+            </div>
+          )}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: SPACE.md }}>
+            {videos.map((v, vi) => (
+              <VideoThumb key={vi} title={v.title} id={v.id} onPlay={(id) => setPlayingVideoId(extractYouTubeId(id))} />
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropdown, setOpenDropdown, handleUnitOverview, handleLessonClick, goHome, arrangementKey, setArrangementKey, showArrangementMenu, setShowArrangementMenu, bulletinStyleKey, setBulletinStyleKey }) {
+  return (
+    <div style={{ background: "#1a1a1a", borderBottom: "4px solid #E87722", flexShrink: 0, position: "relative" }}>
       <div style={{ padding: `${SPACE.md}px ${SPACE.lg}px ${SPACE.sm}px`, textAlign: "center", position: "relative" }}>
         <div
           onClick={goHome}
@@ -748,37 +1038,18 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
         {/* Board layout presets — "presets first": a short list of pre-built
             arrangements a teacher can pick from, no free-form controls. Only
             one preset exists today; this menu is the extension point for
-            future ones. */}
-        <div style={{ position: "absolute", right: SPACE.lg, top: "50%", transform: "translateY(-50%)" }} onClick={e => e.stopPropagation()}>
-          <button
-            onClick={() => setShowArrangementMenu(v => !v)}
-            title="Board layout"
-            aria-label="Board layout presets"
-            style={{ width: 34, height: 34, borderRadius: "50%", border: "1px solid rgba(255,255,255,0.25)", background: showArrangementMenu ? "#E87722" : "transparent", color: showArrangementMenu ? "#1a1a1a" : "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, transition: "all 0.15s" }}
-          >
-            ⚙
-          </button>
-          {showArrangementMenu && (
-            <div style={{ position: "absolute", top: "calc(100% + 8px)", right: 0, minWidth: 240, background: "#1a1a1a", border: "1px solid #E87722", borderRadius: 4, zIndex: 5000, overflow: "hidden", boxShadow: "0 4px 18px rgba(0,0,0,0.4)" }}>
-              <div style={{ padding: `${SPACE.xs}px ${SPACE.md}px`, fontFamily: "Oswald, sans-serif", fontSize: 11, color: "rgba(255,255,255,0.5)", letterSpacing: 1.5, textTransform: "uppercase", borderBottom: "1px solid #2a2a2a" }}>
-                Board Layout
-              </div>
-              {Object.values(BOARD_ARRANGEMENTS).map(a => (
-                <div key={a.id}
-                  onClick={() => { setArrangementKey(a.id); setShowArrangementMenu(false); }}
-                  style={{ padding: `${SPACE.sm}px ${SPACE.md}px`, fontSize: 13, fontFamily: "Lato, sans-serif", fontWeight: 700, color: arrangementKey === a.id ? "#E87722" : "#ccc", cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}
-                  onMouseEnter={e => { e.currentTarget.style.background = "#2a2a2a"; }}
-                  onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}
-                >
-                  <span style={{ width: 14, height: 14, borderRadius: "50%", border: `2px solid ${arrangementKey === a.id ? "#E87722" : "rgba(255,255,255,0.4)"}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                    {arrangementKey === a.id && <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#E87722" }} />}
-                  </span>
-                  {a.label}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+            future ones. Button lives here (aligned with the title), but the
+            menu itself is anchored to the outer bar below so it drops below
+            the *entire* top bar (title + unit nav), not just this row —
+            otherwise it opens on top of the unit nav and the board beneath it. */}
+        <button
+          onClick={e => { e.stopPropagation(); setShowArrangementMenu(v => !v); }}
+          title="Board layout"
+          aria-label="Board layout presets"
+          style={{ position: "absolute", right: SPACE.lg, top: "50%", transform: "translateY(-50%)", width: 34, height: 34, borderRadius: "50%", border: "1px solid rgba(255,255,255,0.25)", background: showArrangementMenu ? "#E87722" : "transparent", color: showArrangementMenu ? "#1a1a1a" : "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, transition: "all 0.15s" }}
+        >
+          ⚙
+        </button>
       </div>
 
       {/* Unit nav */}
@@ -815,6 +1086,55 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
           </div>
         ))}
       </div>
+
+      {/* Board layout menu — positioned relative to the outer bar (title +
+          nav), so "top: 100%" here means "right below the whole top bar",
+          clear of both rows above it. */}
+      {showArrangementMenu && (
+        <div onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "100%", right: SPACE.lg, minWidth: 260, maxWidth: 320, background: "#1a1a1a", border: "1px solid #E87722", borderRadius: "0 0 4px 4px", zIndex: 5000, overflow: "hidden", boxShadow: "0 4px 18px rgba(0,0,0,0.4)" }}>
+          <div style={{ padding: `${SPACE.xs}px ${SPACE.md}px`, fontFamily: "Oswald, sans-serif", fontSize: 11, color: "rgba(255,255,255,0.5)", letterSpacing: 1.5, textTransform: "uppercase", borderBottom: "1px solid #2a2a2a" }}>
+            Board Layout
+          </div>
+          {Object.values(BOARD_ARRANGEMENTS).map(a => (
+            <div key={a.id}
+              onClick={() => { setArrangementKey(a.id); setShowArrangementMenu(false); }}
+              style={{ padding: `${SPACE.sm}px ${SPACE.md}px`, fontSize: 13, fontFamily: "Lato, sans-serif", fontWeight: 700, color: arrangementKey === a.id ? "#E87722" : "#ccc", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, whiteSpace: "nowrap" }}
+              onMouseEnter={e => { e.currentTarget.style.background = "#2a2a2a"; }}
+              onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}
+            >
+              <span style={{ width: 14, height: 14, borderRadius: "50%", border: `2px solid ${arrangementKey === a.id ? "#E87722" : "rgba(255,255,255,0.4)"}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                {arrangementKey === a.id && <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#E87722" }} />}
+              </span>
+              {a.label}
+            </div>
+          ))}
+
+          {/* Bulletin board presets — same list-of-presets pattern as board
+              layout above, just swatch-based instead of radio dots since the
+              choice itself is visual (color, optionally with a decorative
+              dot-trim border). */}
+          <div style={{ padding: `${SPACE.xs}px ${SPACE.md}px`, fontFamily: "Oswald, sans-serif", fontSize: 11, color: "rgba(255,255,255,0.5)", letterSpacing: 1.5, textTransform: "uppercase", borderTop: "1px solid #2a2a2a", borderBottom: "1px solid #2a2a2a" }}>
+            Bulletin Board
+          </div>
+          {Object.values(BULLETIN_STYLES).map(b => (
+            <div key={b.id}
+              onClick={() => { setBulletinStyleKey(b.id); setShowArrangementMenu(false); }}
+              style={{ padding: `${SPACE.sm}px ${SPACE.md}px`, fontSize: 13, fontFamily: "Lato, sans-serif", fontWeight: 700, color: bulletinStyleKey === b.id ? "#E87722" : "#ccc", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, whiteSpace: "nowrap" }}
+              onMouseEnter={e => { e.currentTarget.style.background = "#2a2a2a"; }}
+              onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}
+            >
+              <span style={{
+                width: 18, height: 18, borderRadius: 4, flexShrink: 0,
+                background: b.background,
+                backgroundImage: b.trim || undefined,
+                backgroundSize: b.trim ? "12px 6px" : undefined,
+                border: `2px solid ${bulletinStyleKey === b.id ? "#E87722" : "rgba(255,255,255,0.3)"}`,
+              }} />
+              {b.label}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -823,19 +1143,47 @@ export default function App() {
   const [activeUnitIdx, setActiveUnitIdx] = useState(null);
   const [activeLesson, setActiveLesson] = useState(null);
   const [openDropdown, setOpenDropdown] = useState(null);
-  const [checkedGoals, setCheckedGoals] = useState({});
+  const [playingVideoId, setPlayingVideoId] = useState(null);
+  const [checkedGoals, setCheckedGoals] = useState(() => {
+    if (typeof window === "undefined") return {};
+    try {
+      return JSON.parse(window.localStorage.getItem(scopedKey(GOALS_STORAGE_KEY))) || {};
+    } catch {
+      return {};
+    }
+  });
   const [arrangementKey, setArrangementKey] = useState(() => {
     if (typeof window === "undefined") return DEFAULT_ARRANGEMENT;
-    const saved = window.localStorage.getItem(ARRANGEMENT_STORAGE_KEY);
+    const saved = window.localStorage.getItem(scopedKey(ARRANGEMENT_STORAGE_KEY));
     return saved && BOARD_ARRANGEMENTS[saved] ? saved : DEFAULT_ARRANGEMENT;
   });
   const [showArrangementMenu, setShowArrangementMenu] = useState(false);
+  const [bulletinStyleKey, setBulletinStyleKey] = useState(() => {
+    if (typeof window === "undefined") return DEFAULT_BULLETIN;
+    const saved = window.localStorage.getItem(scopedKey(BULLETIN_STORAGE_KEY));
+    return saved && BULLETIN_STYLES[saved] ? saved : DEFAULT_BULLETIN;
+  });
 
   useEffect(() => {
-    window.localStorage.setItem(ARRANGEMENT_STORAGE_KEY, arrangementKey);
+    window.localStorage.setItem(scopedKey(ARRANGEMENT_STORAGE_KEY), arrangementKey);
   }, [arrangementKey]);
 
+  useEffect(() => {
+    window.localStorage.setItem(scopedKey(BULLETIN_STORAGE_KEY), bulletinStyleKey);
+  }, [bulletinStyleKey]);
+
+  useEffect(() => {
+    window.localStorage.setItem(scopedKey(GOALS_STORAGE_KEY), JSON.stringify(checkedGoals));
+  }, [checkedGoals]);
+
+  // Close any open video player when navigating to a different lesson,
+  // rather than leaving the previous lesson's video paused-but-open behind.
+  useEffect(() => {
+    setPlayingVideoId(null);
+  }, [activeLesson]);
+
   const arrangement = BOARD_ARRANGEMENTS[arrangementKey] || BOARD_ARRANGEMENTS[DEFAULT_ARRANGEMENT];
+  const bulletinStyle = BULLETIN_STYLES[bulletinStyleKey] || BULLETIN_STYLES[DEFAULT_BULLETIN];
 
   const isHome = activeUnitIdx === null;
   const activeUnit = isHome ? null : curriculum[activeUnitIdx];
@@ -870,10 +1218,11 @@ export default function App() {
   const topBarProps = {
     curriculum, activeUnitIdx, isOverview, activeLesson, openDropdown, setOpenDropdown, handleUnitOverview, handleLessonClick, goHome,
     arrangementKey, setArrangementKey, showArrangementMenu, setShowArrangementMenu,
+    bulletinStyleKey, setBulletinStyleKey,
   };
 
   return (
-    <div onClick={() => setOpenDropdown(null)}
+    <div onClick={() => { setOpenDropdown(null); setShowArrangementMenu(false); }}
       style={isHome
         ? { background: "#1a1a1a", height: "100vh", fontFamily: "Lato, sans-serif", display: "flex", flexDirection: "column", overflow: "hidden" }
         : { background: "#ded6c0", backgroundImage: CINDERBLOCK_BG, backgroundSize: "160px 80px", minHeight: "100vh", fontFamily: "Lato, sans-serif", display: "flex", flexDirection: "column" }
@@ -904,8 +1253,18 @@ export default function App() {
           {/* Board unit */}
           <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", border: "7px solid #8B6914", borderRadius: 5, overflow: "hidden", boxShadow: "0 4px 18px rgba(0,0,0,0.35)" }}>
 
-            {/* Bulletin strip */}
-            <div style={{ background: "#1a2a4a", position: "relative", minHeight: 112, flexShrink: 0 }} />
+            {/* Bulletin strip — background + optional decorative dot-trim
+                along the top/bottom edges, both driven by the selected
+                BULLETIN_STYLES preset. */}
+            <div style={{ background: bulletinStyle.background, position: "relative", minHeight: 112, flexShrink: 0, display: "flex", flexDirection: "column" }}>
+              {bulletinStyle.trim && (
+                <div style={{ height: 10, flexShrink: 0, backgroundImage: bulletinStyle.trim, backgroundRepeat: "repeat-x", backgroundSize: "24px 10px" }} />
+              )}
+              <div style={{ flex: 1 }} />
+              {bulletinStyle.trim && (
+                <div style={{ height: 10, flexShrink: 0, backgroundImage: bulletinStyle.trim, backgroundRepeat: "repeat-x", backgroundSize: "24px 10px" }} />
+              )}
+            </div>
 
             {/* Chalkboard */}
             <div style={{ flex: 1, minHeight: 0, background: "#2d5a2d", borderTop: "4px solid #6B4F10", display: "flex", flexDirection: "column" }}>
@@ -924,6 +1283,7 @@ export default function App() {
                   checkedGoals={checkedGoals}
                   toggleGoal={toggleGoal}
                   SmartBoard={SmartBoard}
+                  arrangement={arrangement}
                 />
               ) : (() => {
                 // Rendered according to the selected board arrangement preset
@@ -1033,6 +1393,11 @@ export default function App() {
           </div>
         </div>
       </div>
+
+      {/* ── Video library — lesson-scoped only, matches the assignments block above ── */}
+      {!isOverview && (
+        <VideoLibrary videos={activeLesson?.videos} playingVideoId={playingVideoId} setPlayingVideoId={setPlayingVideoId} />
+      )}
       </>
       )}
 

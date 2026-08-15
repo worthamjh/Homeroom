@@ -71,6 +71,9 @@ function Rail({ top }) {
   );
 }
 
+// Default: matches the App-level "classic" preset (SmartBoard left, 60/40 split).
+const DEFAULT_ARRANGEMENT = { order: ["slides", "goals"], gridTemplateColumns: "3fr 2fr" };
+
 export default function ChalkboardBoardRow({
   smartBoardSrc,
   isOverview,
@@ -80,8 +83,28 @@ export default function ChalkboardBoardRow({
   checkedGoals,
   toggleGoal,
   SmartBoard,
+  arrangement = DEFAULT_ARRANGEMENT,
 }) {
   const [current, setCurrent] = useState(0);
+
+  // Derive the same left/right split the static layout uses from the shared
+  // arrangement config, so "Inverse" flips this sliding mechanic too instead
+  // of only the plain layout. `order` says which side (slides vs goals)
+  // comes first; `gridTemplateColumns` ("Xfr Yfr") gives their relative
+  // widths in that same order.
+  const smartboardOnRight = arrangement.order[0] === "goals";
+  const [colA, colB] = arrangement.gridTemplateColumns.split(" ").map(s => parseFloat(s) || 1);
+  const total = colA + colB;
+  const firstPct = (colA / total) * 100;
+  const secondPct = (colB / total) * 100;
+  const smartboardWidthPct = smartboardOnRight ? secondPct : firstPct;
+  const goalsWidthPct = smartboardOnRight ? firstPct : secondPct;
+  const smartboardLeftPct = smartboardOnRight ? 100 - smartboardWidthPct : 0;
+  const goalsHomeLeftPct = smartboardOnRight ? 0 : 100 - goalsWidthPct;
+  // The "far edge" a pulled board travels to — the boundary of the SmartBoard
+  // region furthest from the goals column's own home position, so a fully
+  // parked board ends up entirely under the SmartBoard's footprint.
+  const dockFarEdgePct = smartboardOnRight ? 100 - goalsWidthPct : 0;
 
   // One handle per movable board (every panel except the fixed back board).
   // Handle i is physically attached to board i — pulling it slides that
@@ -90,24 +113,37 @@ export default function ChalkboardBoardRow({
   // clicking a docked handle — that pushes the boards in between back
   // into place instead of only ever advancing by one.
   const handleCount = Math.max(panels.length - 1, 0);
-  // The first board docked goes all the way to the SmartBoard's far edge
-  // (0%). Every board docked after that stops just short of the one
-  // before it — DOCK_STEP_PX further right, in pixels rather than a
-  // percentage — so its frame peeks out past the board in front of it
-  // without exposing a wide strip of the writing surface. The step has to
-  // be at least as wide as the corner handle's own footprint (4px inset +
-  // 22px wide = 26px) or the handle would land half-buried under the
-  // board in front of it — clickable, but only across part of itself.
-  // 30px clears that with a little room to spare.
+  // The first board docked goes all the way to the SmartBoard's far edge.
+  // Every board docked after that stops just short of the one before it —
+  // DOCK_STEP_PX further toward the goals column's home side (in pixels
+  // rather than a percentage) — so its frame peeks out past the board in
+  // front of it without exposing a wide strip of the writing surface. The
+  // step has to be at least as wide as the corner handle's own footprint
+  // (4px inset + 22px wide = 26px) or the handle would land half-buried
+  // under the board in front of it — clickable, but only across part of
+  // itself. 30px clears that with a little room to spare. Direction flips
+  // with smartboardOnRight so boards always fan back toward "home" while
+  // staying under the SmartBoard's coverage.
   const DOCK_STEP_PX = 30;
-  const dockedLeftFor = (i) => `${i * DOCK_STEP_PX}px`;
+  const dockedLeftFor = (i) => `calc(${dockFarEdgePct}% + ${(smartboardOnRight ? -1 : 1) * i * DOCK_STEP_PX}px)`;
+  // Trailing edge of a moving board — the side that's last to clear, and
+  // therefore where the spine/reveal-seam belongs. Moving toward the right
+  // (smartboardOnRight) trails on the left; moving left (classic) trails
+  // on the right.
+  const spineSide = smartboardOnRight ? "left" : "right";
+  const dividerSide = smartboardOnRight ? "borderRight" : "borderLeft";
+  // Chevrons read as "slide this direction" — which direction is actually
+  // "pull away" vs "bring back" flips with the arrangement, same as
+  // everything else here.
+  const pullChevron = smartboardOnRight ? "›" : "‹";
+  const returnChevron = smartboardOnRight ? "‹" : "›";
 
   return (
     <div style={{ flex: 1, minHeight: 0, position: "relative", overflow: "hidden" }}>
       {/* Slides column — stays put, high z-index so it visually occludes parked
-          panels. This rectangle spans the full 60% column, well past where
-          any docked board actually sits, and SmartBoard doesn't fill it edge
-          to edge (there's padding, plus SmartBoard vertically centers a
+          panels. This rectangle spans the full SmartBoard column, well past
+          where any docked board actually sits, and SmartBoard doesn't fill it
+          edge to edge (there's padding, plus SmartBoard vertically centers a
           shorter device mockup within its own 100%-height box). Without
           pointerEvents: "none" here, all of that empty space — invisible,
           but still real elements sitting on top in z-order — would silently
@@ -117,13 +153,13 @@ export default function ChalkboardBoardRow({
           label bar, the marker tray) inside the component itself, so the
           board and its buttons stay clickable, but the genuinely empty
           margin around it doesn't. */}
-      <div style={{ position: "absolute", left: 0, top: 0, width: "60%", height: "100%", zIndex: 1000, boxSizing: "border-box", padding: 16, display: "flex", justifyContent: "center", pointerEvents: "none" }}>
+      <div style={{ position: "absolute", left: `${smartboardLeftPct}%`, top: 0, width: `${smartboardWidthPct}%`, height: "100%", zIndex: 1000, boxSizing: "border-box", padding: 16, display: "flex", justifyContent: "center", pointerEvents: "none" }}>
         <SmartBoard src={smartBoardSrc} />
       </div>
 
       {isOverview ? (
         // Overview mode: unchanged behavior, single static panel, no slide mechanic.
-        <div style={{ position: "absolute", left: "60%", top: 0, width: "40%", height: "100%", boxSizing: "border-box", borderLeft: "1px dashed rgba(255,255,255,0.18)", padding: 16, display: "flex", flexDirection: "column", gap: 8, overflowY: "auto" }}>
+        <div style={{ position: "absolute", left: `${goalsHomeLeftPct}%`, top: 0, width: `${goalsWidthPct}%`, height: "100%", boxSizing: "border-box", [dividerSide]: "1px dashed rgba(255,255,255,0.18)", padding: 16, display: "flex", flexDirection: "column", gap: 8, overflowY: "auto" }}>
           <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 12, color: "rgba(255,255,255,0.6)", letterSpacing: 2, textTransform: "uppercase", borderBottom: "1px solid rgba(255,255,255,0.15)", paddingBottom: 8 }}>
             Unit Lessons
           </div>
@@ -156,9 +192,9 @@ export default function ChalkboardBoardRow({
                 key={panelKey}
                 style={{
                   position: "absolute",
-                  left: parked ? dockedLeftFor(i) : "60%",
+                  left: parked ? dockedLeftFor(i) : `${goalsHomeLeftPct}%`,
                   top: 0,
-                  width: "40%",
+                  width: `${goalsWidthPct}%`,
                   height: "100%",
                   boxSizing: "border-box",
                   transition: "left 750ms cubic-bezier(0.4, 0, 0.2, 1)",
@@ -181,7 +217,7 @@ export default function ChalkboardBoardRow({
                   // as the visible "reveal line": since it's pinned to this
                   // panel's trailing edge, it's the seam you actually see
                   // sweeping across the board behind as this one slides away.
-                  <div style={{ position: "absolute", right: -7, top: 3, bottom: 3, width: 7, background: "#7a7a7a", border: "1px solid #4a4a4a", borderRadius: "0 2px 2px 0" }} />
+                  <div style={{ position: "absolute", [spineSide]: -7, top: 3, bottom: 3, width: 7, background: "#7a7a7a", border: "1px solid #4a4a4a", borderRadius: spineSide === "right" ? "0 2px 2px 0" : "2px 0 0 2px" }} />
                 )}
 
                 {!isBackBoard && (
@@ -221,7 +257,7 @@ export default function ChalkboardBoardRow({
                           a plain colored tab — points left ("pull me away")
                           when up front, right ("bring me back") once docked. */}
                       <span aria-hidden="true" style={{ fontSize: 10, lineHeight: 1, color: "rgba(0,0,0,0.55)", fontWeight: 700 }}>
-                        {parked ? "›" : "‹"}
+                        {parked ? returnChevron : pullChevron}
                       </span>
                     </button>
                     <button
@@ -241,7 +277,7 @@ export default function ChalkboardBoardRow({
                       }}
                     >
                       <span aria-hidden="true" style={{ fontSize: 10, lineHeight: 1, color: "rgba(0,0,0,0.55)", fontWeight: 700 }}>
-                        {parked ? "›" : "‹"}
+                        {parked ? returnChevron : pullChevron}
                       </span>
                     </button>
 
@@ -274,7 +310,7 @@ export default function ChalkboardBoardRow({
                       ? {
                           position: "absolute", inset: 0,
                           background: "#2d5a2d",
-                          borderLeft: "1px dashed rgba(255,255,255,0.18)",
+                          [dividerSide]: "1px dashed rgba(255,255,255,0.18)",
                           boxSizing: "border-box",
                           padding: 16,
                           display: "flex",
