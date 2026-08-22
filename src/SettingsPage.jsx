@@ -166,7 +166,27 @@ export default function SettingsPage() {
         <div style={{ fontFamily: "Oswald, sans-serif", color: "#fff", fontSize: 22, fontWeight: 600, letterSpacing: 1 }}>
           Board <span style={{ color: "#E87722" }}>Settings</span>
         </div>
-        <a href="/" style={{ fontFamily: "Lato, sans-serif", fontSize: 12, fontWeight: 700, color: "#E87722", textDecoration: "none" }}>
+        <a
+          href="/"
+          onClick={e => {
+            // Settings opens in its own tab specifically so the original
+            // board tab (wherever the teacher had navigated to — a
+            // specific lesson, a unit overview, etc.) stays untouched
+            // behind it. Navigating this tab to "/" would just load a
+            // fresh copy of the app at the homepage, losing that context.
+            // Closing the tab instead reveals the real board tab as-is.
+            // window.close() only succeeds on a tab opened via script
+            // (which this one is, via the gear icon's window.open); if
+            // it's a no-op (e.g. someone typed /settings in directly),
+            // fall through to the normal "/" navigation.
+            window.close();
+            setTimeout(() => {
+              if (!window.closed) window.location.href = "/";
+            }, 50);
+            e.preventDefault();
+          }}
+          style={{ fontFamily: "Lato, sans-serif", fontSize: 12, fontWeight: 700, color: "#E87722", textDecoration: "none" }}
+        >
           ← Back to the board
         </a>
       </div>
