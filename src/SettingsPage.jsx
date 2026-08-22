@@ -50,7 +50,7 @@ import {
 const PREVIEW_W = 1600;
 const PREVIEW_H = 900;
 
-function LiveBoardPreview({ highlightRegion }) {
+function LiveBoardPreview({ highlightRegion, onPanelCountInfo }) {
   const wrapRef = useRef(null);
   const iframeRef = useRef(null);
   const [scale, setScale] = useState(0.5);
@@ -83,10 +83,19 @@ function LiveBoardPreview({ highlightRegion }) {
     const handler = (e) => {
       if (e.source !== iframeRef.current?.contentWindow) return;
       if (e.data?.type === "homeroom-settings-preview-ready") sendHighlight();
+      // The preview reports how many boards the CURRENT lesson actually
+      // resolved to — which can be lower than the Sliding Boards Count
+      // setting, since a lesson with fewer goals than the requested count
+      // simply can't fill that many boards. Surfacing it lets the count
+      // control below explain itself instead of looking broken when
+      // bumping 3 → 5 does nothing for a 3-goal lesson.
+      if (e.data?.type === "homeroom-preview-panel-count") {
+        onPanelCountInfo?.({ requestedCount: e.data.requestedCount, resolvedCount: e.data.resolvedCount });
+      }
     };
     window.addEventListener("message", handler);
     return () => window.removeEventListener("message", handler);
-  }, [sendHighlight]);
+  }, [sendHighlight, onPanelCountInfo]);
 
   return (
     <div
@@ -157,6 +166,12 @@ function SectionHeading({ children }) {
 
 export default function SettingsPage() {
   const [selected, setSelected] = useState("background");
+  // { requestedCount, resolvedCount } for whatever lesson the preview is
+  // currently showing — reported by LiveBoardPreview from the embedded
+  // board itself (see the "homeroom-preview-panel-count" message), not
+  // computed here, since only the real board knows how many goals that
+  // specific lesson actually has.
+  const [panelCountInfo, setPanelCountInfo] = useState(null);
 
   const [arrangementKey, setArrangementKey] = useScopedSetting(ARRANGEMENT_STORAGE_KEY, DEFAULT_ARRANGEMENT, k => !!BOARD_ARRANGEMENTS[k]);
   const [bulletinStyleKey, setBulletinStyleKey] = useScopedSetting(BULLETIN_STORAGE_KEY, DEFAULT_BULLETIN, k => !!BULLETIN_STYLES[k]);
@@ -212,7 +227,7 @@ export default function SettingsPage() {
             <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 13, color: "rgba(255,255,255,0.4)", letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 14, textAlign: "center" }}>
               Live Preview
             </div>
-            <LiveBoardPreview highlightRegion={selected} />
+            <LiveBoardPreview highlightRegion={selected} onPanelCountInfo={setPanelCountInfo} />
             {selected && (
               <div style={{ marginTop: 14, textAlign: "center", fontFamily: "Lato, sans-serif", fontSize: 12, color: "rgba(255,255,255,0.5)" }}>
                 {CATEGORIES.find(c => c.id === selected)?.blurb}
@@ -327,8 +342,13 @@ export default function SettingsPage() {
                             ))}
                           </div>
                           <div style={{ padding: "0 14px 4px", fontFamily: "Lato, sans-serif", fontSize: 11, color: "rgba(255,255,255,0.4)", lineHeight: 1.4 }}>
-                            Applies to lessons that don't already define their own boards (Unit 10's Testing lessons keep their own board count). Only affects the Simple Goals content template.
+                            Applies to lessons that don't already define their own boards (Unit 10's Testing lessons keep their own board count). This is a maximum, not a fixed count — a lesson needs at least one learning goal per board, so one with fewer goals than the number picked here ends up with fewer boards too.
                           </div>
+                          {panelCountInfo?.requestedCount != null && panelCountInfo.resolvedCount != null && panelCountInfo.resolvedCount < panelCountInfo.requestedCount && (
+                            <div style={{ margin: "0 14px 8px", padding: "8px 10px", fontFamily: "Lato, sans-serif", fontSize: 11, lineHeight: 1.4, color: "#E87722", background: "rgba(232,119,34,0.1)", border: "1px solid rgba(232,119,34,0.35)", borderRadius: 4 }}>
+                              The lesson currently shown in the preview only has enough learning goals for {panelCountInfo.resolvedCount} board{panelCountInfo.resolvedCount === 1 ? "" : "s"} — it'll stay at {panelCountInfo.resolvedCount} even with {panelCountInfo.requestedCount} selected. Lessons with more goals will use more of them.
+                            </div>
+                          )}
                         </>
                       )}
                     </>

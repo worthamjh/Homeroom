@@ -1249,6 +1249,34 @@ export default function App() {
         : (activeLesson.goals || []).map((text, idx) => ({ text, panelKey: activeLesson.title, idx })))
     : [];
 
+  // The actual set of boards ChalkboardBoardRow will render for the
+  // current lesson — computed once here (rather than inline at the call
+  // site below) so preview mode can also report its *length* back to
+  // Settings. That length can legitimately be smaller than the Sliding
+  // Boards Count setting: buildSlidingPanels round-robins goals into that
+  // many buckets and then drops any that end up empty, so a lesson with
+  // only 3 goals produces at most 3 boards no matter how high the count
+  // is set — asking for 5 boards to share 3 goals doesn't invent 2 blank
+  // ones. Without surfacing that, picking 4 or 5 on a lesson like that
+  // looks like the setting silently stopped working.
+  const slidingPanelsForLesson = (!isOverview && activeLesson)
+    ? (activeLesson.goalPanels ? toGoalPanels(activeLesson) : buildSlidingPanels(goalItems, slidingCount))
+    : [];
+
+  // Preview-mode-only: tell Settings how many boards this lesson actually
+  // resolved to, so it can explain a count setting that looks like it did
+  // nothing (see the comment on slidingPanelsForLesson above) instead of
+  // leaving a teacher to assume Sliding Boards is broken.
+  const isSlidingActive = !isOverview && (activeLesson?.goalPanels || slidingEnabled);
+  useEffect(() => {
+    if (!isPreviewMode) return;
+    window.parent?.postMessage({
+      type: "homeroom-preview-panel-count",
+      requestedCount: activeLesson?.goalPanels ? null : slidingCount,
+      resolvedCount: isSlidingActive ? slidingPanelsForLesson.length : null,
+    }, window.location.origin);
+  }, [isSlidingActive, slidingPanelsForLesson.length, slidingCount, activeLesson]);
+
   // Full Agenda's freeform fields (Essential Question, Agenda, Bell
   // Ringer, Home Learning) — a SINGLE hook instance owning that state, so
   // whether Full Agenda is currently showing as a flat board or as
@@ -1330,7 +1358,7 @@ export default function App() {
                   isOverview={false}
                   overviewItems={[]}
                   onOverviewItemClick={() => {}}
-                  panels={activeLesson?.goalPanels ? toGoalPanels(activeLesson) : buildSlidingPanels(goalItems, slidingCount)}
+                  panels={slidingPanelsForLesson}
                   checkedGoals={checkedGoals}
                   toggleGoal={toggleGoal}
                   SmartBoard={SmartBoard}
