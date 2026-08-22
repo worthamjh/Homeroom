@@ -20,6 +20,43 @@ import { useState, useEffect, useCallback } from "react";
 export const CURRENT_USER_ID = "local-teacher";
 export const scopedKey = (key) => `homeroom:${CURRENT_USER_ID}:${key}`;
 
+// ── "Currently open lesson" — read by the Settings page's live preview ──
+// The Settings page (SettingsPage.jsx) opens in its own tab and renders an
+// actual embedded copy of the board (an iframe on "/?preview=1") rather
+// than a hand-built mockup, so every setting's real effect — including
+// ones a mockup could never get right, like how many goals actually land
+// in each sliding board — shows up exactly as it would on the real board.
+// For that embedded copy to open on the SAME lesson the teacher actually
+// has up (matching what "← Back to the board" returns to), the real board
+// tab writes what it's currently looking at here every time it navigates;
+// the preview iframe reads it once on load and then keeps listening for
+// live updates via the same `storage` event useScopedSetting relies on.
+// Unlike useScopedSetting's keys, this is deliberately one-way — only the
+// real board tab ever writes it. The preview iframe only reads.
+export const CURRENT_VIEW_STORAGE_KEY = "currentView";
+
+export function writeCurrentView(view) {
+  if (typeof window === "undefined") return;
+  const key = scopedKey(CURRENT_VIEW_STORAGE_KEY);
+  try {
+    if (view == null) {
+      window.localStorage.removeItem(key);
+    } else {
+      window.localStorage.setItem(key, JSON.stringify(view));
+    }
+  } catch { /* ignore */ }
+}
+
+export function readCurrentView() {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(scopedKey(CURRENT_VIEW_STORAGE_KEY));
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
 // ── Board arrangement presets ───────────────────────────────────────────
 // `order` controls which side (slides vs goals) renders first;
 // `gridTemplateColumns` should list widths in that same order.

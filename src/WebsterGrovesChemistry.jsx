@@ -14,7 +14,18 @@ import {
   SLIDING_BOARDS_ENABLED_KEY, DEFAULT_SLIDING_BOARDS_ENABLED,
   SLIDING_BOARDS_COUNT_KEY, DEFAULT_SLIDING_BOARDS_COUNT,
   buildSlidingPanels,
+  CURRENT_VIEW_STORAGE_KEY, readCurrentView, writeCurrentView,
 } from "./boardConfig";
+
+// True only for the embedded copy of this same app the Settings page
+// (SettingsPage.jsx) renders in an iframe as its live preview — never for
+// a real board tab, even one opened by typing the URL directly, since
+// nobody types "?preview=1" by hand. Gates every preview-only behavior
+// below: restoring the teacher's actual current lesson on load, following
+// it live as they navigate in the real tab, and accepting the highlight-
+// region messages Settings sends when a category is selected. A real
+// board tab never reads or writes anything preview-related.
+const isPreviewMode = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("preview") === "1";
 
 const THUMB = (id) => `https://drive.google.com/thumbnail?id=${id}&sz=w400`;
 
@@ -1061,9 +1072,36 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
   );
 }
 
+// Turns a persisted { unitIdx, lessonTitle } (or null, for the homepage)
+// back into real { unitIdx, lesson } state — resolving the title back to
+// the actual lesson object rather than storing the whole lesson (which
+// would go stale the moment curriculum content changes) or an index into
+// `lessons` (which shifts if lessons are ever reordered). unitIdx null or
+// lessonTitle null both mean "no lesson" — a unit overview only sets
+// unitIdx, the homepage sets neither.
+function resolveView(view) {
+  if (!view || view.unitIdx == null) return { unitIdx: null, lesson: null };
+  const unit = curriculum[view.unitIdx];
+  if (!unit) return { unitIdx: null, lesson: null };
+  const lesson = view.lessonTitle ? unit.lessons.find(l => l.title === view.lessonTitle) || null : null;
+  return { unitIdx: view.unitIdx, lesson };
+}
+
 export default function App() {
-  const [activeUnitIdx, setActiveUnitIdx] = useState(null);
-  const [activeLesson, setActiveLesson] = useState(null);
+  // A real board tab always starts at the homepage, same as always. Only
+  // the Settings page's embedded preview copy (isPreviewMode) restores
+  // whatever lesson the teacher's real board tab currently has open, so
+  // the preview opens already showing the right thing instead of the
+  // homepage every time a setting changes and the iframe reloads.
+  const initialView = isPreviewMode ? resolveView(readCurrentView()) : { unitIdx: null, lesson: null };
+  const [activeUnitIdx, setActiveUnitIdx] = useState(initialView.unitIdx);
+  const [activeLesson, setActiveLesson] = useState(initialView.lesson);
+  // Only meaningful in preview mode — which category Settings currently
+  // has expanded, so the matching region of the board can get the same
+  // orange highlight glow the old mockup preview used to draw itself.
+  // Set via postMessage from SettingsPage.jsx (see the listener below),
+  // since Settings is a separate tab/document, not a prop.
+  const [highlightRegion, setHighlightRegion] = useState(null);
   const [openDropdown, setOpenDropdown] = useState(null);
   const [playingVideoId, setPlayingVideoId] = useState(null);
   const [checkedGoals, setCheckedGoals] = useState(() => {
@@ -1092,6 +1130,65 @@ export default function App() {
   useEffect(() => {
     window.localStorage.setItem(scopedKey(GOALS_STORAGE_KEY), JSON.stringify(checkedGoals));
   }, [checkedGoals]);
+
+  // Publish "what's currently open" so the Settings page's preview iframe
+  // can restore it (see resolveView above) and keep following it live —
+  // but only from a real board tab. The preview copy has isPreviewMode
+  // true and must never write here itself: it initializes activeUnitIdx/
+  // activeLesson FROM this same value on mount (that's what "real" means
+  // to it), so if it also wrote its own copy back, an even-later-loading
+  // second preview iframe (or the real tab, if the preview's write raced
+  // it) could end up reading the preview's own reflection instead of the
+  // teacher's actual navigation.
+  useEffect(() => {
+    if (isPreviewMode) return;
+    writeCurrentView(activeUnitIdx == null ? null : { unitIdx: activeUnitIdx, lessonTitle: activeLesson?.title || null });
+  }, [activeUnitIdx, activeLesson]);
+
+  // Preview-mode-only: follow the real board tab's navigation live, so if
+  // a teacher switches lessons while Settings happens to be open, the
+  // preview updates too instead of staying frozen on whatever was open
+  // when the Settings tab was first opened.
+  useEffect(() => {
+    if (!isPreviewMode) return;
+    const key = scopedKey(CURRENT_VIEW_STORAGE_KEY);
+    const handler = (e) => {
+      if (e.key !== key) return;
+      const { unitIdx, lesson } = resolveView(e.newValue ? JSON.parse(e.newValue) : null);
+      setActiveUnitIdx(unitIdx);
+      setActiveLesson(lesson);
+    };
+    window.addEventListener("storage", handler);
+    return () => window.removeEventListener("storage", handler);
+  }, []);
+
+  // Preview-mode-only: receive "which settings category is expanded" from
+  // SettingsPage.jsx via postMessage (a same-origin iframe and its parent
+  // can't share React state directly) and mirror it onto the board as the
+  // same highlight glow the old static mockup drew around whichever
+  // region a category corresponds to (see highlightStyle below).
+  useEffect(() => {
+    if (!isPreviewMode) return;
+    const handler = (e) => {
+      if (e.source !== window.parent || !e.data || e.data.type !== "homeroom-settings-highlight") return;
+      setHighlightRegion(e.data.region || null);
+    };
+    window.addEventListener("message", handler);
+    // Tell the parent we're ready to receive highlight messages — it may
+    // have sent one before this listener was attached (iframe load order
+    // isn't guaranteed relative to the parent's own effects).
+    window.parent?.postMessage({ type: "homeroom-settings-preview-ready" }, window.location.origin);
+    return () => window.removeEventListener("message", handler);
+  }, []);
+
+  // Only meaningful in preview mode: an inline box-shadow glow matching
+  // the highlighted settings category, applied directly to the real
+  // board's own DOM (background wall, bulletin strip, chalkboard, board
+  // layout grid) instead of a mockup's stand-in pieces.
+  const highlightStyle = (region) =>
+    isPreviewMode && highlightRegion === region
+      ? { boxShadow: "0 0 0 3px #E87722, 0 0 22px rgba(232,119,34,0.55)" }
+      : {};
 
   // Close any open video player when navigating to a different lesson,
   // rather than leaving the previous lesson's video paused-but-open behind.
@@ -1171,7 +1268,7 @@ export default function App() {
     <div onClick={() => setOpenDropdown(null)}
       style={isHome
         ? { background: "#1a1a1a", height: "100vh", fontFamily: "Lato, sans-serif", display: "flex", flexDirection: "column", overflow: "hidden" }
-        : { ...wallStyle, minHeight: "100vh", fontFamily: "Lato, sans-serif", display: "flex", flexDirection: "column" }
+        : { ...wallStyle, minHeight: "100vh", fontFamily: "Lato, sans-serif", display: "flex", flexDirection: "column", ...highlightStyle("background") }
       }>
 
       {isHome ? (
@@ -1202,7 +1299,7 @@ export default function App() {
             {/* Bulletin strip — background + optional decorative dot-trim
                 along the top/bottom edges, both driven by the selected
                 BULLETIN_STYLES preset. */}
-            <div style={{ background: bulletinStyle.background, position: "relative", minHeight: 112, flexShrink: 0, display: "flex", flexDirection: "column" }}>
+            <div style={{ background: bulletinStyle.background, position: "relative", minHeight: 112, flexShrink: 0, display: "flex", flexDirection: "column", ...highlightStyle("bulletin") }}>
               {bulletinStyle.trim && (
                 <div style={{ height: 10, flexShrink: 0, backgroundImage: bulletinStyle.trim, backgroundRepeat: "repeat-x", backgroundSize: "24px 10px" }} />
               )}
@@ -1213,7 +1310,7 @@ export default function App() {
             </div>
 
             {/* Chalkboard */}
-            <div style={{ flex: 1, minHeight: 0, background: surface.face, borderTop: "4px solid #6B4F10", display: "flex", flexDirection: "column" }}>
+            <div style={{ flex: 1, minHeight: 0, background: surface.face, borderTop: "4px solid #6B4F10", display: "flex", flexDirection: "column", ...highlightStyle("blackboard"), ...highlightStyle("content") }}>
               {!isOverview && (activeLesson?.goalPanels || slidingEnabled) ? (
                 // Sliding multi-panel chalkboard — the exact same rail/dock
                 // mechanic regardless of content template. A lesson that
@@ -1332,7 +1429,7 @@ export default function App() {
 
                 const nodesByKey = { slides: slidesNode, goals: goalsNode };
                 return (
-                  <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: arrangement.gridTemplateColumns, columnGap: SPACE.md }}>
+                  <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: arrangement.gridTemplateColumns, columnGap: SPACE.md, ...highlightStyle("layout") }}>
                     {arrangement.order.map(k => nodesByKey[k])}
                   </div>
                 );

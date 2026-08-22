@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import {
   useScopedSetting,
   BOARD_ARRANGEMENTS, DEFAULT_ARRANGEMENT, ARRANGEMENT_STORAGE_KEY,
@@ -6,8 +6,8 @@ import {
   BOARD_CONTENT_TEMPLATES, DEFAULT_CONTENT_TEMPLATE, CONTENT_TEMPLATE_STORAGE_KEY,
   WALL_TYPES, DEFAULT_WALL_TYPE, WALL_TYPE_STORAGE_KEY,
   WALL_COLORS, DEFAULT_WALL_COLOR_BY_TYPE, WALL_COLOR_STORAGE_KEY,
-  wallBackgroundStyle, wallColorSwatch,
-  BOARD_SURFACES, DEFAULT_BOARD_SURFACE, BOARD_SURFACE_STORAGE_KEY, surfaceColors,
+  wallColorSwatch,
+  BOARD_SURFACES, DEFAULT_BOARD_SURFACE, BOARD_SURFACE_STORAGE_KEY,
   SLIDING_BOARDS_ENABLED_KEY, DEFAULT_SLIDING_BOARDS_ENABLED,
   SLIDING_BOARDS_COUNT_KEY, DEFAULT_SLIDING_BOARDS_COUNT, SLIDING_BOARDS_COUNT_OPTIONS,
 } from "./boardConfig";
@@ -16,23 +16,110 @@ import {
  * SettingsPage — "Board Settings", opened in its own browser tab from the
  * gear icon on the board (see TopBar in WebsterGrovesChemistry.jsx).
  *
- * Left: a live, scaled-down preview of the board reflecting every setting
- * below in real time. Right: a category list (Background, Board Layout,
- * Bulletin Board, Board Content, Blackboard) — clicking one highlights the
- * matching region of the preview and expands that category's options.
+ * Left: LiveBoardPreview — not a hand-built mockup, but the real board
+ * (WebsterGrovesChemistry's App component) embedded live via an iframe on
+ * "/?preview=1", scaled down to fit. A mockup meant reimplementing the
+ * board's rendering a second time, and the two would drift — the original
+ * preview never actually ran ChalkboardBoardRow's sliding-panel logic, so
+ * a change like "how many goals land on each board" couldn't show up
+ * accurately no matter how carefully the mockup was redrawn. The iframe
+ * doesn't have that problem: it's the same component tree, same code
+ * path, so whatever's true on the real board is true in the preview.
+ * Right: a category list (Background, Board Layout, Bulletin Board, Board
+ * Content, Blackboard) — clicking one highlights the matching region of
+ * the preview (via postMessage into the iframe — see LiveBoardPreview and
+ * the message listener in WebsterGrovesChemistry.jsx's App()) and expands
+ * that category's options.
  *
  * Every setting is a "cross-tab-synced setting" (useScopedSetting, see
  * boardConfig.js): persisted to the same scoped localStorage keys the
- * board reads, and picked up live by any open board tab via the browser's
- * `storage` event — no backend, no page reload, just two tabs sharing
- * localStorage.
+ * board reads, and picked up live by any open board tab — including the
+ * preview iframe, itself just another copy of the same app — via the
+ * browser's `storage` event. No backend, no page reload, just tabs
+ * sharing localStorage.
  */
 
-const SAMPLE_GOALS = [
-  "I will be able to identify key vocabulary for this unit.",
-  "I will be able to explain the core concept in my own words.",
-  "I will be able to apply today's skill to a new problem.",
-];
+// Intrinsic size the preview iframe renders its document at — matches a
+// typical board-tab browser window closely enough that layout (font
+// sizes, how many unit tabs fit before wrapping, etc.) reads the same in
+// miniature as it would full-size, rather than reflowing differently at
+// some arbitrary narrow width the way a naively `width: 100%` iframe
+// would. LiveBoardPreview scales this down with a CSS transform to fit
+// whatever width is actually available, the same way a browser zoom
+// level shrinks a whole page without changing how it lays out internally.
+const PREVIEW_W = 1600;
+const PREVIEW_H = 900;
+
+function LiveBoardPreview({ highlightRegion }) {
+  const wrapRef = useRef(null);
+  const iframeRef = useRef(null);
+  const [scale, setScale] = useState(0.5);
+
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const update = () => setScale(el.clientWidth / PREVIEW_W);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const sendHighlight = useCallback(() => {
+    iframeRef.current?.contentWindow?.postMessage(
+      { type: "homeroom-settings-highlight", region: highlightRegion },
+      window.location.origin
+    );
+  }, [highlightRegion]);
+
+  // Re-send whenever the selected category changes...
+  useEffect(() => { sendHighlight(); }, [sendHighlight]);
+
+  // ...and once more as soon as the iframe says it's actually ready to
+  // receive messages (it may finish loading — or reload, since navigating
+  // "/?preview=1" fresh happens on first mount — after this effect above
+  // already fired once with nothing listening yet).
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.source !== iframeRef.current?.contentWindow) return;
+      if (e.data?.type === "homeroom-settings-preview-ready") sendHighlight();
+    };
+    window.addEventListener("message", handler);
+    return () => window.removeEventListener("message", handler);
+  }, [sendHighlight]);
+
+  return (
+    <div
+      ref={wrapRef}
+      style={{
+        width: "100%", maxWidth: 980,
+        aspectRatio: `${PREVIEW_W} / ${PREVIEW_H}`,
+        overflow: "hidden", borderRadius: 8,
+        boxShadow: "0 6px 20px rgba(0,0,0,0.4)",
+        background: "#1a1a1a",
+      }}
+    >
+      <iframe
+        ref={iframeRef}
+        src="/?preview=1"
+        title="Live board preview"
+        scrolling="no"
+        style={{
+          width: PREVIEW_W, height: PREVIEW_H,
+          border: "none",
+          transform: `scale(${scale})`,
+          transformOrigin: "top left",
+          // Purely a preview, not a second interactive copy of the board —
+          // clicks shouldn't navigate lessons inside the tiny embedded
+          // copy. The real board tab is what "← Back to the board" returns
+          // to, unaffected by anything here.
+          pointerEvents: "none",
+          display: "block",
+        }}
+      />
+    </div>
+  );
+}
 
 const CATEGORIES = [
   { id: "background", label: "Background", blurb: "The classroom wall behind the board." },
@@ -80,85 +167,12 @@ export default function SettingsPage() {
   const [slidingBoardsEnabled, setSlidingBoardsEnabled] = useScopedSetting(SLIDING_BOARDS_ENABLED_KEY, DEFAULT_SLIDING_BOARDS_ENABLED, k => k === "true" || k === "false");
   const [slidingBoardsCount, setSlidingBoardsCount] = useScopedSetting(SLIDING_BOARDS_COUNT_KEY, DEFAULT_SLIDING_BOARDS_COUNT, k => /^[2-9]$/.test(k));
 
-  const arrangement = BOARD_ARRANGEMENTS[arrangementKey] || BOARD_ARRANGEMENTS[DEFAULT_ARRANGEMENT];
-  const bulletinStyle = BULLETIN_STYLES[bulletinStyleKey] || BULLETIN_STYLES[DEFAULT_BULLETIN];
-  const wallStyle = wallBackgroundStyle(wallTypeKey, wallColorKey);
-  const surface = surfaceColors(boardSurfaceKey);
   const slidingOn = slidingBoardsEnabled === "true";
 
   const selectWallType = (typeId) => {
     setWallTypeKey(typeId);
     setWallColorKey(DEFAULT_WALL_COLOR_BY_TYPE[typeId]);
   };
-
-  const highlight = (id) => selected === id ? { boxShadow: "0 0 0 3px #E87722, 0 0 22px rgba(232,119,34,0.55)" } : {};
-
-  // ── Preview pieces ──────────────────────────────────────────────────
-  const slidesIsFirst = arrangement.order[0] === "slides";
-  const slidesPreview = (
-    <div key="slides" style={{ minWidth: 0, display: "flex", alignItems: "center", justifyContent: "center", padding: 10 }}>
-      <div style={{ width: "100%", aspectRatio: "16/10", background: "#111", border: "4px solid #9a9a9a", borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Oswald, sans-serif", fontSize: 16, color: "rgba(255,255,255,0.3)", letterSpacing: 1.5 }}>
-        SLIDES
-      </div>
-    </div>
-  );
-  // When Sliding Boards is on, show the goals panel as a fanned stack of
-  // boards (mirroring the real docked/fan-out look of ChalkboardBoardRow)
-  // rather than a plain flat panel — a small corner icon alone didn't read
-  // as "multiple boards" clearly enough to a user testing the setting.
-  const showSlidingPreview = slidingOn && contentTemplateKey !== "fullAgenda";
-  const stackCount = Math.min(parseInt(slidingBoardsCount, 10) || 3, 4);
-
-  // Rather than absolutely-positioned "ghost" boards (which could bleed
-  // outside their grid cell depending on layout direction), render the
-  // stack as a simple row of solid spines beside the front panel — always
-  // fully visible, in normal flow, regardless of which side the goals
-  // column sits on.
-  const spine = (key) => (
-    <div key={key} style={{ width: 10, alignSelf: "stretch", background: surface.face, border: "2px solid #9a9a9a", borderRadius: 2 }} />
-  );
-
-  const frontPanel = (
-    <div style={{
-      flex: 1, minWidth: 0,
-      display: "flex", flexDirection: "column", gap: 9,
-      ...(showSlidingPreview ? { background: surface.face, border: "3px solid #9a9a9a", borderRadius: 3, padding: 12, boxShadow: "4px 4px 10px rgba(0,0,0,0.35)" } : {}),
-    }}>
-      <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 13, color: surface.headerText, letterSpacing: 1.5, textTransform: "uppercase", borderBottom: `1px solid ${surface.dividerBorder}`, paddingBottom: 6, display: "flex", justifyContent: "space-between" }}>
-        <span>{contentTemplateKey === "fullAgenda" ? "Objectives & Benchmarks" : "Learning Goals"}</span>
-        {showSlidingPreview && <span style={{ color: surface.placeholderText }}>1/{stackCount}</span>}
-      </div>
-      {SAMPLE_GOALS.slice(0, contentTemplateKey === "fullAgenda" ? 2 : 3).map((g, i) => (
-        <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 7 }}>
-          <div style={{ width: 11, height: 11, marginTop: 2, borderRadius: 2, border: `2px solid ${surface.checkboxBorder}`, flexShrink: 0 }} />
-          <span style={{ fontFamily: "Caveat, cursive", fontSize: 15, color: surface.bodyText, lineHeight: 1.3 }}>{g}</span>
-        </div>
-      ))}
-      {contentTemplateKey === "fullAgenda" && (
-        <>
-          <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 13, color: surface.headerText, letterSpacing: 1.5, textTransform: "uppercase", borderBottom: `1px solid ${surface.dividerBorder}`, paddingBottom: 6, marginTop: 6 }}>
-            Essential Question
-          </div>
-          <span style={{ fontFamily: "Caveat, cursive", fontSize: 15, color: surface.placeholderText, fontStyle: "italic" }}>Click to add...</span>
-        </>
-      )}
-    </div>
-  );
-
-  const spines = showSlidingPreview
-    ? Array.from({ length: stackCount - 1 }).map((_, i) => spine(`spine-${i}`))
-    : [];
-
-  const goalsPreview = (
-    <div key="goals" style={{ minWidth: 0, padding: 14, display: "flex", gap: 4, alignItems: "stretch", ...(!showSlidingPreview ? { [slidesIsFirst ? "borderLeft" : "borderRight"]: `1px dashed ${surface.dividerBorder}` } : {}) }}>
-      {/* Spines sit on the board's interior side (toward the slides), so
-          they read as boards docked behind the front one, not clipped off
-          the outer edge of the whole board frame. */}
-      {slidesIsFirst && spines}
-      {frontPanel}
-      {!slidesIsFirst && spines}
-    </div>
-  );
 
   return (
     <div style={{ minHeight: "100vh", background: "#141414", fontFamily: "Lato, sans-serif", display: "flex", flexDirection: "column" }}>
@@ -198,24 +212,7 @@ export default function SettingsPage() {
             <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 13, color: "rgba(255,255,255,0.4)", letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 14, textAlign: "center" }}>
               Live Preview
             </div>
-            <div
-              style={{ ...wallStyle, padding: 32, borderRadius: 8, transition: "background 0.2s", ...highlight("background") }}
-            >
-              <div style={{ border: "7px solid #8B6914", borderRadius: 5, overflow: "hidden", boxShadow: "0 6px 20px rgba(0,0,0,0.4)" }}>
-                {/* Bulletin strip */}
-                <div style={{ background: bulletinStyle.background, minHeight: 48, position: "relative", ...highlight("bulletin") }}>
-                  {bulletinStyle.trim && <div style={{ height: 8, backgroundImage: bulletinStyle.trim, backgroundRepeat: "repeat-x", backgroundSize: "22px 8px" }} />}
-                </div>
-                {/* Chalkboard */}
-                <div style={{ background: surface.face, borderTop: "4px solid #6B4F10", position: "relative", ...highlight("blackboard"), ...highlight("content") }}>
-                  <div style={{ ...highlight("layout"), display: "grid", gridTemplateColumns: arrangement.gridTemplateColumns, minHeight: 260 }}>
-                    {arrangement.order.map(k => k === "slides" ? slidesPreview : goalsPreview)}
-                  </div>
-                </div>
-                {/* Ledge / tray */}
-                <div style={{ height: 9, background: surface.ledgeBg, borderTop: `2px solid ${surface.ledgeBorder}` }} />
-              </div>
-            </div>
+            <LiveBoardPreview highlightRegion={selected} />
             {selected && (
               <div style={{ marginTop: 14, textAlign: "center", fontFamily: "Lato, sans-serif", fontSize: 12, color: "rgba(255,255,255,0.5)" }}>
                 {CATEGORIES.find(c => c.id === selected)?.blurb}
