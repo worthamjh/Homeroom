@@ -46,7 +46,7 @@ export function toGoalPanels(lesson) {
 // itself as a "different" board mid-slide. Depth still comes through
 // via the top/bottom/left bevel and drop shadow, just not a color
 // shift.
-const PANEL_TONE = { face: "#2d5a2d", top: "#4d7a4d", bottom: "#163016", left: "#245024", spine: "#1a3319" };
+const PANEL_TONE = (face) => ({ face, top: "#4d7a4d", bottom: "#163016", left: "#245024", spine: "#1a3319" });
 
 // A plain metal track — real sliding-chalkboard rail systems are
 // aluminum/steel, and that reads better against the wood frame than
@@ -84,6 +84,7 @@ export default function ChalkboardBoardRow({
   toggleGoal,
   SmartBoard,
   arrangement = DEFAULT_ARRANGEMENT,
+  surface = { face: "#2d5a2d", headerText: "rgba(255,255,255,0.65)", bodyText: "rgba(255,255,255,0.85)", bodyTextChecked: "rgba(255,255,255,0.3)", textShadow: "1px 1px 2px rgba(0,0,0,0.5)", checkboxBorder: "rgba(255,255,255,0.4)" },
 }) {
   const [current, setCurrent] = useState(0);
 
@@ -178,8 +179,14 @@ export default function ChalkboardBoardRow({
 
           {panels.map((panel, i) => {
             const parked = i < current;
-            const panelKey = panel.label || `panel-${i}`;
-            const tone = PANEL_TONE;
+            // panelKey is what checked-state is stored under — normally
+            // just the display label, but a caller can pass an explicit
+            // `panelKey` distinct from `label` (see buildSlidingPanels in
+            // WebsterGrovesChemistry.jsx) so multiple auto-split panels can
+            // share ONE checked-state namespace (matching the flat
+            // checklist's keys) while still showing different labels.
+            const panelKey = panel.panelKey || panel.label || `panel-${i}`;
+            const tone = PANEL_TONE(surface.face);
             // The last panel represents the fixed board the whole rail system
             // is mounted in front of — not another movable slab. It never has
             // a slab behind it to slide over, so it renders flush with the
@@ -309,7 +316,7 @@ export default function ChalkboardBoardRow({
                     isBackBoard
                       ? {
                           position: "absolute", inset: 0,
-                          background: "#2d5a2d",
+                          background: surface.face,
                           [dividerSide]: "1px dashed rgba(255,255,255,0.18)",
                           boxSizing: "border-box",
                           padding: 16,
@@ -348,21 +355,32 @@ export default function ChalkboardBoardRow({
                   {/* Printed on the panel itself now, not a floating overlay —
                       so it slides away with this board and the next panel's
                       own header comes with it when it's revealed. */}
-                  <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 12, color: "rgba(255,255,255,0.65)", letterSpacing: 2, textTransform: "uppercase", borderBottom: "1px solid rgba(255,255,255,0.15)", paddingBottom: 8, marginBottom: 2 }}>
+                  <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 12, color: surface.headerText, letterSpacing: 2, textTransform: "uppercase", borderBottom: "1px solid rgba(255,255,255,0.15)", paddingBottom: 8, marginBottom: 2 }}>
                     Learning Goals
                   </div>
 
-                  {panel.goals.map((goal, gi) => {
-                    const key = `${panelKey}-${gi}`;
+                  {panel.goals.map((goalItem, gi) => {
+                    // A goal entry is either a plain string (Unit 10's
+                    // curriculum-authored goalPanels, unchanged) or a
+                    // { text, idx } object — used when panels are
+                    // auto-split from a flat goals list (see
+                    // buildSlidingPanels in WebsterGrovesChemistry.jsx) so
+                    // the checked-state key matches the *original* goal's
+                    // index, keeping it in sync with the flat checklist /
+                    // Full Agenda views instead of colliding across panels.
+                    const isIndexed = goalItem && typeof goalItem === "object";
+                    const text = isIndexed ? goalItem.text : goalItem;
+                    const idx = isIndexed ? goalItem.idx : gi;
+                    const key = `${panelKey}-${idx}`;
                     const checked = checkedGoals[key];
                     return (
-                      <div key={gi} onClick={() => toggleGoal(panelKey, gi)}
+                      <div key={idx} onClick={() => toggleGoal(panelKey, idx)}
                         style={{ display: "flex", alignItems: "flex-start", gap: 8, cursor: "pointer", padding: "4px 0" }}>
-                        <div style={{ width: 15, height: 15, border: `2px solid ${checked ? "#E87722" : "rgba(255,255,255,0.4)"}`, borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 2, background: checked ? "#E87722" : "transparent", transition: "all 0.15s" }}>
+                        <div style={{ width: 15, height: 15, border: `2px solid ${checked ? "#E87722" : surface.checkboxBorder}`, borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 2, background: checked ? "#E87722" : "transparent", transition: "all 0.15s" }}>
                           {checked && <span style={{ color: "white", fontSize: 9, lineHeight: 1 }}>✓</span>}
                         </div>
-                        <span style={{ fontFamily: "Caveat, cursive", fontSize: 15, color: checked ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.85)", lineHeight: 1.35, textShadow: "1px 1px 2px rgba(0,0,0,0.5)", textDecoration: checked ? "line-through" : "none", minWidth: 0, wordBreak: "break-word" }}>
-                          {goal}
+                        <span style={{ fontFamily: "Caveat, cursive", fontSize: 15, color: checked ? surface.bodyTextChecked : surface.bodyText, lineHeight: 1.35, textShadow: surface.textShadow, textDecoration: checked ? "line-through" : "none", minWidth: 0, wordBreak: "break-word" }}>
+                          {text}
                         </span>
                       </div>
                     );

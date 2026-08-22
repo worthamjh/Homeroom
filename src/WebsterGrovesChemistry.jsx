@@ -1,5 +1,19 @@
 import { useState, useEffect, useRef } from "react";
 import ChalkboardBoardRow, { toGoalPanels } from "./ChalkboardBoardRow";
+import FullAgendaBoard from "./FullAgendaBoard";
+import {
+  scopedKey, useScopedSetting,
+  BOARD_ARRANGEMENTS, DEFAULT_ARRANGEMENT, ARRANGEMENT_STORAGE_KEY,
+  BULLETIN_STYLES, DEFAULT_BULLETIN, BULLETIN_STORAGE_KEY,
+  BOARD_CONTENT_TEMPLATES, DEFAULT_CONTENT_TEMPLATE, CONTENT_TEMPLATE_STORAGE_KEY,
+  GOALS_STORAGE_KEY,
+  WALL_TYPES, DEFAULT_WALL_TYPE, WALL_TYPE_STORAGE_KEY,
+  DEFAULT_WALL_COLOR_BY_TYPE, WALL_COLOR_STORAGE_KEY,
+  wallBackgroundStyle,
+  BOARD_SURFACES, DEFAULT_BOARD_SURFACE, BOARD_SURFACE_STORAGE_KEY, surfaceColors,
+  SLIDING_BOARDS_ENABLED_KEY, DEFAULT_SLIDING_BOARDS_ENABLED,
+  SLIDING_BOARDS_COUNT_KEY, DEFAULT_SLIDING_BOARDS_COUNT,
+} from "./boardConfig";
 
 const THUMB = (id) => `https://drive.google.com/thumbnail?id=${id}&sz=w400`;
 
@@ -22,61 +36,36 @@ const youtubeEmbed = (id) => `https://www.youtube.com/embed/${extractYouTubeId(i
 // intentionally NOT on this scale — those are physical proportions, not content rhythm.
 const SPACE = { xs: 8, sm: 12, md: 16, lg: 24, xl: 32, xxl: 40 };
 
-// Placeholder for real identity (teacher/classroom account) — there's no
-// login yet, and building one now would likely just get thrown out once
-// this plugs into a publisher's actual SSO (Clever/Canvas, already in the
-// footer links) rather than a homegrown one. But everything saved locally
-// (customizations, goal-completion) is namespaced under this ID now, so
-// swapping it for a real logged-in user ID later is a storage-layer change,
-// not a redesign of how state is shaped.
-const CURRENT_USER_ID = "local-teacher";
-const scopedKey = (key) => `homeroom:${CURRENT_USER_ID}:${key}`;
+// Board arrangement, bulletin, board content, and wall/background presets
+// all now live in ./boardConfig.js — shared with the new Settings page
+// (SettingsPage.jsx), which opens in its own browser tab and needs the
+// same preset definitions and storage keys.
 
-// Board arrangement presets — "presets first, advanced options second":
-// teachers pick from a short list of pre-built layouts rather than tweaking
-// raw values. Only one preset exists today (the original layout), but every
-// place that renders the board reads from this config instead of hardcoding
-// column widths/order, so adding a second preset later is a data change, not
-// a rewrite. `order` controls which side (slides vs goals) renders first;
-// `gridTemplateColumns` should list widths in that same order.
-const BOARD_ARRANGEMENTS = {
-  classic: { id: "classic", label: "Classic (Slides Left)", gridTemplateColumns: "3fr 2fr", order: ["slides", "goals"] },
-  inverse: { id: "inverse", label: "Inverse (Slides Right)", gridTemplateColumns: "2fr 3fr", order: ["goals", "slides"] },
-};
-const DEFAULT_ARRANGEMENT = "classic";
-const ARRANGEMENT_STORAGE_KEY = "boardArrangement";
-
-// Bulletin strip presets — same "presets first" approach as board
-// arrangement: a short list of pre-built looks (solid color, or a color plus
-// a decorative dot-trim border like real classroom bulletin board tape),
-// not a free-form color picker. `trim`, when set, is a small repeating SVG
-// tile drawn along the top and bottom edges of the strip.
-const DOT_TRIM = (dot, bg) =>
-  `url("data:image/svg+xml,${encodeURIComponent(
-    `<svg xmlns='http://www.w3.org/2000/svg' width='24' height='12'><rect width='24' height='12' fill='${bg}'/><circle cx='6' cy='6' r='3' fill='${dot}'/><circle cx='18' cy='6' r='3' fill='${dot}'/></svg>`
-  )}")`;
-
-const BULLETIN_STYLES = {
-  navy: { id: "navy", label: "Navy (Classic)", background: "#1a2a4a", trim: null },
-  orange: { id: "orange", label: "Webster Orange", background: "#E87722", trim: null },
-  black: { id: "black", label: "Chalkboard Black", background: "#1a1a1a", trim: null },
-  navyTrim: { id: "navyTrim", label: "Navy + Orange Trim", background: "#1a2a4a", trim: DOT_TRIM("#E87722", "#1a1a1a") },
-  orangeTrim: { id: "orangeTrim", label: "Orange + Black Trim", background: "#E87722", trim: DOT_TRIM("#1a1a1a", "#E87722") },
-};
-const DEFAULT_BULLETIN = "navy";
-const BULLETIN_STORAGE_KEY = "bulletinStyle";
-const GOALS_STORAGE_KEY = "checkedGoals";
-
-// Cinderblock wall texture — real running-bond coursing (offset joints every other row),
-// built as a small tiled SVG so it scales cleanly at any resolution.
-const CINDERBLOCK_TILE = `<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'>
-  <line x1='0' y1='0' x2='0' y2='80' stroke='#c2b89e' stroke-width='2'/>
-  <line x1='160' y1='0' x2='160' y2='80' stroke='#c2b89e' stroke-width='2'/>
-  <line x1='0' y1='80' x2='160' y2='80' stroke='#c2b89e' stroke-width='2'/>
-  <line x1='80' y1='80' x2='80' y2='160' stroke='#c2b89e' stroke-width='2'/>
-  <line x1='0' y1='160' x2='160' y2='160' stroke='#c2b89e' stroke-width='2'/>
-</svg>`;
-const CINDERBLOCK_BG = `url("data:image/svg+xml,${encodeURIComponent(CINDERBLOCK_TILE)}")`;
+// Splits a flat goalItems list (see the goalItems derivation in App())
+// into N sliding-chalkboard panels, for lessons that don't author their
+// own explicit `goalPanels` (i.e. every lesson except Unit 10's Testing
+// lessons today). Each resulting item carries its *original* idx and a
+// shared panelKey (the lesson title) rather than a fresh per-panel index,
+// so checking a goal while Sliding Boards is on stays in sync with the
+// same goal shown in the flat Learning Goals checklist / Full Agenda
+// Objectives section when Sliding Boards is off — one shared checked-state
+// namespace, not one per panel. See panel.panelKey handling in
+// ChalkboardBoardRow.jsx.
+function buildSlidingPanels(goalItems, count) {
+  if (goalItems.length === 0) return [{ label: undefined, goals: [] }];
+  const n = Math.max(1, count);
+  const buckets = Array.from({ length: n }, () => []);
+  goalItems.forEach((item, i) => {
+    buckets[i % n].push(item);
+  });
+  return buckets
+    .filter(b => b.length > 0)
+    .map((items, i) => ({
+      label: `Board ${i + 1}`,
+      panelKey: items[0].panelKey,
+      goals: items.map(it => ({ text: it.text, idx: it.idx })),
+    }));
+}
 
 // Quick-launch tools footer — same tools Jay's students use in class, one click away.
 const FOOTER_LINKS = [
@@ -1024,7 +1013,7 @@ function VideoLibrary({ videos, playingVideoId, setPlayingVideoId }) {
   );
 }
 
-function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropdown, setOpenDropdown, handleUnitOverview, handleLessonClick, goHome, arrangementKey, setArrangementKey, showArrangementMenu, setShowArrangementMenu, bulletinStyleKey, setBulletinStyleKey }) {
+function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropdown, setOpenDropdown, handleUnitOverview, handleLessonClick, goHome }) {
   return (
     <div style={{ background: "#1a1a1a", borderBottom: "4px solid #E87722", flexShrink: 0, position: "relative" }}>
       <div style={{ padding: `${SPACE.md}px ${SPACE.lg}px ${SPACE.sm}px`, textAlign: "center", position: "relative" }}>
@@ -1035,18 +1024,20 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
           Webster Groves <span style={{ color: "#E87722" }}>Chemistry</span>
         </div>
 
-        {/* Board layout presets — "presets first": a short list of pre-built
-            arrangements a teacher can pick from, no free-form controls. Only
-            one preset exists today; this menu is the extension point for
-            future ones. Button lives here (aligned with the title), but the
-            menu itself is anchored to the outer bar below so it drops below
-            the *entire* top bar (title + unit nav), not just this row —
-            otherwise it opens on top of the unit nav and the board beneath it. */}
+        {/* Opens the Settings page in its own browser tab (real URL,
+            /settings — see SettingsPage.jsx) rather than an in-place
+            dropdown. The settings tab shows a live scaled-down preview of
+            the board with categorized controls (Background, Board Layout,
+            Bulletin Board, Board Content); changes made there sync back to
+            this tab live via the shared localStorage keys + the browser's
+            `storage` event (see useScopedSetting in boardConfig.js). */}
         <button
-          onClick={e => { e.stopPropagation(); setShowArrangementMenu(v => !v); }}
-          title="Board layout"
-          aria-label="Board layout presets"
-          style={{ position: "absolute", right: SPACE.lg, top: "50%", transform: "translateY(-50%)", width: 34, height: 34, borderRadius: "50%", border: "1px solid rgba(255,255,255,0.25)", background: showArrangementMenu ? "#E87722" : "transparent", color: showArrangementMenu ? "#1a1a1a" : "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, transition: "all 0.15s" }}
+          onClick={e => { e.stopPropagation(); window.open("/settings", "_blank", "noopener"); }}
+          title="Board settings"
+          aria-label="Open board settings"
+          style={{ position: "absolute", right: SPACE.lg, top: "50%", transform: "translateY(-50%)", width: 34, height: 34, borderRadius: "50%", border: "1px solid rgba(255,255,255,0.25)", background: "transparent", color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, transition: "all 0.15s" }}
+          onMouseEnter={e => { e.currentTarget.style.background = "#E87722"; e.currentTarget.style.color = "#1a1a1a"; }}
+          onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#fff"; }}
         >
           ⚙
         </button>
@@ -1087,54 +1078,6 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
         ))}
       </div>
 
-      {/* Board layout menu — positioned relative to the outer bar (title +
-          nav), so "top: 100%" here means "right below the whole top bar",
-          clear of both rows above it. */}
-      {showArrangementMenu && (
-        <div onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "100%", right: SPACE.lg, minWidth: 260, maxWidth: 320, background: "#1a1a1a", border: "1px solid #E87722", borderRadius: "0 0 4px 4px", zIndex: 5000, overflow: "hidden", boxShadow: "0 4px 18px rgba(0,0,0,0.4)" }}>
-          <div style={{ padding: `${SPACE.xs}px ${SPACE.md}px`, fontFamily: "Oswald, sans-serif", fontSize: 11, color: "rgba(255,255,255,0.5)", letterSpacing: 1.5, textTransform: "uppercase", borderBottom: "1px solid #2a2a2a" }}>
-            Board Layout
-          </div>
-          {Object.values(BOARD_ARRANGEMENTS).map(a => (
-            <div key={a.id}
-              onClick={() => { setArrangementKey(a.id); setShowArrangementMenu(false); }}
-              style={{ padding: `${SPACE.sm}px ${SPACE.md}px`, fontSize: 13, fontFamily: "Lato, sans-serif", fontWeight: 700, color: arrangementKey === a.id ? "#E87722" : "#ccc", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, whiteSpace: "nowrap" }}
-              onMouseEnter={e => { e.currentTarget.style.background = "#2a2a2a"; }}
-              onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}
-            >
-              <span style={{ width: 14, height: 14, borderRadius: "50%", border: `2px solid ${arrangementKey === a.id ? "#E87722" : "rgba(255,255,255,0.4)"}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                {arrangementKey === a.id && <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#E87722" }} />}
-              </span>
-              {a.label}
-            </div>
-          ))}
-
-          {/* Bulletin board presets — same list-of-presets pattern as board
-              layout above, just swatch-based instead of radio dots since the
-              choice itself is visual (color, optionally with a decorative
-              dot-trim border). */}
-          <div style={{ padding: `${SPACE.xs}px ${SPACE.md}px`, fontFamily: "Oswald, sans-serif", fontSize: 11, color: "rgba(255,255,255,0.5)", letterSpacing: 1.5, textTransform: "uppercase", borderTop: "1px solid #2a2a2a", borderBottom: "1px solid #2a2a2a" }}>
-            Bulletin Board
-          </div>
-          {Object.values(BULLETIN_STYLES).map(b => (
-            <div key={b.id}
-              onClick={() => { setBulletinStyleKey(b.id); setShowArrangementMenu(false); }}
-              style={{ padding: `${SPACE.sm}px ${SPACE.md}px`, fontSize: 13, fontFamily: "Lato, sans-serif", fontWeight: 700, color: bulletinStyleKey === b.id ? "#E87722" : "#ccc", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, whiteSpace: "nowrap" }}
-              onMouseEnter={e => { e.currentTarget.style.background = "#2a2a2a"; }}
-              onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}
-            >
-              <span style={{
-                width: 18, height: 18, borderRadius: 4, flexShrink: 0,
-                background: b.background,
-                backgroundImage: b.trim || undefined,
-                backgroundSize: b.trim ? "12px 6px" : undefined,
-                border: `2px solid ${bulletinStyleKey === b.id ? "#E87722" : "rgba(255,255,255,0.3)"}`,
-              }} />
-              {b.label}
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }
@@ -1152,25 +1095,20 @@ export default function App() {
       return {};
     }
   });
-  const [arrangementKey, setArrangementKey] = useState(() => {
-    if (typeof window === "undefined") return DEFAULT_ARRANGEMENT;
-    const saved = window.localStorage.getItem(scopedKey(ARRANGEMENT_STORAGE_KEY));
-    return saved && BOARD_ARRANGEMENTS[saved] ? saved : DEFAULT_ARRANGEMENT;
-  });
-  const [showArrangementMenu, setShowArrangementMenu] = useState(false);
-  const [bulletinStyleKey, setBulletinStyleKey] = useState(() => {
-    if (typeof window === "undefined") return DEFAULT_BULLETIN;
-    const saved = window.localStorage.getItem(scopedKey(BULLETIN_STORAGE_KEY));
-    return saved && BULLETIN_STYLES[saved] ? saved : DEFAULT_BULLETIN;
-  });
-
-  useEffect(() => {
-    window.localStorage.setItem(scopedKey(ARRANGEMENT_STORAGE_KEY), arrangementKey);
-  }, [arrangementKey]);
-
-  useEffect(() => {
-    window.localStorage.setItem(scopedKey(BULLETIN_STORAGE_KEY), bulletinStyleKey);
-  }, [bulletinStyleKey]);
+  // Every board customization setting below is a "cross-tab-synced
+  // setting" (see useScopedSetting in boardConfig.js): persisted to a
+  // scoped localStorage key, AND live-updated here if that same key
+  // changes in another tab — i.e. the new Settings page (SettingsPage.jsx)
+  // opened via the gear icon. No backend needed for the two tabs to stay
+  // in sync; the browser's native `storage` event does it.
+  const [arrangementKey, setArrangementKey] = useScopedSetting(ARRANGEMENT_STORAGE_KEY, DEFAULT_ARRANGEMENT, k => !!BOARD_ARRANGEMENTS[k]);
+  const [bulletinStyleKey, setBulletinStyleKey] = useScopedSetting(BULLETIN_STORAGE_KEY, DEFAULT_BULLETIN, k => !!BULLETIN_STYLES[k]);
+  const [contentTemplateKey, setContentTemplateKey] = useScopedSetting(CONTENT_TEMPLATE_STORAGE_KEY, DEFAULT_CONTENT_TEMPLATE, k => !!BOARD_CONTENT_TEMPLATES[k]);
+  const [wallTypeKey] = useScopedSetting(WALL_TYPE_STORAGE_KEY, DEFAULT_WALL_TYPE, k => !!WALL_TYPES[k]);
+  const [wallColorKey] = useScopedSetting(WALL_COLOR_STORAGE_KEY, DEFAULT_WALL_COLOR_BY_TYPE[DEFAULT_WALL_TYPE], null);
+  const [boardSurfaceKey] = useScopedSetting(BOARD_SURFACE_STORAGE_KEY, DEFAULT_BOARD_SURFACE, k => !!BOARD_SURFACES[k]);
+  const [slidingBoardsEnabled] = useScopedSetting(SLIDING_BOARDS_ENABLED_KEY, DEFAULT_SLIDING_BOARDS_ENABLED, k => k === "true" || k === "false");
+  const [slidingBoardsCount] = useScopedSetting(SLIDING_BOARDS_COUNT_KEY, DEFAULT_SLIDING_BOARDS_COUNT, k => /^[2-9]$/.test(k));
 
   useEffect(() => {
     window.localStorage.setItem(scopedKey(GOALS_STORAGE_KEY), JSON.stringify(checkedGoals));
@@ -1184,6 +1122,10 @@ export default function App() {
 
   const arrangement = BOARD_ARRANGEMENTS[arrangementKey] || BOARD_ARRANGEMENTS[DEFAULT_ARRANGEMENT];
   const bulletinStyle = BULLETIN_STYLES[bulletinStyleKey] || BULLETIN_STYLES[DEFAULT_BULLETIN];
+  const wallStyle = wallBackgroundStyle(wallTypeKey, wallColorKey);
+  const surface = surfaceColors(boardSurfaceKey);
+  const slidingEnabled = slidingBoardsEnabled === "true";
+  const slidingCount = parseInt(slidingBoardsCount, 10) || parseInt(DEFAULT_SLIDING_BOARDS_COUNT, 10);
 
   const isHome = activeUnitIdx === null;
   const activeUnit = isHome ? null : curriculum[activeUnitIdx];
@@ -1214,18 +1156,33 @@ export default function App() {
   const boardSlides = isHome ? null : (isOverview ? CALENDAR_SRC : activeLesson?.slides);
   const boardTitle = isHome ? null : (isOverview ? activeUnit.title : activeLesson?.title);
 
+  // The active lesson's goals, flattened to one flat list of
+  // { text, panelKey, idx } — same shape/keys the Learning Goals checklist
+  // and the sliding chalkboard (ChalkboardBoardRow) already use for
+  // checkedGoals/toggleGoal. Handles both a plain `goals` lesson and a
+  // multi-panel `goalPanels` lesson (Unit 10). Full Agenda's Objectives &
+  // Benchmarks section renders this same list/state directly, rather than
+  // being a separate field, so a teacher never has to enter the same
+  // objectives twice under two different labels.
+  const goalItems = (!isOverview && activeLesson)
+    ? (activeLesson.goalPanels
+        ? toGoalPanels(activeLesson).flatMap((panel, pi) => {
+            const panelKey = panel.label || `panel-${pi}`;
+            return panel.goals.map((text, idx) => ({ text, panelKey, idx }));
+          })
+        : (activeLesson.goals || []).map((text, idx) => ({ text, panelKey: activeLesson.title, idx })))
+    : [];
+
   const goHome = () => { setActiveUnitIdx(null); setActiveLesson(null); setOpenDropdown(null); };
   const topBarProps = {
     curriculum, activeUnitIdx, isOverview, activeLesson, openDropdown, setOpenDropdown, handleUnitOverview, handleLessonClick, goHome,
-    arrangementKey, setArrangementKey, showArrangementMenu, setShowArrangementMenu,
-    bulletinStyleKey, setBulletinStyleKey,
   };
 
   return (
-    <div onClick={() => { setOpenDropdown(null); setShowArrangementMenu(false); }}
+    <div onClick={() => setOpenDropdown(null)}
       style={isHome
         ? { background: "#1a1a1a", height: "100vh", fontFamily: "Lato, sans-serif", display: "flex", flexDirection: "column", overflow: "hidden" }
-        : { background: "#ded6c0", backgroundImage: CINDERBLOCK_BG, backgroundSize: "160px 80px", minHeight: "100vh", fontFamily: "Lato, sans-serif", display: "flex", flexDirection: "column" }
+        : { ...wallStyle, minHeight: "100vh", fontFamily: "Lato, sans-serif", display: "flex", flexDirection: "column" }
       }>
 
       {isHome ? (
@@ -1267,29 +1224,37 @@ export default function App() {
             </div>
 
             {/* Chalkboard */}
-            <div style={{ flex: 1, minHeight: 0, background: "#2d5a2d", borderTop: "4px solid #6B4F10", display: "flex", flexDirection: "column" }}>
-              {!isOverview && activeLesson?.goalPanels ? (
-                // Sliding multi-panel chalkboard — opt-in only, currently just
-                // Unit 10's Testing lesson (the only place with `goalPanels`
-                // instead of a plain `goals` array). Every other lesson and
-                // every overview screen falls through to the original static
-                // layout below, unchanged.
+            <div style={{ flex: 1, minHeight: 0, background: surface.face, borderTop: "4px solid #6B4F10", display: "flex", flexDirection: "column" }}>
+              {!isOverview && contentTemplateKey !== "fullAgenda" && (activeLesson?.goalPanels || slidingEnabled) ? (
+                // Sliding multi-panel chalkboard. A lesson that authors its
+                // own explicit `goalPanels` (currently just Unit 10's
+                // Testing lessons) always uses those panels as-is. Every
+                // other lesson uses this when the Sliding Boards setting is
+                // on, auto-splitting its flat goals list into
+                // slidingCount panels (see buildSlidingPanels above). Only
+                // used under the Simple Goals content template — Full
+                // Agenda's Objectives section is never split into panels.
                 <ChalkboardBoardRow
                   smartBoardSrc={boardSlides}
                   isOverview={false}
                   overviewItems={[]}
                   onOverviewItemClick={() => {}}
-                  panels={toGoalPanels(activeLesson)}
+                  panels={activeLesson?.goalPanels ? toGoalPanels(activeLesson) : buildSlidingPanels(goalItems, slidingCount)}
                   checkedGoals={checkedGoals}
                   toggleGoal={toggleGoal}
                   SmartBoard={SmartBoard}
                   arrangement={arrangement}
+                  surface={surface}
                 />
               ) : (() => {
                 // Rendered according to the selected board arrangement preset
                 // (see BOARD_ARRANGEMENTS) rather than a fixed left/right
                 // layout — `order` decides which side renders first, and the
-                // divider follows whichever side ends up second.
+                // divider follows whichever side ends up second. This same
+                // grid is shared by every content template (Simple Goals,
+                // Full Agenda, and Unit 10's goalPanels lessons whenever
+                // Full Agenda is selected) — only what's inside the goals
+                // column changes.
                 const slidesNode = (
                   <div key="slides" style={{ minHeight: 0, minWidth: 0, display: "flex", flexDirection: "column", alignItems: "center", padding: SPACE.md, gap: SPACE.sm }}>
                     <div style={{ flex: 1, minHeight: 0, minWidth: 0, width: "100%", maxWidth: "100%", display: "flex", justifyContent: "center", boxSizing: "border-box", overflow: "hidden" }}>
@@ -1301,36 +1266,55 @@ export default function App() {
                 const goalsIsSecond = arrangement.order[1] === "goals";
                 const goalsNode = (
                   <div key="goals" style={{ minWidth: 0, [goalsIsSecond ? "borderLeft" : "borderRight"]: "1px dashed rgba(255,255,255,0.18)", padding: SPACE.md, display: "flex", flexDirection: "column", gap: SPACE.xs, overflowY: "auto", overflowX: "hidden" }}>
-                    <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 12, color: "rgba(255,255,255,0.6)", letterSpacing: 2, textTransform: "uppercase", borderBottom: "1px solid rgba(255,255,255,0.15)", paddingBottom: SPACE.xs }}>
-                      {isOverview ? "Unit Lessons" : "Learning Goals"}
-                    </div>
-
                     {isOverview ? (
-                      activeUnit.overview.map((item, i) => (
-                        <div key={i}
-                          onClick={() => { const lesson = activeUnit.lessons.find(l => l.title === item); if (lesson) setActiveLesson(lesson); }}
-                          style={{ display: "flex", alignItems: "flex-start", gap: 8, cursor: activeUnit.lessons.find(l => l.title === item) ? "pointer" : "default", padding: "4px 0", borderBottom: "1px solid rgba(255,255,255,0.07)" }}
-                        >
-                          <span style={{ fontFamily: "Oswald, sans-serif", fontSize: 11, color: "#E87722", minWidth: 18, opacity: 0.8 }}>{String(i + 1).padStart(2, "0")}</span>
-                          <span style={{ fontFamily: "Caveat, cursive", fontSize: 14, color: "rgba(255,255,255,0.82)", lineHeight: 1.3, textShadow: "1px 1px 2px rgba(0,0,0,0.5)", minWidth: 0, wordBreak: "break-word" }}>{item}</span>
+                      <>
+                        <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 12, color: surface.headerText, letterSpacing: 2, textTransform: "uppercase", borderBottom: `1px solid ${surface.dividerBorder}`, paddingBottom: SPACE.xs }}>
+                          Unit Lessons
                         </div>
-                      ))
-                    ) : (
-                      activeLesson?.goals.map((goal, i) => {
-                        const key = `${activeLesson.title}-${i}`;
-                        const checked = checkedGoals[key];
-                        return (
-                          <div key={i} onClick={() => toggleGoal(activeLesson.title, i)}
-                            style={{ display: "flex", alignItems: "flex-start", gap: 8, cursor: "pointer", padding: "4px 0" }}>
-                            <div style={{ width: 15, height: 15, border: `2px solid ${checked ? "#E87722" : "rgba(255,255,255,0.4)"}`, borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 2, background: checked ? "#E87722" : "transparent", transition: "all 0.15s" }}>
-                              {checked && <span style={{ color: "white", fontSize: 9, lineHeight: 1 }}>✓</span>}
-                            </div>
-                            <span style={{ fontFamily: "Caveat, cursive", fontSize: 15, color: checked ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.85)", lineHeight: 1.35, textShadow: "1px 1px 2px rgba(0,0,0,0.5)", textDecoration: checked ? "line-through" : "none", minWidth: 0, wordBreak: "break-word" }}>
-                              {goal}
-                            </span>
+                        {activeUnit.overview.map((item, i) => (
+                          <div key={i}
+                            onClick={() => { const lesson = activeUnit.lessons.find(l => l.title === item); if (lesson) setActiveLesson(lesson); }}
+                            style={{ display: "flex", alignItems: "flex-start", gap: 8, cursor: activeUnit.lessons.find(l => l.title === item) ? "pointer" : "default", padding: "4px 0", borderBottom: `1px solid ${surface.dividerBorder}` }}
+                          >
+                            <span style={{ fontFamily: "Oswald, sans-serif", fontSize: 11, color: surface.accent, minWidth: 18, opacity: 0.8 }}>{String(i + 1).padStart(2, "0")}</span>
+                            <span style={{ fontFamily: "Caveat, cursive", fontSize: 14, color: surface.bodyText, lineHeight: 1.3, textShadow: surface.textShadow, minWidth: 0, wordBreak: "break-word" }}>{item}</span>
                           </div>
-                        );
-                      })
+                        ))}
+                      </>
+                    ) : contentTemplateKey === "fullAgenda" ? (
+                      // Full Agenda content template — replaces just the goals
+                      // column (slides/SmartBoard stay put), same as Simple
+                      // Goals does. Storage key is scoped per-lesson so each
+                      // lesson (including Unit 10's goalPanels lessons) keeps
+                      // its own edited board content.
+                      <FullAgendaBoard
+                        storageKey={scopedKey(`fullAgenda:${activeLesson.title}`)}
+                        goalItems={goalItems}
+                        checkedGoals={checkedGoals}
+                        toggleGoal={toggleGoal}
+                        surface={surface}
+                      />
+                    ) : (
+                      <>
+                        <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 12, color: surface.headerText, letterSpacing: 2, textTransform: "uppercase", borderBottom: `1px solid ${surface.dividerBorder}`, paddingBottom: SPACE.xs }}>
+                          Learning Goals
+                        </div>
+                        {activeLesson?.goals.map((goal, i) => {
+                          const key = `${activeLesson.title}-${i}`;
+                          const checked = checkedGoals[key];
+                          return (
+                            <div key={i} onClick={() => toggleGoal(activeLesson.title, i)}
+                              style={{ display: "flex", alignItems: "flex-start", gap: 8, cursor: "pointer", padding: "4px 0" }}>
+                              <div style={{ width: 15, height: 15, border: `2px solid ${checked ? surface.accent : surface.checkboxBorder}`, borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 2, background: checked ? surface.accent : "transparent", transition: "all 0.15s" }}>
+                                {checked && <span style={{ color: "white", fontSize: 9, lineHeight: 1 }}>✓</span>}
+                              </div>
+                              <span style={{ fontFamily: "Caveat, cursive", fontSize: 15, color: checked ? surface.bodyTextChecked : surface.bodyText, lineHeight: 1.35, textShadow: surface.textShadow, textDecoration: checked ? "line-through" : "none", minWidth: 0, wordBreak: "break-word" }}>
+                                {goal}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </>
                     )}
                   </div>
                 );
@@ -1344,8 +1328,8 @@ export default function App() {
               })()}
             </div>
 
-            {/* Chalk ledge */}
-            <div style={{ height: 8, background: "#5c3d0e", borderTop: "2px solid #3a2408", display: "flex", alignItems: "center", padding: `0 ${SPACE.sm}px`, gap: SPACE.xs }}>
+            {/* Chalk ledge / marker tray — styled per the Board Surface preset. */}
+            <div style={{ height: 8, background: surface.ledgeBg, borderTop: `2px solid ${surface.ledgeBorder}`, display: "flex", alignItems: "center", padding: `0 ${SPACE.sm}px`, gap: SPACE.xs }}>
               {[["#f0f0f0", 18], ["#E87722", 18], ["#f0f0f0", 12]].map(([c, w], i) => (
                 <div key={i} style={{ width: w, height: 4, borderRadius: 1, background: c }} />
               ))}
