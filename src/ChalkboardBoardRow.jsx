@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 /**
  * ChalkboardBoardRow
@@ -98,7 +98,32 @@ export default function ChalkboardBoardRow({
   // out of sync as a teacher slides between boards and edits fields.
   extraContent = null,
 }) {
-  const [current, setCurrent] = useState(0);
+  const [rawCurrent, setCurrent] = useState(0);
+
+  // "Which board is slid into view" was previously just this raw state,
+  // never reset or clamped when `panels` changes. That's fine while
+  // staying on the same lesson (a board count NEVER decreases mid-lesson
+  // in a way that matters here), but this component instance is reused
+  // across lesson navigations that all go through the sliding branch —
+  // React doesn't remount it just because the panels prop changed. So
+  // leaving lesson A parked on board 3 of 3, then navigating to lesson B
+  // with only 2 panels (a different Sliding Boards count, or simply fewer
+  // goals to split), left `current` at 2 with only panels[0..1] to index:
+  // every panel's `parked = i < current` came out true, so EVERY board
+  // slid away and none rendered as the front, visible board — the exact
+  // "changing the count affects other pages" symptom. Clamping to the
+  // current panel set's actual bounds fixes that regardless of *why*
+  // panels changed (different lesson, different Sliding Boards count,
+  // whatever) — this is the one thing actually used for rendering below.
+  const current = Math.min(rawCurrent, Math.max(panels.length - 1, 0));
+  // Landing on a new lesson should start at its first board, not wherever
+  // the previous lesson's board happened to be parked — panelKey (or
+  // label, for curriculum-authored panels that don't set one) is stable
+  // for a given lesson's panel set and changes when the lesson does.
+  const panelSetId = panels[0]?.panelKey || panels[0]?.label || null;
+  useEffect(() => {
+    setCurrent(0);
+  }, [panelSetId]);
 
   // Derive the same left/right split the static layout uses from the shared
   // arrangement config, so "Inverse" flips this sliding mechanic too instead
