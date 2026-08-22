@@ -85,6 +85,18 @@ export default function ChalkboardBoardRow({
   SmartBoard,
   arrangement = DEFAULT_ARRANGEMENT,
   surface = { face: "#2d5a2d", headerText: "rgba(255,255,255,0.65)", bodyText: "rgba(255,255,255,0.85)", bodyTextChecked: "rgba(255,255,255,0.3)", textShadow: "1px 1px 2px rgba(0,0,0,0.5)", checkboxBorder: "rgba(255,255,255,0.4)" },
+  // Header text printed on each panel above the checklist — "Learning
+  // Goals" for Simple Goals, "Objectives & Benchmarks" for Full Agenda.
+  goalsLabel = "Learning Goals",
+  // Extra content rendered below the checklist on every panel face
+  // (including the fixed back board) — used by the Full Agenda content
+  // template to carry Essential Question/Agenda/Bell Ringer/Home Learning
+  // along on every board, since that content isn't itself per-panel.
+  // IMPORTANT: pass one single element computed by the caller from state
+  // it owns (not a component that manages its own state) — this same
+  // element renders once per panel, so per-panel-owned state would drift
+  // out of sync as a teacher slides between boards and edits fields.
+  extraContent = null,
 }) {
   const [current, setCurrent] = useState(0);
 
@@ -356,7 +368,7 @@ export default function ChalkboardBoardRow({
                       so it slides away with this board and the next panel's
                       own header comes with it when it's revealed. */}
                   <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 12, color: surface.headerText, letterSpacing: 2, textTransform: "uppercase", borderBottom: "1px solid rgba(255,255,255,0.15)", paddingBottom: 8, marginBottom: 2 }}>
-                    Learning Goals
+                    {goalsLabel}
                   </div>
 
                   {panel.goals.map((goalItem, gi) => {
@@ -385,6 +397,12 @@ export default function ChalkboardBoardRow({
                       </div>
                     );
                   })}
+
+                  {extraContent && (
+                    <div style={{ marginTop: 4, paddingTop: 8, borderTop: "1px solid rgba(255,255,255,0.12)" }}>
+                      {extraContent}
+                    </div>
+                  )}
                 </div>
               </div>
             );

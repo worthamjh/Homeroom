@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import ChalkboardBoardRow, { toGoalPanels } from "./ChalkboardBoardRow";
-import FullAgendaBoard from "./FullAgendaBoard";
+import { useFullAgendaFields, FullAgendaFields, ObjectivesChecklist } from "./FullAgendaBoard";
 import {
   scopedKey, useScopedSetting,
   BOARD_ARRANGEMENTS, DEFAULT_ARRANGEMENT, ARRANGEMENT_STORAGE_KEY,
@@ -1152,6 +1152,16 @@ export default function App() {
         : (activeLesson.goals || []).map((text, idx) => ({ text, panelKey: activeLesson.title, idx })))
     : [];
 
+  // Full Agenda's freeform fields (Essential Question, Agenda, Bell
+  // Ringer, Home Learning) — a SINGLE hook instance owning that state, so
+  // whether Full Agenda is currently showing as a flat board or as
+  // multiple sliding panels (ChalkboardBoardRow's extraContent, rendered
+  // once per panel face), every render reads/writes the exact same
+  // content instead of drifting out of sync. See useFullAgendaFields in
+  // FullAgendaBoard.jsx. Called unconditionally (rules of hooks) with a
+  // safe fallback key when there's no active lesson yet.
+  const fullAgendaFields = useFullAgendaFields(scopedKey(`fullAgenda:${activeLesson?.title || "none"}`));
+
   const goHome = () => { setActiveUnitIdx(null); setActiveLesson(null); setOpenDropdown(null); };
   const topBarProps = {
     curriculum, activeUnitIdx, isOverview, activeLesson, openDropdown, setOpenDropdown, handleUnitOverview, handleLessonClick, goHome,
@@ -1204,18 +1214,20 @@ export default function App() {
 
             {/* Chalkboard */}
             <div style={{ flex: 1, minHeight: 0, background: surface.face, borderTop: "4px solid #6B4F10", display: "flex", flexDirection: "column" }}>
-              {!isOverview && contentTemplateKey !== "fullAgenda" && (activeLesson?.goalPanels || slidingEnabled) ? (
-                // Sliding multi-panel chalkboard (Simple Goals content
-                // template only — Full Agenda's Objectives & Benchmarks
-                // gets its own, narrower sliding treatment inside
-                // FullAgendaBoard below, since the rest of that template's
-                // fields aren't panel content). A lesson that authors its
-                // own explicit `goalPanels` (currently just Unit 10's
-                // Testing lessons) always uses those panels as-is. Every
-                // other lesson uses this when the Sliding Boards setting is
-                // on, auto-splitting its flat goals list into
+              {!isOverview && (activeLesson?.goalPanels || slidingEnabled) ? (
+                // Sliding multi-panel chalkboard — the exact same rail/dock
+                // mechanic regardless of content template. A lesson that
+                // authors its own explicit `goalPanels` (currently just
+                // Unit 10's Testing lessons) always uses those panels as-is.
+                // Every other lesson uses this when the Sliding Boards
+                // setting is on, auto-splitting its flat goals list into
                 // slidingCount panels (see buildSlidingPanels in
-                // boardConfig.js).
+                // boardConfig.js). Under Full Agenda, each panel also
+                // carries the Essential Question/Agenda/Bell Ringer/Home
+                // Learning fields via extraContent (see FullAgendaBoard.jsx
+                // — a single hook-owned content instance, not duplicated
+                // per panel) so the whole board slides as one unit, same as
+                // Learning Goals always has.
                 <ChalkboardBoardRow
                   smartBoardSrc={boardSlides}
                   isOverview={false}
@@ -1227,6 +1239,17 @@ export default function App() {
                   SmartBoard={SmartBoard}
                   arrangement={arrangement}
                   surface={surface}
+                  goalsLabel={contentTemplateKey === "fullAgenda" ? "Objectives & Benchmarks" : "Learning Goals"}
+                  extraContent={contentTemplateKey === "fullAgenda" ? (
+                    <FullAgendaFields
+                      content={fullAgendaFields.content}
+                      editingKey={fullAgendaFields.editingKey}
+                      onStartEdit={fullAgendaFields.setEditingKey}
+                      onSave={fullAgendaFields.save}
+                      onReset={fullAgendaFields.resetToDefaults}
+                      surface={surface}
+                    />
+                  ) : null}
                 />
               ) : (() => {
                 // Rendered according to the selected board arrangement preset
@@ -1264,20 +1287,24 @@ export default function App() {
                         ))}
                       </>
                     ) : contentTemplateKey === "fullAgenda" ? (
-                      // Full Agenda content template — replaces just the goals
-                      // column (slides/SmartBoard stay put), same as Simple
-                      // Goals does. Storage key is scoped per-lesson so each
-                      // lesson (including Unit 10's goalPanels lessons) keeps
-                      // its own edited board content.
-                      <FullAgendaBoard
-                        storageKey={scopedKey(`fullAgenda:${activeLesson.title}`)}
-                        goalItems={goalItems}
-                        checkedGoals={checkedGoals}
-                        toggleGoal={toggleGoal}
-                        surface={surface}
-                        slidingEnabled={!activeLesson?.goalPanels && slidingEnabled}
-                        slidingCount={slidingCount}
-                      />
+                      // Full Agenda content template, flat (non-sliding)
+                      // case — replaces just the goals column (slides/
+                      // SmartBoard stay put), same as Simple Goals does.
+                      // Uses the SAME fullAgendaFields hook instance as the
+                      // sliding case above (not a separate component with
+                      // its own state), so switching Sliding Boards on/off
+                      // never shows stale field content.
+                      <>
+                        <ObjectivesChecklist goalItems={goalItems} checkedGoals={checkedGoals} toggleGoal={toggleGoal} surface={surface} />
+                        <FullAgendaFields
+                          content={fullAgendaFields.content}
+                          editingKey={fullAgendaFields.editingKey}
+                          onStartEdit={fullAgendaFields.setEditingKey}
+                          onSave={fullAgendaFields.save}
+                          onReset={fullAgendaFields.resetToDefaults}
+                          surface={surface}
+                        />
+                      </>
                     ) : (
                       <>
                         <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 12, color: surface.headerText, letterSpacing: 2, textTransform: "uppercase", borderBottom: `1px solid ${surface.dividerBorder}`, paddingBottom: SPACE.xs }}>

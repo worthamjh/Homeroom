@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from "react";
-import { buildSlidingPanels } from "./boardConfig";
 
 /**
  * FullAgendaBoard
@@ -21,15 +20,34 @@ import { buildSlidingPanels } from "./boardConfig";
  * same checked/unchecked state, same toggle) so a teacher never has to
  * enter the same objectives twice under two different labels.
  *
- * Props:
- *   storageKey: string — already fully scoped (user + lesson), for the
- *     freely-editable fields below.
- *   goalItems: Array<{ text: string, panelKey: string, idx: number }> —
- *     the lesson's goals, pre-flattened by the caller (handles both plain
- *     `goals` lessons and Unit 10's multi-panel `goalPanels` lessons).
- *   checkedGoals: object, toggleGoal: (panelKey, idx) => void — the same
- *     shared state the Learning Goals checklist / sliding chalkboard use,
- *     so checking a goal here stays in sync with those views too.
+ * Sliding Boards support: when Sliding Boards is on, Full Agenda behaves
+ * exactly like Simple Goals — the *entire* board (Objectives checklist AND
+ * the Essential Question/Agenda/Bell Ringer/Home Learning fields) is what
+ * physically slides, via ChalkboardBoardRow's real rail/dock mechanic, not
+ * a separate scoped-down slider. To make that possible without each
+ * sliding panel owning its own independent (and therefore driftable) copy
+ * of the freeform field content, the content state lives in ONE place —
+ * `useFullAgendaFields`, called once by the caller (WebsterGrovesChemistry
+ * .jsx) — and is handed down as props to `FullAgendaFields`, a purely
+ * presentational component safe to render into every sliding panel's face
+ * (ChalkboardBoardRow's `extraContent`) without any of them drifting out
+ * of sync with each other.
+ *
+ * Exports:
+ *   defaultFullAgendaContent()
+ *   useFullAgendaFields(storageKey) — hook, single source of truth for the
+ *     freeform fields' content/edit state.
+ *   FullAgendaFields(props) — presentational render of Reset button +
+ *     the 4 freeform sections, driven entirely by props from the hook.
+ *   ObjectivesChecklist(props) — the flat (non-sliding) Objectives list,
+ *     also used standalone by the Simple Goals equivalent in
+ *     WebsterGrovesChemistry.jsx... actually Simple Goals has its own
+ *     inline flat list; this one is Full-Agenda-labeled and reused by
+ *     ChalkboardBoardRow isn't needed there since that component has its
+ *     own goals rendering — ObjectivesChecklist is for the non-sliding
+ *     Full Agenda case only.
+ *   FullAgendaBoard (default) — convenience wrapper combining
+ *     ObjectivesChecklist + FullAgendaFields for the non-sliding case.
  */
 
 export function defaultFullAgendaContent() {
@@ -53,12 +71,52 @@ function loadContent(storageKey) {
   }
 }
 
+const DEFAULT_SURFACE = { accent: "#E87722", headerText: "#E87722", bodyText: "rgba(255,255,255,0.88)", bodyTextChecked: "rgba(255,255,255,0.3)", placeholderText: "rgba(255,255,255,0.4)", dividerBorder: "rgba(255,255,255,0.2)", textShadow: "1px 1px 2px rgba(0,0,0,0.5)", checkboxBorder: "rgba(255,255,255,0.4)" };
+
+// Single source of truth for Full Agenda's freeform field content. Call
+// this ONCE per active lesson (in WebsterGrovesChemistry.jsx's App()),
+// never inside something that gets rendered multiple times (like a
+// per-panel component), or independent copies of "content" would drift
+// out of sync with each other as a teacher edits.
+export function useFullAgendaFields(storageKey) {
+  const [content, setContent] = useState(() => loadContent(storageKey));
+  const [editingKey, setEditingKey] = useState(null);
+
+  // Reload (keeping any prior edits for *this* lesson) whenever the
+  // storage key changes — i.e. the teacher navigated to a different lesson.
+  useEffect(() => {
+    setContent(loadContent(storageKey));
+    setEditingKey(null);
+  }, [storageKey]);
+
+  const save = (key, value) => {
+    setEditingKey(null);
+    setContent(prev => {
+      const next = { ...prev, [key]: value };
+      if (typeof window !== "undefined") {
+        try { window.localStorage.setItem(storageKey, JSON.stringify(next)); } catch { /* ignore */ }
+      }
+      return next;
+    });
+  };
+
+  const resetToDefaults = () => {
+    if (typeof window !== "undefined" && !window.confirm("Reset this board back to the default template for this lesson? Your edits will be lost.")) return;
+    const fresh = defaultFullAgendaContent();
+    setContent(fresh);
+    setEditingKey(null);
+    if (typeof window !== "undefined") {
+      try { window.localStorage.removeItem(storageKey); } catch { /* ignore */ }
+    }
+  };
+
+  return { content, editingKey, setEditingKey, save, resetToDefaults };
+}
+
 // One section = a header + a body that's either rendered text (bulleted,
 // one line per non-empty row) or, while editing, a textarea. Shared by
 // every freely-editable field below so the click-to-edit behavior is
 // consistent.
-const DEFAULT_SURFACE = { accent: "#E87722", headerText: "#E87722", bodyText: "rgba(255,255,255,0.88)", bodyTextChecked: "rgba(255,255,255,0.3)", placeholderText: "rgba(255,255,255,0.4)", dividerBorder: "rgba(255,255,255,0.2)", textShadow: "1px 1px 2px rgba(0,0,0,0.5)", checkboxBorder: "rgba(255,255,255,0.4)" };
-
 function Section({ label, value, placeholder, editing, onStartEdit, onSave, rows = 3, minHeight, surface }) {
   const ref = useRef(null);
   const [draft, setDraft] = useState(value);
@@ -119,12 +177,53 @@ function Section({ label, value, placeholder, editing, onStartEdit, onSave, rows
   );
 }
 
+// Purely presentational — every bit of state comes from useFullAgendaFields
+// via props, so this is safe to render more than once (e.g. once per
+// sliding panel face) without any copy drifting out of sync: they're all
+// just re-renders of the same underlying content.
+export function FullAgendaFields({ content, editingKey, onStartEdit, onSave, onReset, surface = DEFAULT_SURFACE }) {
+  const section = (key, label, opts = {}) => (
+    <Section
+      label={label}
+      value={content[key]}
+      placeholder={opts.placeholder || "Click to add..."}
+      editing={editingKey === key}
+      onStartEdit={() => onStartEdit(key)}
+      onSave={val => onSave(key, val)}
+      rows={opts.rows}
+      minHeight={opts.minHeight}
+      surface={surface}
+    />
+  );
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
+      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+        <button
+          onClick={onReset}
+          title="Reset this board to the default template"
+          style={{ fontFamily: "Lato, sans-serif", fontSize: 10, letterSpacing: 0.5, color: surface.placeholderText, background: "transparent", border: `1px solid ${surface.dividerBorder}`, borderRadius: 3, padding: "3px 8px", cursor: "pointer" }}
+          onMouseEnter={e => { e.currentTarget.style.color = surface.accent; e.currentTarget.style.borderColor = surface.accent; }}
+          onMouseLeave={e => { e.currentTarget.style.color = surface.placeholderText; e.currentTarget.style.borderColor = surface.dividerBorder; }}
+        >
+          Reset Board
+        </button>
+      </div>
+      {section("essentialQuestion", "Essential Question", { placeholder: "Click to add today’s essential question...", rows: 2 })}
+      {section("agenda", "Agenda", { placeholder: "Click to add the agenda by period...", rows: 5 })}
+      {section("bellRinger", "Bell Ringer", { placeholder: "Click to add a bell ringer / warm-up...", rows: 2 })}
+      {section("homeLearning", "Home Learning", { placeholder: "Click to add homework / home learning...", rows: 2 })}
+    </div>
+  );
+}
+
 // Objectives & Benchmarks — not a free-text field. Renders the same
 // Learning Goals checklist (same items, same checked state, same toggle)
 // the Simple Goals template shows, so the content lives in one place.
-// Used directly (flat, no panels) when Sliding Boards is off; when it's
-// on, SlidingObjectivesPanel (below) takes over instead.
-function ObjectivesChecklist({ goalItems, checkedGoals, toggleGoal, surface }) {
+// Used for the non-sliding Full Agenda case; when Sliding Boards is on,
+// ChalkboardBoardRow renders the checklist itself (per docked panel)
+// instead, with `goalsLabel="Objectives & Benchmarks"`.
+export function ObjectivesChecklist({ goalItems, checkedGoals, toggleGoal, surface = DEFAULT_SURFACE }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
       <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 12, color: surface.accent, letterSpacing: 2, textTransform: "uppercase", borderBottom: `1px solid ${surface.dividerBorder}`, paddingBottom: 6 }}>
@@ -155,192 +254,24 @@ function ObjectivesChecklist({ goalItems, checkedGoals, toggleGoal, surface }) {
   );
 }
 
-// The real sliding-board motion for Objectives & Benchmarks — a bounded
-// box (not the whole chalkboard row, since Full Agenda's other fields sit
-// in normal flow below it) where each panel is a physical slab that
-// actually slides horizontally, matching ChalkboardBoardRow's look
-// (metal frame, drop shadow) rather than a text counter with arrows.
-// Panels are pre-split by buildSlidingPanels so a given lesson's goals
-// land in the same panels as the Simple Goals content template's sliding
-// chalkboard.
-function SlidingObjectivesPanel({ panels, checkedGoals, toggleGoal, surface }) {
-  const [current, setCurrent] = useState(0);
-  const count = panels.length;
-  const goTo = (i) => setCurrent(((i % count) + count) % count);
+// Convenience wrapper for the non-sliding case: owns its own field state
+// via the hook (fine here since it's only ever rendered once) and
+// combines the Objectives checklist with the freeform fields, stacked in
+// a single column — the same slot the Simple Goals checklist occupies.
+export default function FullAgendaBoard({ storageKey, goalItems, checkedGoals, toggleGoal, surface = DEFAULT_SURFACE }) {
+  const { content, editingKey, setEditingKey, save, resetToDefaults } = useFullAgendaFields(storageKey);
 
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-      <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 12, color: surface.accent, letterSpacing: 2, textTransform: "uppercase", borderBottom: `1px solid ${surface.dividerBorder}`, paddingBottom: 6, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <span>Objectives & Benchmarks</span>
-        <span style={{ fontFamily: "Lato, sans-serif", fontSize: 11, color: surface.placeholderText, textTransform: "none", letterSpacing: 0 }}>
-          {current + 1}/{count}
-        </span>
-      </div>
-
-      <div style={{ position: "relative", height: 190, overflow: "hidden" }}>
-        {panels.map((panel, i) => {
-          const offset = i - current;
-          const isCurrent = offset === 0;
-          return (
-            <div
-              key={panel.panelKey ? `${panel.panelKey}-${i}` : i}
-              style={{
-                position: "absolute", inset: 0,
-                transform: `translateX(${offset * 106}%)`,
-                transition: "transform 550ms cubic-bezier(0.4, 0, 0.2, 1)",
-                background: `
-                  radial-gradient(ellipse 70px 18px at 22% 25%, rgba(255,255,255,0.05), transparent 70%),
-                  radial-gradient(ellipse 90px 16px at 68% 55%, rgba(255,255,255,0.04), transparent 70%),
-                  ${surface.face}
-                `,
-                border: "9px solid #9a9a9a",
-                borderRadius: 4,
-                boxSizing: "border-box",
-                boxShadow: isCurrent ? "0 5px 14px rgba(0,0,0,0.4), inset 0 0 0 10px #9a9a9a" : "inset 0 0 0 10px #9a9a9a",
-                padding: 10,
-                display: "flex",
-                flexDirection: "column",
-                gap: 6,
-                overflowY: "auto",
-                zIndex: isCurrent ? 2 : 1,
-              }}
-            >
-              {panel.goals.map((goalItem, gi) => {
-                const isIndexed = goalItem && typeof goalItem === "object";
-                const text = isIndexed ? goalItem.text : goalItem;
-                const idx = isIndexed ? goalItem.idx : gi;
-                const key = `${panel.panelKey}-${idx}`;
-                const checked = checkedGoals[key];
-                return (
-                  <div key={idx} onClick={() => toggleGoal(panel.panelKey, idx)}
-                    style={{ display: "flex", alignItems: "flex-start", gap: 8, cursor: "pointer", padding: "2px 0" }}>
-                    <div style={{ width: 14, height: 14, border: `2px solid ${checked ? surface.accent : surface.checkboxBorder}`, borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 2, background: checked ? surface.accent : "transparent", transition: "all 0.15s" }}>
-                      {checked && <span style={{ color: "white", fontSize: 8, lineHeight: 1 }}>✓</span>}
-                    </div>
-                    <span style={{ fontFamily: "Caveat, cursive", fontSize: 14, color: checked ? surface.bodyTextChecked : surface.bodyText, lineHeight: 1.3, textShadow: surface.textShadow, textDecoration: checked ? "line-through" : "none", minWidth: 0, wordBreak: "break-word" }}>
-                      {text}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Handle strip — click either side to slide a board over, same
-          "pull the board along a rail" affordance as the Simple Goals
-          sliding chalkboard, sized for this narrower single-column box. */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, paddingTop: 2 }}>
-        <button
-          onClick={() => goTo(current - 1)}
-          title="Previous board"
-          style={{ width: 26, height: 18, borderRadius: 3, border: `2px solid ${surface.accent}`, background: "#c9622b", boxShadow: "0 2px 5px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.3)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
-        >
-          <span aria-hidden="true" style={{ fontSize: 11, lineHeight: 1, color: "rgba(0,0,0,0.55)", fontWeight: 700 }}>‹</span>
-        </button>
-        {panels.map((_, i) => (
-          <span
-            key={i}
-            onClick={() => goTo(i)}
-            style={{ width: 7, height: 7, borderRadius: "50%", cursor: "pointer", background: i === current ? surface.accent : surface.checkboxBorder }}
-          />
-        ))}
-        <button
-          onClick={() => goTo(current + 1)}
-          title="Next board"
-          style={{ width: 26, height: 18, borderRadius: 3, border: `2px solid ${surface.accent}`, background: "#c9622b", boxShadow: "0 2px 5px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.3)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
-        >
-          <span aria-hidden="true" style={{ fontSize: 11, lineHeight: 1, color: "rgba(0,0,0,0.55)", fontWeight: 700 }}>›</span>
-        </button>
-      </div>
-    </div>
-  );
-}
-
-export default function FullAgendaBoard({ storageKey, goalItems, checkedGoals, toggleGoal, surface = DEFAULT_SURFACE, slidingEnabled = false, slidingCount = 3 }) {
-  const [content, setContent] = useState(() => loadContent(storageKey));
-  const [editingKey, setEditingKey] = useState(null);
-
-  // Reload (keeping any prior edits for *this* lesson) whenever the
-  // storage key changes — i.e. the teacher navigated to a different lesson.
-  useEffect(() => {
-    setContent(loadContent(storageKey));
-    setEditingKey(null);
-  }, [storageKey]);
-
-  // Sliding Boards, applied to the Objectives & Benchmarks checklist only
-  // (the rest of Full Agenda — Essential Question, Agenda, Bell Ringer,
-  // Home Learning — is freeform text, not panel content, so it stays put
-  // regardless of this setting). Same buildSlidingPanels split used by the
-  // Simple Goals content template's sliding chalkboard, so a given lesson's
-  // goals land in the same panels either way — real physical-board slide
-  // motion via SlidingObjectivesPanel, not a text pager.
-  const panels = slidingEnabled ? buildSlidingPanels(goalItems, slidingCount) : null;
-  const showSliding = !!(panels && panels.length > 1);
-
-  const save = (key, value) => {
-    setEditingKey(null);
-    setContent(prev => {
-      const next = { ...prev, [key]: value };
-      if (typeof window !== "undefined") {
-        try { window.localStorage.setItem(storageKey, JSON.stringify(next)); } catch { /* ignore */ }
-      }
-      return next;
-    });
-  };
-
-  const resetToDefaults = () => {
-    if (typeof window !== "undefined" && !window.confirm("Reset this board back to the default template for this lesson? Your edits will be lost.")) return;
-    const fresh = defaultFullAgendaContent();
-    setContent(fresh);
-    setEditingKey(null);
-    if (typeof window !== "undefined") {
-      try { window.localStorage.removeItem(storageKey); } catch { /* ignore */ }
-    }
-  };
-
-  const section = (key, label, opts = {}) => (
-    <Section
-      label={label}
-      value={content[key]}
-      placeholder={opts.placeholder || "Click to add..."}
-      editing={editingKey === key}
-      onStartEdit={() => setEditingKey(key)}
-      onSave={val => save(key, val)}
-      rows={opts.rows}
-      minHeight={opts.minHeight}
-      surface={surface}
-    />
-  );
-
-  // Single stacked column — this renders inside the same goals-column slot
-  // the Simple Goals checklist occupies (alongside the SmartBoard/slides,
-  // not instead of it), so it needs to work at that narrower width rather
-  // than a wide two-column layout.
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
-      <div style={{ display: "flex", justifyContent: "flex-end" }}>
-        <button
-          onClick={resetToDefaults}
-          title="Reset this board to the default template"
-          style={{ fontFamily: "Lato, sans-serif", fontSize: 10, letterSpacing: 0.5, color: surface.placeholderText, background: "transparent", border: `1px solid ${surface.dividerBorder}`, borderRadius: 3, padding: "3px 8px", cursor: "pointer" }}
-          onMouseEnter={e => { e.currentTarget.style.color = surface.accent; e.currentTarget.style.borderColor = surface.accent; }}
-          onMouseLeave={e => { e.currentTarget.style.color = surface.placeholderText; e.currentTarget.style.borderColor = surface.dividerBorder; }}
-        >
-          Reset Board
-        </button>
-      </div>
-
-      {showSliding ? (
-        <SlidingObjectivesPanel key={storageKey} panels={panels} checkedGoals={checkedGoals} toggleGoal={toggleGoal} surface={surface} />
-      ) : (
-        <ObjectivesChecklist goalItems={goalItems} checkedGoals={checkedGoals} toggleGoal={toggleGoal} surface={surface} />
-      )}
-      {section("essentialQuestion", "Essential Question", { placeholder: "Click to add today’s essential question...", rows: 2 })}
-      {section("agenda", "Agenda", { placeholder: "Click to add the agenda by period...", rows: 5 })}
-      {section("bellRinger", "Bell Ringer", { placeholder: "Click to add a bell ringer / warm-up...", rows: 2 })}
-      {section("homeLearning", "Home Learning", { placeholder: "Click to add homework / home learning...", rows: 2 })}
+      <ObjectivesChecklist goalItems={goalItems} checkedGoals={checkedGoals} toggleGoal={toggleGoal} surface={surface} />
+      <FullAgendaFields
+        content={content}
+        editingKey={editingKey}
+        onStartEdit={setEditingKey}
+        onSave={save}
+        onReset={resetToDefaults}
+        surface={surface}
+      />
     </div>
   );
 }
