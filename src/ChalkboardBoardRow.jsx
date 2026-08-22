@@ -92,10 +92,21 @@ export default function ChalkboardBoardRow({
   // (including the fixed back board) — used by the Full Agenda content
   // template to carry Essential Question/Agenda/Bell Ringer/Home Learning
   // along on every board, since that content isn't itself per-panel.
-  // IMPORTANT: pass one single element computed by the caller from state
-  // it owns (not a component that manages its own state) — this same
-  // element renders once per panel, so per-panel-owned state would drift
-  // out of sync as a teacher slides between boards and edits fields.
+  //
+  // Pass a FUNCTION `(isFront) => ReactNode`, not a plain element. It's
+  // called once per panel, every render, so the content is baked into
+  // each panel's own face and physically slides with it — exactly like
+  // the goals checklist below already does — instead of popping in/out
+  // instantly the moment the front board changes, ahead of the CSS
+  // transition that's still animating the old board out of the way.
+  // `isFront` tells the caller's component which single instance (if
+  // any) should actually be interactive: every instance reads from the
+  // SAME state (the caller should own that state once, not per-panel —
+  // per-panel-owned state would drift as a teacher slides between boards
+  // and edits fields), so if more than one instance could enter an
+  // editable state at once, they'd all flip into it together the moment
+  // any one of them is clicked. See FullAgendaFields' `interactive` prop
+  // for how the Full Agenda content template uses this.
   extraContent = null,
 }) {
   const [rawCurrent, setCurrent] = useState(0);
@@ -437,24 +448,20 @@ export default function ChalkboardBoardRow({
                     );
                   })}
 
-                  {/* Only the currently-front board mounts extraContent.
-                      Every panel shares the same editingKey/content (one
-                      hook instance, see useFullAgendaFields), so mounting
-                      this on every panel — including the docked one sitting
-                      unseen under the SmartBoard — put two live copies of
-                      the same editable field in the DOM at once. Clicking
-                      one to start editing flipped BOTH into edit mode in the
-                      same render; React then focused each new textarea in
-                      turn, and focusing the second (front) one fired a
-                      blur on the first (docked) one — which called onSave
-                      and reset editingKey back to null before the teacher
-                      could type a single character. Restricting this to the
-                      front board removes the duplicate instance entirely,
-                      since a docked panel is never visible/interactive
-                      anyway. */}
-                  {extraContent && isFront && (
+                  {/* Rendered on EVERY panel, same as the goals checklist
+                      above — so it's baked into each board's own face and
+                      slides with it physically, instead of popping in/out
+                      the instant `current` changes, ahead of the CSS
+                      transition still animating the old board out of the
+                      way (that mismatch was the "text disappears off the
+                      first board and reappears on the next one, unlike
+                      Learning Goals" bug). `isFront` tells the caller's
+                      component whether THIS instance should be
+                      interactive — see the `extraContent` prop comment
+                      above for why only one instance may ever be. */}
+                  {extraContent && (
                     <div style={{ marginTop: 4, paddingTop: 8, borderTop: "1px solid rgba(255,255,255,0.12)" }}>
-                      {extraContent}
+                      {extraContent(isFront)}
                     </div>
                   )}
                 </div>

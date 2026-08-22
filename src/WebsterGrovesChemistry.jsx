@@ -1365,7 +1365,7 @@ export default function App() {
                   arrangement={arrangement}
                   surface={surface}
                   goalsLabel={contentTemplateKey === "fullAgenda" ? "Objectives & Benchmarks" : "Learning Goals"}
-                  extraContent={contentTemplateKey === "fullAgenda" ? (
+                  extraContent={contentTemplateKey === "fullAgenda" ? (isFront) => (
                     <FullAgendaFields
                       content={fullAgendaFields.content}
                       editingKey={fullAgendaFields.editingKey}
@@ -1373,6 +1373,7 @@ export default function App() {
                       onSave={fullAgendaFields.save}
                       onReset={fullAgendaFields.resetToDefaults}
                       surface={surface}
+                      interactive={isFront}
                     />
                   ) : null}
                 />

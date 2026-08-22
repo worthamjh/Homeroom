@@ -181,14 +181,31 @@ function Section({ label, value, placeholder, editing, onStartEdit, onSave, rows
 // via props, so this is safe to render more than once (e.g. once per
 // sliding panel face) without any copy drifting out of sync: they're all
 // just re-renders of the same underlying content.
-export function FullAgendaFields({ content, editingKey, onStartEdit, onSave, onReset, surface = DEFAULT_SURFACE }) {
+//
+// `interactive` (default true) controls whether THIS particular instance
+// can be clicked into edit mode. When Sliding Boards is on, ChalkboardBoardRow
+// mounts one FullAgendaFields per panel — same as it always has for the
+// Learning Goals checklist — so the fields are baked into each physical
+// board's own face and slide with it instead of popping in/out the
+// instant the front board changes (see the comment on the ChalkboardBoardRow
+// call site in WebsterGrovesChemistry.jsx for the fuller history). But
+// every one of those instances shares the same editingKey; if any of them
+// could enter edit mode, clicking one would flip every mounted copy into
+// edit mode in the same render, and React focusing each new textarea in
+// turn would blur-and-auto-save the others before a teacher could type
+// (this happened for real — see Session 7 notes). Passing
+// interactive={false} for every panel except the currently-front one
+// keeps the content visible and physically attached to its own board
+// while making sure only one instance can ever actually respond to a
+// click.
+export function FullAgendaFields({ content, editingKey, onStartEdit, onSave, onReset, surface = DEFAULT_SURFACE, interactive = true }) {
   const section = (key, label, opts = {}) => (
     <Section
       label={label}
       value={content[key]}
       placeholder={opts.placeholder || "Click to add..."}
-      editing={editingKey === key}
-      onStartEdit={() => onStartEdit(key)}
+      editing={interactive && editingKey === key}
+      onStartEdit={interactive ? () => onStartEdit(key) : undefined}
       onSave={val => onSave(key, val)}
       rows={opts.rows}
       minHeight={opts.minHeight}
@@ -199,15 +216,17 @@ export function FullAgendaFields({ content, editingKey, onStartEdit, onSave, onR
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
       <div style={{ display: "flex", justifyContent: "flex-end" }}>
-        <button
-          onClick={onReset}
-          title="Reset this board to the default template"
-          style={{ fontFamily: "Lato, sans-serif", fontSize: 10, letterSpacing: 0.5, color: surface.placeholderText, background: "transparent", border: `1px solid ${surface.dividerBorder}`, borderRadius: 3, padding: "3px 8px", cursor: "pointer" }}
-          onMouseEnter={e => { e.currentTarget.style.color = surface.accent; e.currentTarget.style.borderColor = surface.accent; }}
-          onMouseLeave={e => { e.currentTarget.style.color = surface.placeholderText; e.currentTarget.style.borderColor = surface.dividerBorder; }}
-        >
-          Reset Board
-        </button>
+        {interactive && (
+          <button
+            onClick={onReset}
+            title="Reset this board to the default template"
+            style={{ fontFamily: "Lato, sans-serif", fontSize: 10, letterSpacing: 0.5, color: surface.placeholderText, background: "transparent", border: `1px solid ${surface.dividerBorder}`, borderRadius: 3, padding: "3px 8px", cursor: "pointer" }}
+            onMouseEnter={e => { e.currentTarget.style.color = surface.accent; e.currentTarget.style.borderColor = surface.accent; }}
+            onMouseLeave={e => { e.currentTarget.style.color = surface.placeholderText; e.currentTarget.style.borderColor = surface.dividerBorder; }}
+          >
+            Reset Board
+          </button>
+        )}
       </div>
       {section("essentialQuestion", "Essential Question", { placeholder: "Click to add today’s essential question...", rows: 2 })}
       {section("agenda", "Agenda", { placeholder: "Click to add the agenda by period...", rows: 5 })}
