@@ -5,7 +5,7 @@ import {
   scopedKey, useScopedSetting,
   BOARD_ARRANGEMENTS, DEFAULT_ARRANGEMENT, ARRANGEMENT_STORAGE_KEY,
   BULLETIN_STYLES, DEFAULT_BULLETIN, BULLETIN_STORAGE_KEY,
-  BOARD_CONTENT_TEMPLATES, DEFAULT_CONTENT_TEMPLATE, CONTENT_TEMPLATE_STORAGE_KEY,
+  BOARD_COMPONENTS,
   GOALS_STORAGE_KEY,
   WALL_TYPES, DEFAULT_WALL_TYPE, WALL_TYPE_STORAGE_KEY,
   DEFAULT_WALL_COLOR_BY_TYPE, WALL_COLOR_STORAGE_KEY,
@@ -1120,7 +1120,25 @@ export default function App() {
   // in sync; the browser's native `storage` event does it.
   const [arrangementKey, setArrangementKey] = useScopedSetting(ARRANGEMENT_STORAGE_KEY, DEFAULT_ARRANGEMENT, k => !!BOARD_ARRANGEMENTS[k]);
   const [bulletinStyleKey, setBulletinStyleKey] = useScopedSetting(BULLETIN_STORAGE_KEY, DEFAULT_BULLETIN, k => !!BULLETIN_STYLES[k]);
-  const [contentTemplateKey, setContentTemplateKey] = useScopedSetting(CONTENT_TEMPLATE_STORAGE_KEY, DEFAULT_CONTENT_TEMPLATE, k => !!BOARD_CONTENT_TEMPLATES[k]);
+  // Board Content: five independent on/off toggles (replaced the old
+  // all-or-nothing Simple Goals / Full Agenda template — see BOARD_COMPONENTS
+  // in boardConfig.js). Each is its own cross-tab-synced boolean setting.
+  const isOnOff = k => k === "true" || k === "false";
+  const [learningGoalsOn] = useScopedSetting(BOARD_COMPONENTS.learningGoals.storageKey, BOARD_COMPONENTS.learningGoals.default, isOnOff);
+  const [essentialQuestionOn] = useScopedSetting(BOARD_COMPONENTS.essentialQuestion.storageKey, BOARD_COMPONENTS.essentialQuestion.default, isOnOff);
+  const [agendaOn] = useScopedSetting(BOARD_COMPONENTS.agenda.storageKey, BOARD_COMPONENTS.agenda.default, isOnOff);
+  const [bellRingerOn] = useScopedSetting(BOARD_COMPONENTS.bellRinger.storageKey, BOARD_COMPONENTS.bellRinger.default, isOnOff);
+  const [homeLearningOn] = useScopedSetting(BOARD_COMPONENTS.homeLearning.storageKey, BOARD_COMPONENTS.homeLearning.default, isOnOff);
+  const learningGoalsIsOn = learningGoalsOn === "true";
+  const essentialQuestionIsOn = essentialQuestionOn === "true";
+  const agendaIsOn = agendaOn === "true";
+  const bellRingerIsOn = bellRingerOn === "true";
+  const homeLearningIsOn = homeLearningOn === "true";
+  // Whether any of the four Full Agenda freeform fields are on — drives
+  // whether FullAgendaFields renders at all (it's presentational and would
+  // otherwise render an empty gap of its own layout gap/Reset button when
+  // every one of its four sections is toggled off).
+  const anyFullAgendaFieldOn = essentialQuestionIsOn || agendaIsOn || bellRingerIsOn || homeLearningIsOn;
   const [wallTypeKey] = useScopedSetting(WALL_TYPE_STORAGE_KEY, DEFAULT_WALL_TYPE, k => !!WALL_TYPES[k]);
   const [wallColorKey] = useScopedSetting(WALL_COLOR_STORAGE_KEY, DEFAULT_WALL_COLOR_BY_TYPE[DEFAULT_WALL_TYPE], null);
   const [boardSurfaceKey] = useScopedSetting(BOARD_SURFACE_STORAGE_KEY, DEFAULT_BOARD_SURFACE, k => !!BOARD_SURFACES[k]);
@@ -1259,8 +1277,18 @@ export default function App() {
   // is set — asking for 5 boards to share 3 goals doesn't invent 2 blank
   // ones. Without surfacing that, picking 4 or 5 on a lesson like that
   // looks like the setting silently stopped working.
+  // When Learning Goals is toggled off, auto-splitting into N panels no
+  // longer means anything for a lesson that doesn't author its own
+  // goalPanels — buildSlidingPanels exists purely to divide up the goals
+  // list, and with the checklist hidden there's nothing left to divide.
+  // Force a single panel in that case so the board doesn't show N empty
+  // sliding boards; Unit 10's curriculum-authored goalPanels lessons keep
+  // their real multi-panel layout regardless, since those panels aren't
+  // goals-driven splitting in the first place.
   const slidingPanelsForLesson = (!isOverview && activeLesson)
-    ? (activeLesson.goalPanels ? toGoalPanels(activeLesson) : buildSlidingPanels(goalItems, slidingCount))
+    ? (activeLesson.goalPanels
+        ? toGoalPanels(activeLesson)
+        : (learningGoalsIsOn ? buildSlidingPanels(goalItems, slidingCount) : buildSlidingPanels(goalItems, 1)))
     : [];
 
   // Preview-mode-only: tell Settings how many boards this lesson actually
@@ -1364,8 +1392,9 @@ export default function App() {
                   SmartBoard={SmartBoard}
                   arrangement={arrangement}
                   surface={surface}
-                  goalsLabel={contentTemplateKey === "fullAgenda" ? "Objectives & Benchmarks" : "Learning Goals"}
-                  extraContent={contentTemplateKey === "fullAgenda" ? (isFront) => (
+                  showGoals={learningGoalsIsOn}
+                  goalsLabel={anyFullAgendaFieldOn ? "Objectives & Benchmarks" : "Learning Goals"}
+                  extraContent={anyFullAgendaFieldOn ? (isFront) => (
                     <FullAgendaFields
                       content={fullAgendaFields.content}
                       editingKey={fullAgendaFields.editingKey}
@@ -1374,6 +1403,10 @@ export default function App() {
                       onReset={fullAgendaFields.resetToDefaults}
                       surface={surface}
                       interactive={isFront}
+                      showEssentialQuestion={essentialQuestionIsOn}
+                      showAgenda={agendaIsOn}
+                      showBellRinger={bellRingerIsOn}
+                      showHomeLearning={homeLearningIsOn}
                     />
                   ) : null}
                 />
@@ -1412,45 +1445,49 @@ export default function App() {
                           </div>
                         ))}
                       </>
-                    ) : contentTemplateKey === "fullAgenda" ? (
-                      // Full Agenda content template, flat (non-sliding)
-                      // case — replaces just the goals column (slides/
-                      // SmartBoard stay put), same as Simple Goals does.
-                      // Uses the SAME fullAgendaFields hook instance as the
-                      // sliding case above (not a separate component with
-                      // its own state), so switching Sliding Boards on/off
-                      // never shows stale field content.
-                      <>
-                        <ObjectivesChecklist goalItems={goalItems} checkedGoals={checkedGoals} toggleGoal={toggleGoal} surface={surface} />
-                        <FullAgendaFields
-                          content={fullAgendaFields.content}
-                          editingKey={fullAgendaFields.editingKey}
-                          onStartEdit={fullAgendaFields.setEditingKey}
-                          onSave={fullAgendaFields.save}
-                          onReset={fullAgendaFields.resetToDefaults}
-                          surface={surface}
-                        />
-                      </>
                     ) : (
+                      // Flat (non-sliding) board content — replaces just
+                      // the goals column (slides/SmartBoard stay put).
+                      // Each of the five components below renders only
+                      // when its Settings toggle is on (BOARD_COMPONENTS
+                      // in boardConfig.js); Learning Goals reuses the same
+                      // Objectives checklist Full Agenda's sliding case
+                      // uses, labeled "Objectives & Benchmarks" whenever
+                      // it's sharing the column with any of the other four,
+                      // or plain "Learning Goals" when it's the only thing
+                      // on (matching the old Simple Goals look). The four
+                      // freeform fields use the SAME fullAgendaFields hook
+                      // instance as the sliding case above, so switching
+                      // Sliding Boards on/off never shows stale content.
                       <>
-                        <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 12, color: surface.headerText, letterSpacing: 2, textTransform: "uppercase", borderBottom: `1px solid ${surface.dividerBorder}`, paddingBottom: SPACE.xs }}>
-                          Learning Goals
-                        </div>
-                        {activeLesson?.goals.map((goal, i) => {
-                          const key = `${activeLesson.title}-${i}`;
-                          const checked = checkedGoals[key];
-                          return (
-                            <div key={i} onClick={() => toggleGoal(activeLesson.title, i)}
-                              style={{ display: "flex", alignItems: "flex-start", gap: 8, cursor: "pointer", padding: "4px 0" }}>
-                              <div style={{ width: 15, height: 15, border: `2px solid ${checked ? surface.accent : surface.checkboxBorder}`, borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 2, background: checked ? surface.accent : "transparent", transition: "all 0.15s" }}>
-                                {checked && <span style={{ color: "white", fontSize: 9, lineHeight: 1 }}>✓</span>}
-                              </div>
-                              <span style={{ fontFamily: "Caveat, cursive", fontSize: 15, color: checked ? surface.bodyTextChecked : surface.bodyText, lineHeight: 1.35, textShadow: surface.textShadow, textDecoration: checked ? "line-through" : "none", minWidth: 0, wordBreak: "break-word" }}>
-                                {goal}
-                              </span>
-                            </div>
-                          );
-                        })}
+                        {learningGoalsIsOn && (
+                          <ObjectivesChecklist
+                            goalItems={goalItems}
+                            checkedGoals={checkedGoals}
+                            toggleGoal={toggleGoal}
+                            surface={surface}
+                            label={anyFullAgendaFieldOn ? "Objectives & Benchmarks" : "Learning Goals"}
+                          />
+                        )}
+                        {anyFullAgendaFieldOn && (
+                          <FullAgendaFields
+                            content={fullAgendaFields.content}
+                            editingKey={fullAgendaFields.editingKey}
+                            onStartEdit={fullAgendaFields.setEditingKey}
+                            onSave={fullAgendaFields.save}
+                            onReset={fullAgendaFields.resetToDefaults}
+                            surface={surface}
+                            showEssentialQuestion={essentialQuestionIsOn}
+                            showAgenda={agendaIsOn}
+                            showBellRinger={bellRingerIsOn}
+                            showHomeLearning={homeLearningIsOn}
+                          />
+                        )}
+                        {!learningGoalsIsOn && !anyFullAgendaFieldOn && (
+                          <div style={{ fontFamily: "Caveat, cursive", fontSize: 17, color: surface.placeholderText, fontStyle: "italic", padding: "2px 4px" }}>
+                            No board content is turned on. Turn on Learning Goals, Essential Question, Agenda, Bell Ringer, or Home Learning in Settings.
+                          </div>
+                        )}
                       </>
                     )}
                   </div>

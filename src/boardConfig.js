@@ -85,16 +85,30 @@ export const BULLETIN_STYLES = {
 export const DEFAULT_BULLETIN = "navy";
 export const BULLETIN_STORAGE_KEY = "bulletinStyle";
 
-// ── Board content presets ───────────────────────────────────────────────
+// ── Board content components ────────────────────────────────────────────
 // Separate axis from arrangement/bulletin above (those are purely
-// cosmetic; this changes what's actually on the board). See
-// FullAgendaBoard.jsx for the Full Agenda template itself.
-export const BOARD_CONTENT_TEMPLATES = {
-  simpleGoals: { id: "simpleGoals", label: "Simple Goals (Slides + Checklist)" },
-  fullAgenda: { id: "fullAgenda", label: "Full Agenda (Objectives, Agenda...)" },
+// cosmetic; this changes what's actually on the board). Used to be one
+// all-or-nothing "Simple Goals vs. Full Agenda" template choice; replaced
+// with five independent on/off toggles — one storage key per component,
+// same "cross-tab-synced setting" pattern as Sliding Boards' on/off
+// switch — so a teacher can build whatever combination of board content
+// their admin's format actually calls for (e.g. just the checklist, or
+// checklist + Essential Question with Agenda/Bell Ringer/Home Learning
+// left off) instead of only ever getting the two fixed combinations that
+// used to be available. See FullAgendaBoard.jsx for the fields
+// themselves.
+//
+// `default` matches the old "Simple Goals" look (goals checklist only),
+// so a teacher who never opens Settings sees exactly what they always
+// have — the four extra fields are opt-in on a fresh install, not a
+// surprise change to every existing board.
+export const BOARD_COMPONENTS = {
+  learningGoals: { id: "learningGoals", label: "Learning Goals", storageKey: "component:learningGoals", default: "true" },
+  essentialQuestion: { id: "essentialQuestion", label: "Essential Question", storageKey: "component:essentialQuestion", default: "false" },
+  agenda: { id: "agenda", label: "Agenda", storageKey: "component:agenda", default: "false" },
+  bellRinger: { id: "bellRinger", label: "Bell Ringer", storageKey: "component:bellRinger", default: "false" },
+  homeLearning: { id: "homeLearning", label: "Home Learning", storageKey: "component:homeLearning", default: "false" },
 };
-export const DEFAULT_CONTENT_TEMPLATE = "simpleGoals";
-export const CONTENT_TEMPLATE_STORAGE_KEY = "boardContentTemplate";
 
 export const GOALS_STORAGE_KEY = "checkedGoals";
 

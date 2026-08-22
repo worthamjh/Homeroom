@@ -198,7 +198,17 @@ function Section({ label, value, placeholder, editing, onStartEdit, onSave, rows
 // keeps the content visible and physically attached to its own board
 // while making sure only one instance can ever actually respond to a
 // click.
-export function FullAgendaFields({ content, editingKey, onStartEdit, onSave, onReset, surface = DEFAULT_SURFACE, interactive = true }) {
+// `showEssentialQuestion`/`showAgenda`/`showBellRinger`/`showHomeLearning`
+// (all default true) are the per-component toggles from the Settings
+// page's Board Content section (BOARD_COMPONENTS in boardConfig.js) — a
+// teacher can turn any of these four off independently, so this only
+// renders the ones actually switched on. Content for a hidden field isn't
+// lost: it stays in `content`/localStorage untouched, so switching a
+// component back on later shows whatever was there before.
+export function FullAgendaFields({
+  content, editingKey, onStartEdit, onSave, onReset, surface = DEFAULT_SURFACE, interactive = true,
+  showEssentialQuestion = true, showAgenda = true, showBellRinger = true, showHomeLearning = true,
+}) {
   const section = (key, label, opts = {}) => (
     <Section
       label={label}
@@ -244,10 +254,10 @@ export function FullAgendaFields({ content, editingKey, onStartEdit, onSave, onR
           Reset Board
         </button>
       </div>
-      {section("essentialQuestion", "Essential Question", { placeholder: "Click to add today’s essential question...", rows: 2 })}
-      {section("agenda", "Agenda", { placeholder: "Click to add the agenda by period...", rows: 5 })}
-      {section("bellRinger", "Bell Ringer", { placeholder: "Click to add a bell ringer / warm-up...", rows: 2 })}
-      {section("homeLearning", "Home Learning", { placeholder: "Click to add homework / home learning...", rows: 2 })}
+      {showEssentialQuestion && section("essentialQuestion", "Essential Question", { placeholder: "Click to add today’s essential question...", rows: 2 })}
+      {showAgenda && section("agenda", "Agenda", { placeholder: "Click to add the agenda by period...", rows: 5 })}
+      {showBellRinger && section("bellRinger", "Bell Ringer", { placeholder: "Click to add a bell ringer / warm-up...", rows: 2 })}
+      {showHomeLearning && section("homeLearning", "Home Learning", { placeholder: "Click to add homework / home learning...", rows: 2 })}
     </div>
   );
 }
@@ -258,11 +268,11 @@ export function FullAgendaFields({ content, editingKey, onStartEdit, onSave, onR
 // Used for the non-sliding Full Agenda case; when Sliding Boards is on,
 // ChalkboardBoardRow renders the checklist itself (per docked panel)
 // instead, with `goalsLabel="Objectives & Benchmarks"`.
-export function ObjectivesChecklist({ goalItems, checkedGoals, toggleGoal, surface = DEFAULT_SURFACE }) {
+export function ObjectivesChecklist({ goalItems, checkedGoals, toggleGoal, surface = DEFAULT_SURFACE, label = "Objectives & Benchmarks" }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
       <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 12, color: surface.accent, letterSpacing: 2, textTransform: "uppercase", borderBottom: `1px solid ${surface.dividerBorder}`, paddingBottom: 6 }}>
-        Objectives & Benchmarks
+        {label}
       </div>
       {goalItems.length === 0 ? (
         <div style={{ fontFamily: "Caveat, cursive", fontSize: 17, color: surface.placeholderText, fontStyle: "italic", padding: "2px 4px" }}>

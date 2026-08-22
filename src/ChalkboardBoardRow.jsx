@@ -86,8 +86,17 @@ export default function ChalkboardBoardRow({
   arrangement = DEFAULT_ARRANGEMENT,
   surface = { face: "#2d5a2d", headerText: "rgba(255,255,255,0.65)", bodyText: "rgba(255,255,255,0.85)", bodyTextChecked: "rgba(255,255,255,0.3)", textShadow: "1px 1px 2px rgba(0,0,0,0.5)", checkboxBorder: "rgba(255,255,255,0.4)" },
   // Header text printed on each panel above the checklist — "Learning
-  // Goals" for Simple Goals, "Objectives & Benchmarks" for Full Agenda.
+  // Goals" when the checklist is the only thing on, "Objectives &
+  // Benchmarks" when it's sharing the board with Full Agenda's other
+  // fields.
   goalsLabel = "Learning Goals",
+  // Whether the Learning Goals checklist (header + items) renders at all
+  // on each panel. Defaults true so every existing caller (Unit 10's
+  // goalPanels lessons, any caller that doesn't pass this) is unaffected.
+  // The Settings page's per-component toggles let a teacher turn Learning
+  // Goals off while keeping Sliding Boards + the other Full Agenda fields
+  // on, in which case each panel should show only extraContent.
+  showGoals = true,
   // Extra content rendered below the checklist on every panel face
   // (including the fixed back board) — used by the Full Agenda content
   // template to carry Essential Question/Agenda/Bell Ringer/Home Learning
@@ -416,12 +425,15 @@ export default function ChalkboardBoardRow({
                 >
                   {/* Printed on the panel itself now, not a floating overlay —
                       so it slides away with this board and the next panel's
-                      own header comes with it when it's revealed. */}
-                  <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 12, color: surface.headerText, letterSpacing: 2, textTransform: "uppercase", borderBottom: "1px solid rgba(255,255,255,0.15)", paddingBottom: 8, marginBottom: 2 }}>
-                    {goalsLabel}
-                  </div>
+                      own header comes with it when it's revealed. Skipped
+                      entirely when Learning Goals is toggled off. */}
+                  {showGoals && (
+                    <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 12, color: surface.headerText, letterSpacing: 2, textTransform: "uppercase", borderBottom: "1px solid rgba(255,255,255,0.15)", paddingBottom: 8, marginBottom: 2 }}>
+                      {goalsLabel}
+                    </div>
+                  )}
 
-                  {panel.goals.map((goalItem, gi) => {
+                  {showGoals && panel.goals.map((goalItem, gi) => {
                     // A goal entry is either a plain string (Unit 10's
                     // curriculum-authored goalPanels, unchanged) or a
                     // { text, idx } object — used when panels are

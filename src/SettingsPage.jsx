@@ -3,7 +3,7 @@ import {
   useScopedSetting,
   BOARD_ARRANGEMENTS, DEFAULT_ARRANGEMENT, ARRANGEMENT_STORAGE_KEY,
   BULLETIN_STYLES, DEFAULT_BULLETIN, BULLETIN_STORAGE_KEY,
-  BOARD_CONTENT_TEMPLATES, DEFAULT_CONTENT_TEMPLATE, CONTENT_TEMPLATE_STORAGE_KEY,
+  BOARD_COMPONENTS,
   WALL_TYPES, DEFAULT_WALL_TYPE, WALL_TYPE_STORAGE_KEY,
   WALL_COLORS, DEFAULT_WALL_COLOR_BY_TYPE, WALL_COLOR_STORAGE_KEY,
   wallColorSwatch,
@@ -156,6 +156,26 @@ function RadioRow({ selected, onClick, label, swatch }) {
   );
 }
 
+// Board Content is a set of independent on/off switches (any combination
+// can be on at once), unlike every other category here which is a
+// single-choice preset — so it gets its own checkbox-style row instead of
+// reusing RadioRow's single-selection radio-button look.
+function ToggleRow({ checked, onClick, label }) {
+  return (
+    <div
+      onClick={onClick}
+      style={{ padding: "10px 14px", fontSize: 13, fontFamily: "Lato, sans-serif", fontWeight: 700, color: checked ? "#E87722" : "#ccc", cursor: "pointer", display: "flex", alignItems: "center", gap: 10, borderRadius: 5 }}
+      onMouseEnter={e => { e.currentTarget.style.background = "#242424"; }}
+      onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}
+    >
+      <span style={{ width: 14, height: 14, borderRadius: 3, border: `2px solid ${checked ? "#E87722" : "rgba(255,255,255,0.35)"}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, background: checked ? "#E87722" : "transparent" }}>
+        {checked && <span style={{ color: "#1a1a1a", fontSize: 10, lineHeight: 1, fontWeight: 900 }}>✓</span>}
+      </span>
+      {label}
+    </div>
+  );
+}
+
 function SectionHeading({ children }) {
   return (
     <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 11, color: "rgba(255,255,255,0.45)", letterSpacing: 1.5, textTransform: "uppercase", padding: "12px 14px 4px" }}>
@@ -175,7 +195,16 @@ export default function SettingsPage() {
 
   const [arrangementKey, setArrangementKey] = useScopedSetting(ARRANGEMENT_STORAGE_KEY, DEFAULT_ARRANGEMENT, k => !!BOARD_ARRANGEMENTS[k]);
   const [bulletinStyleKey, setBulletinStyleKey] = useScopedSetting(BULLETIN_STORAGE_KEY, DEFAULT_BULLETIN, k => !!BULLETIN_STYLES[k]);
-  const [contentTemplateKey, setContentTemplateKey] = useScopedSetting(CONTENT_TEMPLATE_STORAGE_KEY, DEFAULT_CONTENT_TEMPLATE, k => !!BOARD_CONTENT_TEMPLATES[k]);
+  // Board Content: five independent on/off toggles, one storage key per
+  // component (see BOARD_COMPONENTS in boardConfig.js) — replaced the old
+  // single "Board Content" preset choice.
+  const isOnOff = k => k === "true" || k === "false";
+  const [learningGoalsOn, setLearningGoalsOn] = useScopedSetting(BOARD_COMPONENTS.learningGoals.storageKey, BOARD_COMPONENTS.learningGoals.default, isOnOff);
+  const [essentialQuestionOn, setEssentialQuestionOn] = useScopedSetting(BOARD_COMPONENTS.essentialQuestion.storageKey, BOARD_COMPONENTS.essentialQuestion.default, isOnOff);
+  const [agendaOn, setAgendaOn] = useScopedSetting(BOARD_COMPONENTS.agenda.storageKey, BOARD_COMPONENTS.agenda.default, isOnOff);
+  const [bellRingerOn, setBellRingerOn] = useScopedSetting(BOARD_COMPONENTS.bellRinger.storageKey, BOARD_COMPONENTS.bellRinger.default, isOnOff);
+  const [homeLearningOn, setHomeLearningOn] = useScopedSetting(BOARD_COMPONENTS.homeLearning.storageKey, BOARD_COMPONENTS.homeLearning.default, isOnOff);
+  const toggleComponent = (value, setValue) => setValue(value === "true" ? "false" : "true");
   const [wallTypeKey, setWallTypeKey] = useScopedSetting(WALL_TYPE_STORAGE_KEY, DEFAULT_WALL_TYPE, k => !!WALL_TYPES[k]);
   const [wallColorKey, setWallColorKey] = useScopedSetting(WALL_COLOR_STORAGE_KEY, DEFAULT_WALL_COLOR_BY_TYPE[DEFAULT_WALL_TYPE], null);
   const [boardSurfaceKey, setBoardSurfaceKey] = useScopedSetting(BOARD_SURFACE_STORAGE_KEY, DEFAULT_BOARD_SURFACE, k => !!BOARD_SURFACES[k]);
@@ -304,9 +333,14 @@ export default function SettingsPage() {
                   {cat.id === "content" && (
                     <>
                       <SectionHeading>Board Content</SectionHeading>
-                      {Object.values(BOARD_CONTENT_TEMPLATES).map(t => (
-                        <RadioRow key={t.id} selected={contentTemplateKey === t.id} onClick={() => setContentTemplateKey(t.id)} label={t.label} />
-                      ))}
+                      <ToggleRow checked={learningGoalsOn === "true"} onClick={() => toggleComponent(learningGoalsOn, setLearningGoalsOn)} label="Learning Goals" />
+                      <ToggleRow checked={essentialQuestionOn === "true"} onClick={() => toggleComponent(essentialQuestionOn, setEssentialQuestionOn)} label="Essential Question" />
+                      <ToggleRow checked={agendaOn === "true"} onClick={() => toggleComponent(agendaOn, setAgendaOn)} label="Agenda" />
+                      <ToggleRow checked={bellRingerOn === "true"} onClick={() => toggleComponent(bellRingerOn, setBellRingerOn)} label="Bell Ringer" />
+                      <ToggleRow checked={homeLearningOn === "true"} onClick={() => toggleComponent(homeLearningOn, setHomeLearningOn)} label="Home Learning" />
+                      <div style={{ fontFamily: "Lato, sans-serif", fontSize: 11, color: "rgba(255,255,255,0.4)", padding: "8px 14px 0", lineHeight: 1.5 }}>
+                        Turn any combination on — each has its own space on the board. Turning one off keeps whatever you've written there; it comes back if you turn it on again.
+                      </div>
                     </>
                   )}
 
@@ -342,7 +376,7 @@ export default function SettingsPage() {
                             ))}
                           </div>
                           <div style={{ padding: "0 14px 4px", fontFamily: "Lato, sans-serif", fontSize: 11, color: "rgba(255,255,255,0.4)", lineHeight: 1.4 }}>
-                            Applies to lessons that don't already define their own boards (Unit 10's Testing lessons keep their own board count). This is a maximum, not a fixed count — a lesson needs at least one learning goal per board, so one with fewer goals than the number picked here ends up with fewer boards too.
+                            Applies to lessons that don't already define their own boards (Unit 10's Testing lessons keep their own board count). This is a maximum, not a fixed count — a lesson needs at least one learning goal per board, so one with fewer goals than the number picked here ends up with fewer boards too. Requires Learning Goals to be turned on in Board Content — with it off, there's nothing to split across boards, so it slides as a single board.
                           </div>
                           {panelCountInfo?.requestedCount != null && panelCountInfo.resolvedCount != null && panelCountInfo.resolvedCount < panelCountInfo.requestedCount && (
                             <div style={{ margin: "0 14px 8px", padding: "8px 10px", fontFamily: "Lato, sans-serif", fontSize: 11, lineHeight: 1.4, color: "#E87722", background: "rgba(232,119,34,0.1)", border: "1px solid rgba(232,119,34,0.35)", borderRadius: 4 }}>
