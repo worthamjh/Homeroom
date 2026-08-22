@@ -13,6 +13,7 @@ import {
   BOARD_SURFACES, DEFAULT_BOARD_SURFACE, BOARD_SURFACE_STORAGE_KEY, surfaceColors,
   SLIDING_BOARDS_ENABLED_KEY, DEFAULT_SLIDING_BOARDS_ENABLED,
   SLIDING_BOARDS_COUNT_KEY, DEFAULT_SLIDING_BOARDS_COUNT,
+  buildSlidingPanels,
 } from "./boardConfig";
 
 const THUMB = (id) => `https://drive.google.com/thumbnail?id=${id}&sz=w400`;
@@ -41,31 +42,9 @@ const SPACE = { xs: 8, sm: 12, md: 16, lg: 24, xl: 32, xxl: 40 };
 // (SettingsPage.jsx), which opens in its own browser tab and needs the
 // same preset definitions and storage keys.
 
-// Splits a flat goalItems list (see the goalItems derivation in App())
-// into N sliding-chalkboard panels, for lessons that don't author their
-// own explicit `goalPanels` (i.e. every lesson except Unit 10's Testing
-// lessons today). Each resulting item carries its *original* idx and a
-// shared panelKey (the lesson title) rather than a fresh per-panel index,
-// so checking a goal while Sliding Boards is on stays in sync with the
-// same goal shown in the flat Learning Goals checklist / Full Agenda
-// Objectives section when Sliding Boards is off — one shared checked-state
-// namespace, not one per panel. See panel.panelKey handling in
-// ChalkboardBoardRow.jsx.
-function buildSlidingPanels(goalItems, count) {
-  if (goalItems.length === 0) return [{ label: undefined, goals: [] }];
-  const n = Math.max(1, count);
-  const buckets = Array.from({ length: n }, () => []);
-  goalItems.forEach((item, i) => {
-    buckets[i % n].push(item);
-  });
-  return buckets
-    .filter(b => b.length > 0)
-    .map((items, i) => ({
-      label: `Board ${i + 1}`,
-      panelKey: items[0].panelKey,
-      goals: items.map(it => ({ text: it.text, idx: it.idx })),
-    }));
-}
+// buildSlidingPanels now lives in ./boardConfig.js, shared with
+// FullAgendaBoard.jsx (its Objectives & Benchmarks checklist supports
+// Sliding Boards too, not just the Simple Goals content template).
 
 // Quick-launch tools footer — same tools Jay's students use in class, one click away.
 const FOOTER_LINKS = [
@@ -1226,14 +1205,17 @@ export default function App() {
             {/* Chalkboard */}
             <div style={{ flex: 1, minHeight: 0, background: surface.face, borderTop: "4px solid #6B4F10", display: "flex", flexDirection: "column" }}>
               {!isOverview && contentTemplateKey !== "fullAgenda" && (activeLesson?.goalPanels || slidingEnabled) ? (
-                // Sliding multi-panel chalkboard. A lesson that authors its
+                // Sliding multi-panel chalkboard (Simple Goals content
+                // template only — Full Agenda's Objectives & Benchmarks
+                // gets its own, narrower sliding treatment inside
+                // FullAgendaBoard below, since the rest of that template's
+                // fields aren't panel content). A lesson that authors its
                 // own explicit `goalPanels` (currently just Unit 10's
                 // Testing lessons) always uses those panels as-is. Every
                 // other lesson uses this when the Sliding Boards setting is
                 // on, auto-splitting its flat goals list into
-                // slidingCount panels (see buildSlidingPanels above). Only
-                // used under the Simple Goals content template — Full
-                // Agenda's Objectives section is never split into panels.
+                // slidingCount panels (see buildSlidingPanels in
+                // boardConfig.js).
                 <ChalkboardBoardRow
                   smartBoardSrc={boardSlides}
                   isOverview={false}
@@ -1293,6 +1275,8 @@ export default function App() {
                         checkedGoals={checkedGoals}
                         toggleGoal={toggleGoal}
                         surface={surface}
+                        slidingEnabled={!activeLesson?.goalPanels && slidingEnabled}
+                        slidingCount={slidingCount}
                       />
                     ) : (
                       <>

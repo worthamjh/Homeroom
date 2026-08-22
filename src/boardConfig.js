@@ -146,6 +146,35 @@ export const SLIDING_BOARDS_COUNT_KEY = "slidingBoardsCount";
 export const DEFAULT_SLIDING_BOARDS_COUNT = "3";
 export const SLIDING_BOARDS_COUNT_OPTIONS = ["2", "3", "4", "5"];
 
+// Splits a flat goalItems list (each { text, panelKey, idx }, see the
+// goalItems derivation in WebsterGrovesChemistry.jsx's App()) into N
+// sliding-chalkboard panels, for lessons that don't author their own
+// explicit `goalPanels` (i.e. every lesson except Unit 10's Testing
+// lessons today). Each resulting item carries its *original* idx and a
+// shared panelKey (the lesson title) rather than a fresh per-panel index,
+// so checking a goal while Sliding Boards is on stays in sync with the
+// same goal shown in the flat Learning Goals checklist / Full Agenda
+// Objectives section when Sliding Boards is off — one shared checked-state
+// namespace, not one per panel. Used by both the sliding chalkboard
+// (ChalkboardBoardRow, via WebsterGrovesChemistry.jsx) and Full Agenda's
+// Objectives & Benchmarks checklist (FullAgendaBoard.jsx) so Sliding
+// Boards behaves consistently under either content template.
+export function buildSlidingPanels(goalItems, count) {
+  if (goalItems.length === 0) return [{ label: undefined, goals: [] }];
+  const n = Math.max(1, count);
+  const buckets = Array.from({ length: n }, () => []);
+  goalItems.forEach((item, i) => {
+    buckets[i % n].push(item);
+  });
+  return buckets
+    .filter(b => b.length > 0)
+    .map((items, i) => ({
+      label: `Board ${i + 1}`,
+      panelKey: items[0].panelKey,
+      goals: items.map(it => ({ text: it.text, idx: it.idx })),
+    }));
+}
+
 // Text/background colors for the two board surfaces — chalkboard is light
 // text on a dark green face (chalk), dry erase is dark text on a light
 // face (marker). Consumed by the goals checklist, FullAgendaBoard, and

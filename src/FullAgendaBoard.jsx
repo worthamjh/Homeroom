@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { buildSlidingPanels } from "./boardConfig";
 
 /**
  * FullAgendaBoard
@@ -121,11 +122,37 @@ function Section({ label, value, placeholder, editing, onStartEdit, onSave, rows
 // Objectives & Benchmarks — not a free-text field. Renders the same
 // Learning Goals checklist (same items, same checked state, same toggle)
 // the Simple Goals template shows, so the content lives in one place.
-function ObjectivesChecklist({ goalItems, checkedGoals, toggleGoal, surface }) {
+//
+// When Sliding Boards is on, `pager` is passed with { panelIdx, panelCount,
+// onPrev, onNext } and only the current panel's items render — mirroring
+// the sliding chalkboard (ChalkboardBoardRow) so the same setting behaves
+// consistently whether a lesson is showing Simple Goals or Full Agenda.
+function ObjectivesChecklist({ goalItems, checkedGoals, toggleGoal, surface, pager }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-      <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 12, color: surface.accent, letterSpacing: 2, textTransform: "uppercase", borderBottom: `1px solid ${surface.dividerBorder}`, paddingBottom: 6 }}>
-        Objectives & Benchmarks
+      <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 12, color: surface.accent, letterSpacing: 2, textTransform: "uppercase", borderBottom: `1px solid ${surface.dividerBorder}`, paddingBottom: 6, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <span>Objectives & Benchmarks</span>
+        {pager && pager.panelCount > 1 && (
+          <span style={{ display: "flex", alignItems: "center", gap: 8, textTransform: "none", letterSpacing: 0 }}>
+            <button
+              onClick={pager.onPrev}
+              title="Previous board"
+              style={{ background: "transparent", border: "none", color: surface.accent, fontSize: 14, cursor: "pointer", padding: "0 2px", lineHeight: 1 }}
+            >
+              ‹
+            </button>
+            <span style={{ fontFamily: "Lato, sans-serif", fontSize: 11, color: surface.placeholderText }}>
+              {pager.panelIdx + 1}/{pager.panelCount}
+            </span>
+            <button
+              onClick={pager.onNext}
+              title="Next board"
+              style={{ background: "transparent", border: "none", color: surface.accent, fontSize: 14, cursor: "pointer", padding: "0 2px", lineHeight: 1 }}
+            >
+              ›
+            </button>
+          </span>
+        )}
       </div>
       {goalItems.length === 0 ? (
         <div style={{ fontFamily: "Caveat, cursive", fontSize: 17, color: surface.placeholderText, fontStyle: "italic", padding: "2px 4px" }}>
@@ -152,16 +179,37 @@ function ObjectivesChecklist({ goalItems, checkedGoals, toggleGoal, surface }) {
   );
 }
 
-export default function FullAgendaBoard({ storageKey, goalItems, checkedGoals, toggleGoal, surface = DEFAULT_SURFACE }) {
+export default function FullAgendaBoard({ storageKey, goalItems, checkedGoals, toggleGoal, surface = DEFAULT_SURFACE, slidingEnabled = false, slidingCount = 3 }) {
   const [content, setContent] = useState(() => loadContent(storageKey));
   const [editingKey, setEditingKey] = useState(null);
+  const [panelIdx, setPanelIdx] = useState(0);
 
   // Reload (keeping any prior edits for *this* lesson) whenever the
   // storage key changes — i.e. the teacher navigated to a different lesson.
   useEffect(() => {
     setContent(loadContent(storageKey));
     setEditingKey(null);
+    setPanelIdx(0);
   }, [storageKey]);
+
+  // Sliding Boards, applied to the Objectives & Benchmarks checklist only
+  // (the rest of Full Agenda — Essential Question, Agenda, Bell Ringer,
+  // Home Learning — is freeform text, not panel content, so it stays put
+  // regardless of this setting). Same buildSlidingPanels split used by the
+  // Simple Goals content template's sliding chalkboard, so a given lesson's
+  // goals land in the same panels either way.
+  const panels = slidingEnabled ? buildSlidingPanels(goalItems, slidingCount) : null;
+  const panelCount = panels ? panels.length : 0;
+  const clampedPanelIdx = panelCount > 0 ? Math.min(panelIdx, panelCount - 1) : 0;
+  const visibleGoalItems = panels && panels.length > 0
+    ? panels[clampedPanelIdx].goals.map(g => ({ text: g.text, panelKey: panels[clampedPanelIdx].panelKey, idx: g.idx }))
+    : goalItems;
+  const pager = panels ? {
+    panelIdx: clampedPanelIdx,
+    panelCount,
+    onPrev: () => setPanelIdx(i => (i - 1 + panelCount) % panelCount),
+    onNext: () => setPanelIdx(i => (i + 1) % panelCount),
+  } : null;
 
   const save = (key, value) => {
     setEditingKey(null);
@@ -216,7 +264,7 @@ export default function FullAgendaBoard({ storageKey, goalItems, checkedGoals, t
         </button>
       </div>
 
-      <ObjectivesChecklist goalItems={goalItems} checkedGoals={checkedGoals} toggleGoal={toggleGoal} surface={surface} />
+      <ObjectivesChecklist goalItems={visibleGoalItems} checkedGoals={checkedGoals} toggleGoal={toggleGoal} surface={surface} pager={pager} />
       {section("essentialQuestion", "Essential Question", { placeholder: "Click to add today’s essential question...", rows: 2 })}
       {section("agenda", "Agenda", { placeholder: "Click to add the agenda by period...", rows: 5 })}
       {section("bellRinger", "Bell Ringer", { placeholder: "Click to add a bell ringer / warm-up...", rows: 2 })}
