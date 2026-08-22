@@ -216,17 +216,33 @@ export function FullAgendaFields({ content, editingKey, onStartEdit, onSave, onR
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
       <div style={{ display: "flex", justifyContent: "flex-end" }}>
-        {interactive && (
-          <button
-            onClick={onReset}
-            title="Reset this board to the default template"
-            style={{ fontFamily: "Lato, sans-serif", fontSize: 10, letterSpacing: 0.5, color: surface.placeholderText, background: "transparent", border: `1px solid ${surface.dividerBorder}`, borderRadius: 3, padding: "3px 8px", cursor: "pointer" }}
-            onMouseEnter={e => { e.currentTarget.style.color = surface.accent; e.currentTarget.style.borderColor = surface.accent; }}
-            onMouseLeave={e => { e.currentTarget.style.color = surface.placeholderText; e.currentTarget.style.borderColor = surface.dividerBorder; }}
-          >
-            Reset Board
-          </button>
-        )}
+        {/* Always rendered — even on a non-interactive (non-front) panel —
+            and hidden with visibility rather than left out of the tree.
+            Conditionally not rendering it made this row collapse to zero
+            height the instant a panel's interactive state flipped (which
+            happens on every slide-handle click, for both the panel losing
+            front status and the one gaining it), shifting every field
+            below it up or down by the button's own height. visibility:
+            hidden keeps the row's box — and therefore everything below it
+            — exactly where it was, while still making the button
+            untargetable by mouse or keyboard on a panel that shouldn't be
+            interactive. */}
+        <button
+          onClick={interactive ? onReset : undefined}
+          title="Reset this board to the default template"
+          tabIndex={interactive ? 0 : -1}
+          style={{
+            fontFamily: "Lato, sans-serif", fontSize: 10, letterSpacing: 0.5, color: surface.placeholderText,
+            background: "transparent", border: `1px solid ${surface.dividerBorder}`, borderRadius: 3, padding: "3px 8px",
+            cursor: interactive ? "pointer" : "default",
+            visibility: interactive ? "visible" : "hidden",
+            pointerEvents: interactive ? "auto" : "none",
+          }}
+          onMouseEnter={e => { e.currentTarget.style.color = surface.accent; e.currentTarget.style.borderColor = surface.accent; }}
+          onMouseLeave={e => { e.currentTarget.style.color = surface.placeholderText; e.currentTarget.style.borderColor = surface.dividerBorder; }}
+        >
+          Reset Board
+        </button>
       </div>
       {section("essentialQuestion", "Essential Question", { placeholder: "Click to add today’s essential question...", rows: 2 })}
       {section("agenda", "Agenda", { placeholder: "Click to add the agenda by period...", rows: 5 })}
