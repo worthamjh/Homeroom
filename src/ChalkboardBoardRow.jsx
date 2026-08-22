@@ -222,7 +222,21 @@ export default function ChalkboardBoardRow({
             // WebsterGrovesChemistry.jsx) so multiple auto-split panels can
             // share ONE checked-state namespace (matching the flat
             // checklist's keys) while still showing different labels.
+            // IMPORTANT: this is deliberately the SAME value across every
+            // auto-split panel of one lesson (buildSlidingPanels sets
+            // panel.panelKey to the lesson's own title for every bucket),
+            // which is exactly what checked-state needs — but it must NOT
+            // also be reused as this div's React `key` below. Two sibling
+            // panels sharing one key is an invalid/duplicate key, and React
+            // silently mis-reconciles it: navigating between lessons with
+            // different panel counts left a stale panel's DOM (and its own
+            // "N of total" counter) still mounted alongside the new
+            // lesson's panels, which is exactly the "1/2 on one side, 1/3
+            // on the other, the left one won't click back" symptom. domKey
+            // below folds in the panel's index so every sibling is unique
+            // while panelKey itself stays untouched for checked-state.
             const panelKey = panel.panelKey || panel.label || `panel-${i}`;
+            const domKey = `${panelKey}::${i}`;
             const tone = PANEL_TONE(surface.face);
             // The last panel represents the fixed board the whole rail system
             // is mounted in front of — not another movable slab. It never has
@@ -233,7 +247,7 @@ export default function ChalkboardBoardRow({
             const isFront = i === current;
             return (
               <div
-                key={panelKey}
+                key={domKey}
                 style={{
                   position: "absolute",
                   left: parked ? dockedLeftFor(i) : `${goalsHomeLeftPct}%`,
@@ -423,7 +437,22 @@ export default function ChalkboardBoardRow({
                     );
                   })}
 
-                  {extraContent && (
+                  {/* Only the currently-front board mounts extraContent.
+                      Every panel shares the same editingKey/content (one
+                      hook instance, see useFullAgendaFields), so mounting
+                      this on every panel — including the docked one sitting
+                      unseen under the SmartBoard — put two live copies of
+                      the same editable field in the DOM at once. Clicking
+                      one to start editing flipped BOTH into edit mode in the
+                      same render; React then focused each new textarea in
+                      turn, and focusing the second (front) one fired a
+                      blur on the first (docked) one — which called onSave
+                      and reset editingKey back to null before the teacher
+                      could type a single character. Restricting this to the
+                      front board removes the duplicate instance entirely,
+                      since a docked panel is never visible/interactive
+                      anyway. */}
+                  {extraContent && isFront && (
                     <div style={{ marginTop: 4, paddingTop: 8, borderTop: "1px solid rgba(255,255,255,0.12)" }}>
                       {extraContent}
                     </div>
