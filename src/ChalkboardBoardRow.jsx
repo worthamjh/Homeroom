@@ -90,6 +90,15 @@ export default function ChalkboardBoardRow({
   // Benchmarks" when it's sharing the board with Full Agenda's other
   // fields.
   goalsLabel = "Learning Goals",
+  // Color for that header. Defaults to the muted surface.headerText used
+  // when Learning Goals is the only thing on the board (matching its
+  // original look), but the caller passes surface.accent instead whenever
+  // Objectives & Benchmarks is sharing the panel with Full Agenda's other
+  // fields (Essential Question, Agenda, Bell Ringer, Home Learning) — all
+  // of which use surface.accent via SectionHeader in FullAgendaBoard.jsx
+  // — so every header in that shared section reads as one consistent set
+  // instead of Objectives & Benchmarks standing out as a different color.
+  goalsHeaderColor = surface.headerText,
   // Whether the Learning Goals checklist (header + items) renders at all
   // on each panel. Defaults true so every existing caller (Unit 10's
   // goalPanels lessons, any caller that doesn't pass this) is unaffected.
@@ -465,7 +474,7 @@ export default function ChalkboardBoardRow({
                       renderedCount++;
                       return (
                         <div key={key} style={dividerStyle}>
-                          <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 12, color: surface.headerText, letterSpacing: 2, textTransform: "uppercase", borderBottom: "1px solid rgba(255,255,255,0.15)", paddingBottom: 8, marginBottom: 2 }}>
+                          <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 12, color: goalsHeaderColor, letterSpacing: 2, textTransform: "uppercase", borderBottom: "1px solid rgba(255,255,255,0.15)", paddingBottom: 8, marginBottom: 2 }}>
                             {goalsLabel}
                           </div>
                           {panel.goals.map((goalItem, gi) => {

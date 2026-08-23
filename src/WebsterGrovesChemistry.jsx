@@ -1865,6 +1865,7 @@ export default function App() {
                   surface={surface}
                   showGoals={learningGoalsIsOn}
                   goalsLabel={anyFullAgendaFieldOn ? "Objectives & Benchmarks" : "Learning Goals"}
+                  goalsHeaderColor={anyFullAgendaFieldOn ? surface.accent : surface.headerText}
                   // Same boardContentOrder the flat (non-sliding) column
                   // uses (see its own comment further down) — this is what
                   // lets a teacher's drag-to-reorder in the Board Content
