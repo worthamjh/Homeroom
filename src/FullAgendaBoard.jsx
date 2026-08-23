@@ -300,14 +300,22 @@ export function FullAgendaFields({
 
 // A single freeform field, standalone — same click-to-edit Section
 // underneath FullAgendaFields uses, just one at a time instead of all
-// four in a fixed block. This is what lets the flat (non-sliding) board
-// content column render Essential Question/Agenda/Bell Ringer/Home
-// Learning in whatever order a teacher has chosen (see
-// BOARD_CONTENT_ORDER_STORAGE_KEY in boardConfig.js) instead of always in
-// this same fixed sequence — Sliding Boards mode still uses the fixed
-// FullAgendaFields block above, so custom ordering doesn't apply there
-// yet.
-export function EditableField({ fieldKey, content, editingKey, onStartEdit, onSave, surface = DEFAULT_SURFACE }) {
+// four in a fixed block. This is what lets BOTH the flat (non-sliding)
+// board content column AND ChalkboardBoardRow's sliding panels render
+// Essential Question/Agenda/Bell Ringer/Home Learning in whatever order a
+// teacher has chosen (see BOARD_CONTENT_ORDER_STORAGE_KEY in
+// boardConfig.js) instead of a fixed sequence.
+//
+// `interactive` (default true) mirrors Section's own gate, and exists for
+// exactly the reason FullAgendaFields' `interactive` prop does: when
+// Sliding Boards is on, ChalkboardBoardRow mounts one EditableField per
+// panel per key (baked into each board's own face so it slides
+// physically, same as the goals checklist), all reading the same
+// editingKey — only the current front panel's copy may actually enter
+// edit mode, or clicking one would flip every mounted copy into edit mode
+// in the same render. The flat (non-sliding) column only ever mounts one
+// copy of each field, so it never needs to pass this.
+export function EditableField({ fieldKey, content, editingKey, onStartEdit, onSave, surface = DEFAULT_SURFACE, interactive = true }) {
   const meta = FULL_AGENDA_FIELD_META[fieldKey];
   if (!meta) return null;
   return (
@@ -315,8 +323,8 @@ export function EditableField({ fieldKey, content, editingKey, onStartEdit, onSa
       label={meta.label}
       value={content[fieldKey]}
       placeholder={meta.placeholder}
-      editing={editingKey === fieldKey}
-      onStartEdit={() => onStartEdit(fieldKey)}
+      editing={interactive && editingKey === fieldKey}
+      onStartEdit={interactive ? () => onStartEdit(fieldKey) : undefined}
       onSave={val => onSave(fieldKey, val)}
       rows={meta.rows}
       surface={surface}

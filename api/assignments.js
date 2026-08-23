@@ -4,16 +4,23 @@
 // assignment is scoped to a unit index + lesson title, same addressing
 // the client already uses to look up a lesson's hardcoded assignments.
 //
-// No login system exists yet (see src/boardConfig.js's getActiveTeacherId
-// — deliberately not built out further until there's a real reason to,
-// e.g. multiple real teachers on one deployment). This mirrors that same
-// placeholder identity scheme so swapping in real auth later is a data
-// migration, not a rewrite: every document is scoped under whatever
-// teacherId the client sends (defaulting to DEFAULT_TEACHER_ID, Webster
-// Groves' real identity, if the client omits it for some reason) — this
-// is what keeps a teacher experimenting under a different id, e.g.
-// ?teacher=sandbox on the client, from ever touching Webster Groves'
-// real Mongo-stored assignments, or vice versa.
+// Real login exists now (Clerk — see src/boardConfig.js's
+// useSyncAuthIdentity and main.jsx's <ClerkProvider>), but every document
+// here is still scoped under whatever teacherId the CLIENT sends in the
+// request, exactly as before — this endpoint does not itself verify who's
+// actually signed in. getActiveTeacherId() on the client resolves to a
+// signed-in teacher's real Clerk id (prefixed "clerk:") once they're
+// signed in, but nothing stops a request from claiming a different
+// teacherId outright; the isolation this gives is "different teachers'
+// content doesn't collide by default," not "a request is verified to
+// belong to the teacher it claims." Hardening this — verifying the
+// request's Clerk session token server-side (e.g. via
+// @clerk/backend's verifyToken, using CLERK_SECRET_KEY, already reserved
+// in .env.example) and deriving teacherId from THAT instead of trusting
+// req.body/req.query — is real future work, not done in this pass.
+// Defaulting to DEFAULT_TEACHER_ID (Webster Groves' real identity) when
+// the client omits teacherId, and the ?teacher=sandbox escape hatch on
+// the client, both still work exactly as before.
 import { MongoClient } from "mongodb";
 
 const DEFAULT_TEACHER_ID = "local-teacher";

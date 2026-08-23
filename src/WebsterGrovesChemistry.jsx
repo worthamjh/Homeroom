@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import ChalkboardBoardRow, { toGoalPanels } from "./ChalkboardBoardRow";
-import { useFullAgendaFields, FullAgendaFields, ObjectivesChecklist, EditableField, ResetBoardButton } from "./FullAgendaBoard";
+import { useFullAgendaFields, ObjectivesChecklist, EditableField, ResetBoardButton } from "./FullAgendaBoard";
 import { fetchExtraAssignments, createExtraAssignment, deleteExtraAssignment } from "./lib/extraAssignments";
 import { uploadAssignmentPdf } from "./lib/cloudinary";
 import {
@@ -42,6 +42,26 @@ const isPreviewMode = typeof window !== "undefined" && new URLSearchParams(windo
 // front of a class) never shows any of them, no matter which teacher
 // identity is active.
 const isBuildMode = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("build") === "1";
+
+// Deep-link params a plain real board tab honors on load: `?unit=<idx>&
+// lesson=<title>`. This is what lets Build's "← Back to board" link (see
+// BuildPage.jsx) return the teacher to the exact lesson they were editing
+// instead of always resetting to the homepage — Build tracks its own
+// current unit/lesson (reported up via postMessage, see the "homeroom-
+// build-current-view" effect below) and builds its back-link href with
+// these params. A plain "/" with neither param still starts at the
+// homepage exactly as before; this only kicks in when a caller actually
+// asks for a specific lesson.
+function readViewFromUrlParams() {
+  if (typeof window === "undefined") return null;
+  const params = new URLSearchParams(window.location.search);
+  const unitParam = params.get("unit");
+  if (unitParam == null) return null;
+  const unitIdx = Number(unitParam);
+  if (!Number.isInteger(unitIdx) || unitIdx < 0) return null;
+  const lessonTitle = params.get("lesson") || null;
+  return { unitIdx, lessonTitle };
+}
 
 const THUMB = (id) => `https://drive.google.com/thumbnail?id=${id}&sz=w400`;
 
@@ -1239,37 +1259,24 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
           Webster Groves <span style={{ color: "#E87722" }}>Chemistry</span>
         </div>
 
-        {/* Opens the Settings page in its own browser tab (real URL,
-            /settings — see SettingsPage.jsx) rather than an in-place
-            dropdown. The settings tab shows a live scaled-down preview of
-            the board with categorized controls (Background, Board Layout,
-            Bulletin Board, Board Content); changes made there sync back to
-            this tab live via the shared localStorage keys + the browser's
-            `storage` event (see useScopedSetting in boardConfig.js). */}
-        <button
-          onClick={e => { e.stopPropagation(); window.open("/settings", "_blank", "noopener"); }}
-          title="Board settings"
-          aria-label="Open board settings"
-          style={{ position: "absolute", right: SPACE.lg, top: "50%", transform: "translateY(-50%)", width: 34, height: 34, borderRadius: "50%", border: "1px solid rgba(255,255,255,0.25)", background: "transparent", color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, transition: "all 0.15s" }}
-          onMouseEnter={e => { e.currentTarget.style.background = "#E87722"; e.currentTarget.style.color = "#1a1a1a"; }}
-          onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#fff"; }}
-        >
-          ⚙
-        </button>
-
         {/* Opens the Build page — where units/lessons/assignments/calendar
-            are actually added and edited — in its own tab, same pattern as
-            Settings above. Deliberately NOT inline on this board: whatever
-            is on this page is what could be projected in front of a class,
-            so no add/edit affordance ever lives here (see PROJECT_NOTES.md
-            / the open-platform plan doc for the reasoning — Add
-            Assignment and Add Calendar used to live inline here and were
-            moved out for exactly this reason). */}
+            are edited AND where board formatting (background, layout,
+            bulletin, board content, blackboard) is now controlled — in its
+            own tab. Used to be two separate icons/pages (⚙ Settings, 🛠
+            Build); merged into one now that Build's right-hand panel
+            covers everything Settings used to (see BoardSettingsPanel.jsx
+            / BuildPage.jsx) — one page for a teacher to remember instead
+            of two. Deliberately NOT inline on this board: whatever is on
+            this page is what could be projected in front of a class, so no
+            add/edit affordance ever lives here (see PROJECT_NOTES.md / the
+            open-platform plan doc for the reasoning — Add Assignment and
+            Add Calendar used to live inline here and were moved out for
+            exactly this reason). */}
         <button
           onClick={e => { e.stopPropagation(); window.open("/build", "_blank", "noopener"); }}
-          title="Build — add or edit units, lessons, assignments, calendar"
+          title="Build — add or edit content, and change how the board looks"
           aria-label="Open Build page"
-          style={{ position: "absolute", right: SPACE.lg + 42, top: "50%", transform: "translateY(-50%)", width: 34, height: 34, borderRadius: "50%", border: "1px solid rgba(255,255,255,0.25)", background: "transparent", color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, transition: "all 0.15s" }}
+          style={{ position: "absolute", right: SPACE.lg, top: "50%", transform: "translateY(-50%)", width: 34, height: 34, borderRadius: "50%", border: "1px solid rgba(255,255,255,0.25)", background: "transparent", color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, transition: "all 0.15s" }}
           onMouseEnter={e => { e.currentTarget.style.background = "#E87722"; e.currentTarget.style.color = "#1a1a1a"; }}
           onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#fff"; }}
         >
@@ -1357,7 +1364,11 @@ export default function App() {
   const isBlankTeacher = activeTeacherId !== DEFAULT_TEACHER_ID;
   const activeCurriculum = isBlankTeacher ? BLANK_CURRICULUM : curriculum;
 
-  // A real board tab always starts at the homepage, same as always. Both
+  // A real board tab starts at the homepage by default, same as always —
+  // UNLESS it's a deep link with explicit ?unit=&lesson= params (see
+  // readViewFromUrlParams above), which is exactly what Build's "← Back to
+  // board" link now sends so it can return the teacher to whatever lesson
+  // Build had open rather than resetting them to the homepage. Both
   // embedded copies of this same app — Settings' read-only preview
   // (isPreviewMode) and Build's editable one (isBuildMode) — instead
   // restore whatever lesson the teacher's real board tab currently has
@@ -1365,7 +1376,9 @@ export default function App() {
   // say, Lesson 1 opens straight to that same Lesson 1 (editable, for
   // Build) instead of dumping the teacher back at the homepage and making
   // them re-navigate.
-  const initialView = (isPreviewMode || isBuildMode) ? resolveView(readCurrentView(), activeCurriculum) : { unitIdx: null, lesson: null };
+  const initialView = (isPreviewMode || isBuildMode)
+    ? resolveView(readCurrentView(), activeCurriculum)
+    : resolveView(readViewFromUrlParams(), activeCurriculum);
   const [activeUnitIdx, setActiveUnitIdx] = useState(initialView.unitIdx);
   const [activeLesson, setActiveLesson] = useState(initialView.lesson);
   // Only meaningful in preview mode — which category Settings currently
@@ -1442,6 +1455,23 @@ export default function App() {
     writeCurrentView(activeUnitIdx == null ? null : { unitIdx: activeUnitIdx, lessonTitle: activeLesson?.title || null });
   }, [activeUnitIdx, activeLesson]);
 
+  // Build-mode-only: tell the parent (BuildPage.jsx) which unit/lesson
+  // Build itself currently has open, so its "← Back to board" link can
+  // send the teacher back to that exact spot (via the ?unit=&lesson= deep
+  // link params — see readViewFromUrlParams above) instead of always
+  // resetting to the homepage. Deliberately separate from writeCurrentView
+  // above, which stays real-tab-only for the reasons explained there —
+  // this is a one-way report to Build's own parent frame, not a write to
+  // the shared "what's the real board looking at" value.
+  useEffect(() => {
+    if (!isBuildMode) return;
+    window.parent?.postMessage({
+      type: "homeroom-build-current-view",
+      unitIdx: activeUnitIdx,
+      lessonTitle: activeLesson?.title || null,
+    }, window.location.origin);
+  }, [activeUnitIdx, activeLesson]);
+
   // Preview-mode-only: follow the real board tab's navigation live, so if
   // a teacher switches lessons while Settings happens to be open, the
   // preview updates too instead of staying frozen on whatever was open
@@ -1459,13 +1489,15 @@ export default function App() {
     return () => window.removeEventListener("storage", handler);
   }, []);
 
-  // Preview-mode-only: receive "which settings category is expanded" from
-  // SettingsPage.jsx via postMessage (a same-origin iframe and its parent
-  // can't share React state directly) and mirror it onto the board as the
-  // same highlight glow the old static mockup drew around whichever
-  // region a category corresponds to (see highlightStyle below).
+  // Preview- and Build-mode: receive "which settings category is
+  // expanded" via postMessage (a same-origin iframe and its parent can't
+  // share React state directly) — from SettingsPage.jsx's preview, or from
+  // Build's own merged BoardSettingsPanel (see BuildPage.jsx) — and mirror
+  // it onto the board as the same highlight glow the old static mockup
+  // drew around whichever region a category corresponds to (see
+  // highlightStyle below).
   useEffect(() => {
-    if (!isPreviewMode) return;
+    if (!isPreviewMode && !isBuildMode) return;
     const handler = (e) => {
       if (e.source !== window.parent || !e.data || e.data.type !== "homeroom-settings-highlight") return;
       setHighlightRegion(e.data.region || null);
@@ -1478,12 +1510,12 @@ export default function App() {
     return () => window.removeEventListener("message", handler);
   }, []);
 
-  // Only meaningful in preview mode: an inline box-shadow glow matching
-  // the highlighted settings category, applied directly to the real
-  // board's own DOM (background wall, bulletin strip, chalkboard, board
-  // layout grid) instead of a mockup's stand-in pieces.
+  // Meaningful in preview AND build mode: an inline box-shadow glow
+  // matching the highlighted settings category, applied directly to the
+  // real board's own DOM (background wall, bulletin strip, chalkboard,
+  // board layout grid) instead of a mockup's stand-in pieces.
   const highlightStyle = (region) =>
-    isPreviewMode && highlightRegion === region
+    (isPreviewMode || isBuildMode) && highlightRegion === region
       ? { boxShadow: "0 0 0 3px #E87722, 0 0 22px rgba(232,119,34,0.55)" }
       : {};
 
@@ -1698,13 +1730,14 @@ export default function App() {
         : (learningGoalsIsOn ? buildSlidingPanels(goalItems, slidingCount) : buildSlidingPanels(goalItems, 1)))
     : [];
 
-  // Preview-mode-only: tell Settings how many boards this lesson actually
-  // resolved to, so it can explain a count setting that looks like it did
-  // nothing (see the comment on slidingPanelsForLesson above) instead of
-  // leaving a teacher to assume Sliding Boards is broken.
+  // Preview- and Build-mode: tell Settings (or Build's own merged
+  // BoardSettingsPanel) how many boards this lesson actually resolved to,
+  // so it can explain a count setting that looks like it did nothing (see
+  // the comment on slidingPanelsForLesson above) instead of leaving a
+  // teacher to assume Sliding Boards is broken.
   const isSlidingActive = !isOverview && (activeLesson?.goalPanels || slidingEnabled);
   useEffect(() => {
-    if (!isPreviewMode) return;
+    if (!isPreviewMode && !isBuildMode) return;
     window.parent?.postMessage({
       type: "homeroom-preview-panel-count",
       requestedCount: activeLesson?.goalPanels ? null : slidingCount,
@@ -1832,21 +1865,33 @@ export default function App() {
                   surface={surface}
                   showGoals={learningGoalsIsOn}
                   goalsLabel={anyFullAgendaFieldOn ? "Objectives & Benchmarks" : "Learning Goals"}
-                  extraContent={anyFullAgendaFieldOn ? (isFront) => (
-                    <FullAgendaFields
-                      content={fullAgendaFields.content}
-                      editingKey={fullAgendaFields.editingKey}
-                      onStartEdit={fullAgendaFields.setEditingKey}
-                      onSave={fullAgendaFields.save}
-                      onReset={fullAgendaFields.resetToDefaults}
-                      surface={surface}
-                      interactive={isFront}
-                      showEssentialQuestion={essentialQuestionIsOn}
-                      showAgenda={agendaIsOn}
-                      showBellRinger={bellRingerIsOn}
-                      showHomeLearning={homeLearningIsOn}
-                    />
+                  // Same boardContentOrder the flat (non-sliding) column
+                  // uses (see its own comment further down) — this is what
+                  // lets a teacher's drag-to-reorder in the Board Content
+                  // settings panel actually take effect while Sliding
+                  // Boards is on, instead of Essential Question/Agenda/Bell
+                  // Ringer/Home Learning always rendering in one fixed
+                  // sequence regardless of what's been dragged where.
+                  contentOrder={boardContentOrder}
+                  renderReset={anyFullAgendaFieldOn ? (isFront) => (
+                    <ResetBoardButton onReset={fullAgendaFields.resetToDefaults} surface={surface} interactive={isFront} />
                   ) : null}
+                  extraContent={anyFullAgendaFieldOn ? (key, isFront) => {
+                    const isOnByKey = { essentialQuestion: essentialQuestionIsOn, agenda: agendaIsOn, bellRinger: bellRingerIsOn, homeLearning: homeLearningIsOn };
+                    if (!isOnByKey[key]) return null;
+                    return (
+                      <EditableField
+                        key={key}
+                        fieldKey={key}
+                        content={fullAgendaFields.content}
+                        editingKey={fullAgendaFields.editingKey}
+                        onStartEdit={fullAgendaFields.setEditingKey}
+                        onSave={fullAgendaFields.save}
+                        surface={surface}
+                        interactive={isFront}
+                      />
+                    );
+                  } : null}
                 />
               ) : (() => {
                 // Rendered according to the selected board arrangement preset

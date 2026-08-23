@@ -1,10 +1,21 @@
-import { useState, useRef, useEffect } from "react";
-import { getActiveTeacherId, DEFAULT_TEACHER_ID } from "./boardConfig";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/clerk-react";
+import { getActiveTeacherId, DEFAULT_TEACHER_ID, CLERK_CONFIGURED } from "./boardConfig";
+import BoardSettingsPanel from "./BoardSettingsPanel";
 
 /**
  * BuildPage — "Build", opened in its own browser tab from the 🛠 icon on
- * the board (see TopBar in WebsterGrovesChemistry.jsx), same pattern as
- * the gear-icon Settings page opening "/settings".
+ * the board (see TopBar in WebsterGrovesChemistry.jsx). This USED to be one
+ * of two separate pages — this content-editing page, plus a second
+ * Settings page (gear icon) for board formatting (background, layout,
+ * bulletin, board content, blackboard). Jay's feedback: teachers just want
+ * one place to "build" the board, not two tabs to remember and flip
+ * between depending on whether they're changing content or formatting. So
+ * this page now embeds BOTH: the real board, live and editable, on the
+ * left; the same categorized formatting panel Settings used to own
+ * (BoardSettingsPanel, see that file) on the right. Settings itself is now
+ * just a redirect to here (see SettingsPage.jsx) so old bookmarks/muscle
+ * memory still land somewhere sensible.
  *
  * First version of this page (see PROJECT_NOTES.md / the open-platform
  * plan doc) was a separate list-style editor: a page of forms off to the
@@ -25,7 +36,7 @@ import { getActiveTeacherId, DEFAULT_TEACHER_ID } from "./boardConfig";
  * in WebsterGrovesChemistry.jsx, gated behind the isBuildMode flag (true
  * only for this embedded copy) — see AddCalendarCard, AddSlidesCard,
  * AddAssignmentCard, and BuildEditableSlot there. This page is just the
- * frame around it.
+ * frame around it, now with the formatting panel added alongside.
  *
  * A real board tab (no ?build=1) never shows any of these affordances, so
  * it stays safe to project in front of a class — that's the whole reason
@@ -33,18 +44,18 @@ import { getActiveTeacherId, DEFAULT_TEACHER_ID } from "./boardConfig";
  */
 
 // Intrinsic WIDTH the embedded board renders its document at — same idea
-// as Settings' PREVIEW_W, just scaled to fill far more of the page here
-// (this is the whole page, not a half-width panel next to a settings
-// list). Height is NOT a fixed constant here — it comes from the embedded
-// page itself (see contentHeight below), because the whole point is
-// reaching content that lives below one screen's worth of board (the
-// assignments grid, where "+ Add Assignment" and remove controls live).
-// BOARD_H is only the fallback shown for the instant before that first
-// real measurement arrives.
+// as Settings' old PREVIEW_W, just scaled to fill far more of the page
+// here (this sits beside a settings panel now, but still far wider than
+// Settings' old half-width preview). Height is NOT a fixed constant here —
+// it comes from the embedded page itself (see contentHeight below),
+// because the whole point is reaching content that lives below one
+// screen's worth of board (the assignments grid, where "+ Add Assignment"
+// and remove controls live). BOARD_H is only the fallback shown for the
+// instant before that first real measurement arrives.
 const BOARD_W = 1600;
 const BOARD_H = 900;
 
-function LiveBuildBoard({ teacherId }) {
+function LiveBuildBoard({ teacherId, highlightRegion, onPanelCountInfo, onViewChange, iframeRef }) {
   const wrapRef = useRef(null);
   const [scale, setScale] = useState(0.5);
   const [contentHeight, setContentHeight] = useState(BOARD_H);
@@ -78,6 +89,35 @@ function LiveBuildBoard({ teacherId }) {
     return () => window.removeEventListener("message", handler);
   }, []);
 
+  // Same highlight-region wiring as Settings' old LiveBoardPreview: send
+  // whichever BoardSettingsPanel category is expanded into the iframe so
+  // the real board glows the matching region right there in Build, plus
+  // listen for the iframe's "ready" ping (load order isn't guaranteed) and
+  // its panel-count / current-view reports.
+  const sendHighlight = useCallback(() => {
+    iframeRef.current?.contentWindow?.postMessage(
+      { type: "homeroom-settings-highlight", region: highlightRegion },
+      window.location.origin
+    );
+  }, [highlightRegion, iframeRef]);
+
+  useEffect(() => { sendHighlight(); }, [sendHighlight]);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.source !== iframeRef.current?.contentWindow) return;
+      if (e.data?.type === "homeroom-settings-preview-ready") sendHighlight();
+      if (e.data?.type === "homeroom-preview-panel-count") {
+        onPanelCountInfo?.({ requestedCount: e.data.requestedCount, resolvedCount: e.data.resolvedCount });
+      }
+      if (e.data?.type === "homeroom-build-current-view") {
+        onViewChange?.({ unitIdx: e.data.unitIdx, lessonTitle: e.data.lessonTitle });
+      }
+    };
+    window.addEventListener("message", handler);
+    return () => window.removeEventListener("message", handler);
+  }, [sendHighlight, onPanelCountInfo, onViewChange, iframeRef]);
+
   // teacherId is already carried by localStorage (see getActiveTeacherId
   // in boardConfig.js — the same sticky value the real board tab set),
   // but passing it explicitly here too means opening this iframe's URL
@@ -98,6 +138,7 @@ function LiveBuildBoard({ teacherId }) {
       }}
     >
       <iframe
+        ref={iframeRef}
         src={src}
         title="Live board — editable"
         scrolling="no"
@@ -113,9 +154,81 @@ function LiveBuildBoard({ teacherId }) {
   );
 }
 
+// Shown in place of the live board when Clerk is configured and nobody's
+// signed in. Build is the one page that's gated — it's where teacher-owned
+// content actually gets created/changed, unlike the board itself (public
+// pitch-demo, viewable by anyone) or Settings (only touches local display
+// prefs). See the CLERK_CONFIGURED note below for why the gate itself is
+// conditional on Clerk being set up at all, not just on being signed in.
+function SignInPrompt() {
+  return (
+    <div style={{ background: "#1a1a1a", border: "1px dashed rgba(255,255,255,0.25)", borderRadius: 10, padding: "48px 24px", textAlign: "center" }}>
+      <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 18, color: "#fff", marginBottom: 8 }}>
+        Sign in to build your board
+      </div>
+      <div style={{ fontSize: 13, color: "rgba(255,255,255,0.5)", marginBottom: 20, maxWidth: 420, marginLeft: "auto", marginRight: "auto" }}>
+        Signing in gives you your own Homeroom — your calendar, slides, and assignments, saved under your account instead of a shared browser.
+      </div>
+      <SignInButton mode="modal">
+        <button style={{ background: "#E87722", color: "#1a1a1a", border: "none", borderRadius: 6, padding: "10px 22px", fontFamily: "Oswald, sans-serif", fontSize: 14, fontWeight: 600, letterSpacing: 0.5, cursor: "pointer" }}>
+          Sign in
+        </button>
+      </SignInButton>
+    </div>
+  );
+}
+
 export default function BuildPage() {
   const activeTeacherId = getActiveTeacherId();
   const isBlankTeacher = activeTeacherId !== DEFAULT_TEACHER_ID;
+
+  const iframeRef = useRef(null);
+  const [selected, setSelected] = useState(null);
+  const [panelCountInfo, setPanelCountInfo] = useState(null);
+  // Build's own current unit/lesson, reported up by the embedded board
+  // (see the "homeroom-build-current-view" postMessage in
+  // WebsterGrovesChemistry.jsx). Used only to build the "← Back to board"
+  // link below — Build never writes this to the shared currentView
+  // localStorage key itself (that stays real-tab-only, see the comment on
+  // writeCurrentView's effect), it just remembers it long enough to hand
+  // it back to a fresh real tab as ?unit=&lesson= deep-link params.
+  const [currentView, setCurrentView] = useState(null);
+
+  const backHref = (() => {
+    const params = new URLSearchParams();
+    if (isBlankTeacher) params.set("teacher", activeTeacherId);
+    if (currentView && currentView.unitIdx != null) {
+      params.set("unit", String(currentView.unitIdx));
+      if (currentView.lessonTitle) params.set("lesson", currentView.lessonTitle);
+    }
+    const qs = params.toString();
+    return qs ? `/?${qs}` : "/";
+  })();
+
+  // The board + its own "not built yet" footnote, as one unit — reused
+  // identically whether Clerk is configured (rendered only <SignedIn>) or
+  // not (rendered unconditionally, same as every page behaved before this
+  // pass). Kept as a variable rather than inlined twice so the two
+  // branches below can't drift apart from each other.
+  const board = (
+    <div style={{ flex: "1 1 900px", minWidth: 320 }}>
+      <LiveBuildBoard
+        teacherId={activeTeacherId}
+        iframeRef={iframeRef}
+        highlightRegion={selected}
+        onPanelCountInfo={setPanelCountInfo}
+        onViewChange={setCurrentView}
+      />
+      <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 12, fontStyle: "italic", marginTop: 16, textAlign: "center" }}>
+        Adding whole new units and lessons isn't built yet — this manages content within the units/lessons that already exist. Browsing your Google Drive to pick slides (instead of pasting a link) is the next big step for this page.
+      </div>
+    </div>
+  );
+  const settingsPanel = (
+    <div style={{ flex: "0 1 380px", minWidth: 300 }}>
+      <BoardSettingsPanel selected={selected} onSelect={setSelected} panelCountInfo={panelCountInfo} />
+    </div>
+  );
 
   return (
     <div style={{ minHeight: "100vh", background: "#141414", fontFamily: "Lato, sans-serif" }}>
@@ -125,19 +238,55 @@ export default function BuildPage() {
             🛠 Build {isBlankTeacher && <span style={{ color: "#E87722" }}>— teacher: "{activeTeacherId}"</span>}
           </div>
           <div style={{ fontSize: 12, color: "rgba(255,255,255,0.45)", marginTop: 2, maxWidth: 640 }}>
-            This is your actual board — click a "+" to add a calendar, slides, or an assignment right where it will show up. Hover anything you've already added to change or remove it. Changes save immediately and show up next time the real board tab loads. This page itself is never meant to be projected in class.
+            This is your actual board — click a "+" to add a calendar, slides, or an assignment right where it will show up, or use the panel on the right to change how the board looks. Changes save immediately and show up next time the real board tab loads. This page itself is never meant to be projected in class.
           </div>
         </div>
-        <a href="/" style={{ color: "#E87722", fontFamily: "Oswald, sans-serif", fontSize: 13, textTransform: "uppercase", letterSpacing: 0.5, textDecoration: "none", flexShrink: 0 }}>
-          ← Back to board
-        </a>
+        <div style={{ display: "flex", alignItems: "center", gap: 20, flexShrink: 0 }}>
+          {/* CLERK_CONFIGURED false only happens on a checkout missing
+              VITE_CLERK_PUBLISHABLE_KEY (see .env.example) — rendering any
+              Clerk component then would throw, since there's no
+              <ClerkProvider> mounted (see main.jsx). Skipping this whole
+              block in that case means Build still works, un-gated, exactly
+              like before this pass, instead of a blank white screen. */}
+          {CLERK_CONFIGURED && (
+            <>
+              <SignedIn>
+                <UserButton afterSignOutUrl="/" />
+              </SignedIn>
+              <SignedOut>
+                <SignInButton mode="modal">
+                  <button style={{ background: "transparent", color: "#E87722", border: "1px solid #E87722", borderRadius: 6, padding: "6px 14px", fontFamily: "Oswald, sans-serif", fontSize: 12, textTransform: "uppercase", letterSpacing: 0.5, cursor: "pointer" }}>
+                    Sign in
+                  </button>
+                </SignInButton>
+              </SignedOut>
+            </>
+          )}
+          <a href={backHref} style={{ color: "#E87722", fontFamily: "Oswald, sans-serif", fontSize: 13, textTransform: "uppercase", letterSpacing: 0.5, textDecoration: "none", flexShrink: 0 }}>
+            ← Back to board
+          </a>
+        </div>
       </div>
 
-      <div style={{ maxWidth: 1500, margin: "0 auto", padding: "24px 24px 40px" }}>
-        <LiveBuildBoard teacherId={activeTeacherId} />
-        <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 12, fontStyle: "italic", marginTop: 16, textAlign: "center" }}>
-          Adding whole new units and lessons isn't built yet — this manages content within the units/lessons that already exist. Browsing your Google Drive to pick slides (instead of pasting a link) is the next big step for this page.
-        </div>
+      <div style={{ maxWidth: 1720, margin: "0 auto", padding: "24px 24px 40px", display: "flex", gap: 24, alignItems: "flex-start", flexWrap: "wrap" }}>
+        {CLERK_CONFIGURED ? (
+          <>
+            <SignedIn>
+              {board}
+              {settingsPanel}
+            </SignedIn>
+            <SignedOut>
+              <div style={{ flex: "1 1 100%" }}>
+                <SignInPrompt />
+              </div>
+            </SignedOut>
+          </>
+        ) : (
+          <>
+            {board}
+            {settingsPanel}
+          </>
+        )}
       </div>
     </div>
   );

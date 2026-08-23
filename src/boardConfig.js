@@ -9,27 +9,50 @@
 // two tabs to stay in sync.
 
 import { useState, useEffect, useCallback } from "react";
+import { useUser } from "@clerk/clerk-react";
 
-// Placeholder for real identity (teacher/classroom account) — there's no
-// login yet, and building one now would likely just get thrown out once
-// this plugs into a publisher's actual SSO (Clever/Canvas, already in the
-// footer links) rather than a homegrown one. But everything saved locally
-// (customizations, goal-completion) is namespaced under an active teacher
-// id now, so swapping it for a real logged-in user ID later is a
-// storage-layer change, not a redesign of how state is shaped.
+// Real identity now exists (Clerk — see main.jsx's <ClerkProvider> and
+// useSyncAuthIdentity below), but the placeholder scheme this replaces
+// (everything saved locally namespaced under an "active teacher id")
+// stays exactly as it was — a signed-in teacher's Clerk user id just
+// becomes the value that flows through it, prefixed with CLERK_ID_PREFIX
+// so it can never collide with DEFAULT_TEACHER_ID or a ?teacher= sandbox
+// value picked by hand. That's what keeps this a storage-layer change
+// rather than a redesign: scopedKey, getActiveTeacherId, and everything
+// that calls them (WebsterGrovesChemistry.jsx, BuildPage.jsx,
+// lib/extraAssignments.js, api/assignments.js) didn't need to change.
+//
+// Homegrown-vs-publisher-SSO is still an open question (Jay: pitching
+// publishers and going multi-teacher are "both, unclear priority" as of
+// the 2026-08-23 login pass) — Clerk was picked specifically because it
+// doesn't foreclose either path: it supports enterprise SSO connections
+// (SAML/OIDC — Clever/Canvas-style) later without a rewrite, same as this
+// id-prefix scheme doesn't foreclose swapping the source of the id.
 //
 // DEFAULT_TEACHER_ID is Webster Groves' real site — its hardcoded
 // curriculum data and its localStorage-saved settings are never touched by
-// switching identities. Any OTHER teacher id gets a blank shell instead
+// switching identities, and it stays viewable with nobody signed in (the
+// public pitch-demo path). Any OTHER teacher id gets a blank shell instead
 // (see BLANK_CURRICULUM in WebsterGrovesChemistry.jsx) with its own
-// separately-scoped settings, so Jay can freely experiment with the
-// open-platform "bring your own content" flow with zero risk to the real
-// site. Switch identities by visiting the board with ?teacher=<anything>,
-// e.g. ?teacher=sandbox — the choice sticks (stored in localStorage,
-// unscoped since it's what determines the scope) until changed again the
-// same way, including ?teacher=local-teacher to switch back.
+// separately-scoped settings — true whether that id came from a signed-in
+// teacher or from hand-typing ?teacher=sandbox, which still works exactly
+// as before (useful for Jay's own testing, or demoing "what a brand new
+// teacher sees" without creating an account). The sticky value in
+// localStorage is genuinely just "whichever identity should be active
+// right now" — useSyncAuthIdentity below is the only new thing writing to
+// it on its own, mirroring what typing ?teacher=... in the URL already did.
 export const DEFAULT_TEACHER_ID = "local-teacher";
+export const CLERK_ID_PREFIX = "clerk:";
 const ACTIVE_TEACHER_STORAGE_KEY = "homeroom:activeTeacherId";
+
+// Whether Clerk is actually set up (VITE_CLERK_PUBLISHABLE_KEY present —
+// see .env.example). main.jsx only mounts <ClerkProvider> when this is
+// true; every other file that wants to render a Clerk component (UserButton,
+// SignedIn, ...) checks this first, since those components throw if
+// rendered outside a <ClerkProvider>. False on a fresh checkout before
+// .env.local is set up, or a deploy missing the env var — either way, the
+// app should still run (just with no auth), not show a blank white screen.
+export const CLERK_CONFIGURED = Boolean(import.meta.env.VITE_CLERK_PUBLISHABLE_KEY);
 
 export function getActiveTeacherId() {
   if (typeof window === "undefined") return DEFAULT_TEACHER_ID;
@@ -43,6 +66,48 @@ export function getActiveTeacherId() {
   } catch {
     return DEFAULT_TEACHER_ID;
   }
+}
+
+function setActiveTeacherId(id) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(ACTIVE_TEACHER_STORAGE_KEY, id);
+  } catch { /* ignore */ }
+}
+
+// Keeps the sticky active-teacher id in sync with Clerk's sign-in state —
+// mounted once, near the root (see AuthIdentitySync in main.jsx), so every
+// page that calls getActiveTeacherId() (the board, Build, Settings, the
+// assignments API client) picks up a signed-in teacher's own id without
+// each of them needing to know Clerk exists.
+//
+// Deliberately does nothing when a ?teacher= override is present in the
+// URL — that's an explicit, higher-priority choice (Jay testing the blank
+// shell, or a demo link), and a signed-in session shouldn't silently steal
+// it back. On sign-out, only resets the sticky value if it's currently
+// THIS user's own id — otherwise signing out of a Clerk session that
+// isn't even the active identity (e.g. someone had switched to
+// ?teacher=sandbox first) shouldn't yank them back to the public demo.
+export function useSyncAuthIdentity() {
+  const { isLoaded, isSignedIn, user } = useUser();
+
+  useEffect(() => {
+    if (!isLoaded || typeof window === "undefined") return;
+    if (new URLSearchParams(window.location.search).get("teacher")) return;
+
+    const ownId = user ? `${CLERK_ID_PREFIX}${user.id}` : null;
+    const current = getActiveTeacherId();
+
+    if (isSignedIn && ownId && current !== ownId) {
+      setActiveTeacherId(ownId);
+    } else if (!isSignedIn && current?.startsWith(CLERK_ID_PREFIX)) {
+      // A previous session's teacher id is still stuck as active but
+      // nobody is signed in now (e.g. the session expired in this tab) —
+      // fall back to the public demo rather than leaving a signed-out
+      // visitor pointed at someone else's board.
+      setActiveTeacherId(DEFAULT_TEACHER_ID);
+    }
+  }, [isLoaded, isSignedIn, user]);
 }
 
 export const scopedKey = (key) => `homeroom:${getActiveTeacherId()}:${key}`;

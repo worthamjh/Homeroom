@@ -97,16 +97,25 @@ export default function ChalkboardBoardRow({
   // Goals off while keeping Sliding Boards + the other Full Agenda fields
   // on, in which case each panel should show only extraContent.
   showGoals = true,
-  // Extra content rendered below the checklist on every panel face
-  // (including the fixed back board) — used by the Full Agenda content
-  // template to carry Essential Question/Agenda/Bell Ringer/Home Learning
-  // along on every board, since that content isn't itself per-panel.
+  // Which order the Learning Goals checklist and the four Full Agenda
+  // fields render in on each panel face — the same
+  // BOARD_CONTENT_ORDER_STORAGE_KEY/useBoardContentOrder value the flat
+  // (non-sliding) board content column uses (see boardConfig.js), so
+  // dragging a row in the settings panel reorders the sliding board's
+  // content too instead of only ever affecting the flat layout. Defaults
+  // to the same order as DEFAULT_BOARD_CONTENT_ORDER there.
+  contentOrder = ["learningGoals", "essentialQuestion", "agenda", "bellRinger", "homeLearning"],
+  // Extra content rendered on every panel face (including the fixed back
+  // board), one item per non-"learningGoals" key in contentOrder — used
+  // by the Full Agenda content template to carry Essential Question/
+  // Agenda/Bell Ringer/Home Learning along on every board, since that
+  // content isn't itself per-panel.
   //
-  // Pass a FUNCTION `(isFront) => ReactNode`, not a plain element. It's
-  // called once per panel, every render, so the content is baked into
-  // each panel's own face and physically slides with it — exactly like
-  // the goals checklist below already does — instead of popping in/out
-  // instantly the moment the front board changes, ahead of the CSS
+  // Pass a FUNCTION `(key, isFront) => ReactNode`, not a plain element.
+  // It's called once per panel per key, every render, so the content is
+  // baked into each panel's own face and physically slides with it —
+  // exactly like the goals checklist already does — instead of popping
+  // in/out instantly the moment the front board changes, ahead of the CSS
   // transition that's still animating the old board out of the way.
   // `isFront` tells the caller's component which single instance (if
   // any) should actually be interactive: every instance reads from the
@@ -114,9 +123,16 @@ export default function ChalkboardBoardRow({
   // per-panel-owned state would drift as a teacher slides between boards
   // and edits fields), so if more than one instance could enter an
   // editable state at once, they'd all flip into it together the moment
-  // any one of them is clicked. See FullAgendaFields' `interactive` prop
+  // any one of them is clicked. See EditableField's `interactive` prop
   // for how the Full Agenda content template uses this.
   extraContent = null,
+  // Rendered once per panel face, ahead of every item in contentOrder,
+  // regardless of where a teacher has dragged things — same reasoning as
+  // the flat column's Reset Board button (see WebsterGrovesChemistry.jsx):
+  // it's a control, not board content, so it shouldn't move around as
+  // part of the reorderable list. Pass a FUNCTION `(isFront) => ReactNode`
+  // — same per-panel-baked, interactive-gating rationale as extraContent.
+  renderReset = null,
 }) {
   const [rawCurrent, setCurrent] = useState(0);
 
@@ -423,59 +439,89 @@ export default function ChalkboardBoardRow({
                         }
                   }
                 >
+                  {/* Rendered on EVERY panel, ahead of anything in
+                      contentOrder — a control, not reorderable board
+                      content (see the `renderReset` prop comment above). */}
+                  {renderReset && renderReset(isFront)}
+
                   {/* Printed on the panel itself now, not a floating overlay —
                       so it slides away with this board and the next panel's
-                      own header comes with it when it's revealed. Skipped
-                      entirely when Learning Goals is toggled off. */}
-                  {showGoals && (
-                    <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 12, color: surface.headerText, letterSpacing: 2, textTransform: "uppercase", borderBottom: "1px solid rgba(255,255,255,0.15)", paddingBottom: 8, marginBottom: 2 }}>
-                      {goalsLabel}
-                    </div>
-                  )}
+                      own header comes with it when it's revealed. Rendered
+                      in whichever position contentOrder puts "learningGoals"
+                      (see the map below) — skipped entirely when Learning
+                      Goals is toggled off. */}
+                  {(() => {
+                    // Tracked across the map below (not just each key's own
+                    // array index) so a divider only ever appears above an
+                    // item that actually renders — a toggled-off component
+                    // earlier in contentOrder shouldn't leave a stray
+                    // top-border floating above the first visible item.
+                    let renderedCount = 0;
+                    return contentOrder.map((key) => {
+                    const dividerStyle = renderedCount > 0 ? { marginTop: 4, paddingTop: 8, borderTop: "1px solid rgba(255,255,255,0.12)" } : undefined;
 
-                  {showGoals && panel.goals.map((goalItem, gi) => {
-                    // A goal entry is either a plain string (Unit 10's
-                    // curriculum-authored goalPanels, unchanged) or a
-                    // { text, idx } object — used when panels are
-                    // auto-split from a flat goals list (see
-                    // buildSlidingPanels in WebsterGrovesChemistry.jsx) so
-                    // the checked-state key matches the *original* goal's
-                    // index, keeping it in sync with the flat checklist /
-                    // Full Agenda views instead of colliding across panels.
-                    const isIndexed = goalItem && typeof goalItem === "object";
-                    const text = isIndexed ? goalItem.text : goalItem;
-                    const idx = isIndexed ? goalItem.idx : gi;
-                    const key = `${panelKey}-${idx}`;
-                    const checked = checkedGoals[key];
-                    return (
-                      <div key={idx} onClick={() => toggleGoal(panelKey, idx)}
-                        style={{ display: "flex", alignItems: "flex-start", gap: 8, cursor: "pointer", padding: "4px 0" }}>
-                        <div style={{ width: 15, height: 15, border: `2px solid ${checked ? "#E87722" : surface.checkboxBorder}`, borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 2, background: checked ? "#E87722" : "transparent", transition: "all 0.15s" }}>
-                          {checked && <span style={{ color: "white", fontSize: 9, lineHeight: 1 }}>✓</span>}
+                    if (key === "learningGoals") {
+                      if (!showGoals) return null;
+                      renderedCount++;
+                      return (
+                        <div key={key} style={dividerStyle}>
+                          <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 12, color: surface.headerText, letterSpacing: 2, textTransform: "uppercase", borderBottom: "1px solid rgba(255,255,255,0.15)", paddingBottom: 8, marginBottom: 2 }}>
+                            {goalsLabel}
+                          </div>
+                          {panel.goals.map((goalItem, gi) => {
+                            // A goal entry is either a plain string (Unit
+                            // 10's curriculum-authored goalPanels,
+                            // unchanged) or a { text, idx } object — used
+                            // when panels are auto-split from a flat goals
+                            // list (see buildSlidingPanels in
+                            // WebsterGrovesChemistry.jsx) so the
+                            // checked-state key matches the *original*
+                            // goal's index, keeping it in sync with the
+                            // flat checklist / Full Agenda views instead of
+                            // colliding across panels.
+                            const isIndexed = goalItem && typeof goalItem === "object";
+                            const text = isIndexed ? goalItem.text : goalItem;
+                            const idx = isIndexed ? goalItem.idx : gi;
+                            const goalKey = `${panelKey}-${idx}`;
+                            const checked = checkedGoals[goalKey];
+                            return (
+                              <div key={idx} onClick={() => toggleGoal(panelKey, idx)}
+                                style={{ display: "flex", alignItems: "flex-start", gap: 8, cursor: "pointer", padding: "4px 0" }}>
+                                <div style={{ width: 15, height: 15, border: `2px solid ${checked ? "#E87722" : surface.checkboxBorder}`, borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 2, background: checked ? "#E87722" : "transparent", transition: "all 0.15s" }}>
+                                  {checked && <span style={{ color: "white", fontSize: 9, lineHeight: 1 }}>✓</span>}
+                                </div>
+                                <span style={{ fontFamily: "Caveat, cursive", fontSize: 15, color: checked ? surface.bodyTextChecked : surface.bodyText, lineHeight: 1.35, textShadow: surface.textShadow, textDecoration: checked ? "line-through" : "none", minWidth: 0, wordBreak: "break-word" }}>
+                                  {text}
+                                </span>
+                              </div>
+                            );
+                          })}
                         </div>
-                        <span style={{ fontFamily: "Caveat, cursive", fontSize: 15, color: checked ? surface.bodyTextChecked : surface.bodyText, lineHeight: 1.35, textShadow: surface.textShadow, textDecoration: checked ? "line-through" : "none", minWidth: 0, wordBreak: "break-word" }}>
-                          {text}
-                        </span>
+                      );
+                    }
+
+                    // Rendered on EVERY panel, same as the goals checklist
+                    // — so it's baked into each board's own face and
+                    // slides with it physically, instead of popping in/out
+                    // the instant `current` changes, ahead of the CSS
+                    // transition still animating the old board out of the
+                    // way (that mismatch was the "text disappears off the
+                    // first board and reappears on the next one, unlike
+                    // Learning Goals" bug). `isFront` tells the caller's
+                    // component whether THIS instance should be
+                    // interactive — see the `extraContent` prop comment
+                    // above for why only one instance may ever be.
+                    if (!extraContent) return null;
+                    const node = extraContent(key, isFront);
+                    if (!node) return null;
+                    renderedCount++;
+                    return (
+                      <div key={key} style={dividerStyle}>
+                        {node}
                       </div>
                     );
-                  })}
-
-                  {/* Rendered on EVERY panel, same as the goals checklist
-                      above — so it's baked into each board's own face and
-                      slides with it physically, instead of popping in/out
-                      the instant `current` changes, ahead of the CSS
-                      transition still animating the old board out of the
-                      way (that mismatch was the "text disappears off the
-                      first board and reappears on the next one, unlike
-                      Learning Goals" bug). `isFront` tells the caller's
-                      component whether THIS instance should be
-                      interactive — see the `extraContent` prop comment
-                      above for why only one instance may ever be. */}
-                  {extraContent && (
-                    <div style={{ marginTop: 4, paddingTop: 8, borderTop: "1px solid rgba(255,255,255,0.12)" }}>
-                      {extraContent(isFront)}
-                    </div>
-                  )}
+                  });
+                  })()}
                 </div>
               </div>
             );
