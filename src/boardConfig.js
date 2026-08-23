@@ -14,11 +14,38 @@ import { useState, useEffect, useCallback } from "react";
 // login yet, and building one now would likely just get thrown out once
 // this plugs into a publisher's actual SSO (Clever/Canvas, already in the
 // footer links) rather than a homegrown one. But everything saved locally
-// (customizations, goal-completion) is namespaced under this ID now, so
-// swapping it for a real logged-in user ID later is a storage-layer
-// change, not a redesign of how state is shaped.
-export const CURRENT_USER_ID = "local-teacher";
-export const scopedKey = (key) => `homeroom:${CURRENT_USER_ID}:${key}`;
+// (customizations, goal-completion) is namespaced under an active teacher
+// id now, so swapping it for a real logged-in user ID later is a
+// storage-layer change, not a redesign of how state is shaped.
+//
+// DEFAULT_TEACHER_ID is Webster Groves' real site — its hardcoded
+// curriculum data and its localStorage-saved settings are never touched by
+// switching identities. Any OTHER teacher id gets a blank shell instead
+// (see BLANK_CURRICULUM in WebsterGrovesChemistry.jsx) with its own
+// separately-scoped settings, so Jay can freely experiment with the
+// open-platform "bring your own content" flow with zero risk to the real
+// site. Switch identities by visiting the board with ?teacher=<anything>,
+// e.g. ?teacher=sandbox — the choice sticks (stored in localStorage,
+// unscoped since it's what determines the scope) until changed again the
+// same way, including ?teacher=local-teacher to switch back.
+export const DEFAULT_TEACHER_ID = "local-teacher";
+const ACTIVE_TEACHER_STORAGE_KEY = "homeroom:activeTeacherId";
+
+export function getActiveTeacherId() {
+  if (typeof window === "undefined") return DEFAULT_TEACHER_ID;
+  try {
+    const fromUrl = new URLSearchParams(window.location.search).get("teacher");
+    if (fromUrl) {
+      window.localStorage.setItem(ACTIVE_TEACHER_STORAGE_KEY, fromUrl);
+      return fromUrl;
+    }
+    return window.localStorage.getItem(ACTIVE_TEACHER_STORAGE_KEY) || DEFAULT_TEACHER_ID;
+  } catch {
+    return DEFAULT_TEACHER_ID;
+  }
+}
+
+export const scopedKey = (key) => `homeroom:${getActiveTeacherId()}:${key}`;
 
 // ── "Currently open lesson" — read by the Settings page's live preview ──
 // The Settings page (SettingsPage.jsx) opens in its own tab and renders an
@@ -55,6 +82,67 @@ export function readCurrentView() {
   } catch {
     return null;
   }
+}
+
+// ── A blank-shell teacher's course calendar ─────────────────────────────
+// Webster Groves' unit overview screen shows one hardcoded Google Calendar
+// embed (CALENDAR_SRC in WebsterGrovesChemistry.jsx) in the spot the
+// smartboard occupies during a lesson. A teacher starting from the blank
+// shell doesn't have one yet, so that same spot shows an "+ Add Calendar"
+// affordance instead — this is where its saved URL lives once they add
+// one. Same localStorage-only pattern as every other board setting today
+// (per-browser, not per-account); could move to Mongo later like
+// assignments did if cross-device persistence turns out to matter here.
+export const CALENDAR_URL_STORAGE_KEY = "calendarUrl";
+
+export function readCalendarUrl() {
+  if (typeof window === "undefined") return "";
+  try {
+    return window.localStorage.getItem(scopedKey(CALENDAR_URL_STORAGE_KEY)) || "";
+  } catch {
+    return "";
+  }
+}
+
+export function writeCalendarUrl(url) {
+  if (typeof window === "undefined") return;
+  try {
+    if (!url) {
+      window.localStorage.removeItem(scopedKey(CALENDAR_URL_STORAGE_KEY));
+    } else {
+      window.localStorage.setItem(scopedKey(CALENDAR_URL_STORAGE_KEY), url);
+    }
+  } catch { /* ignore */ }
+}
+
+// ── Per-lesson slides override ──────────────────────────────────────────
+// A lesson's slides normally come straight from the hardcoded curriculum
+// data (`lesson.slides`, an embed URL — a Google Slides "publish to web"
+// link or similar). A blank-shell lesson starts with `slides: null`, so
+// this is where a URL pasted in via the Build page's "+ Add Slides/
+// Presentation" tile lives instead — same one-URL-per-slot, localStorage-
+// only pattern as the course calendar above. Scoped by unit index + lesson
+// title (unique within a unit today) rather than a stable lesson id,
+// since lessons aren't objects with ids yet. Embedding a "publish to web"
+// URL this way means slide changes made later in Google Slides show up on
+// the board automatically with zero extra integration — the iframe just
+// always loads whatever the source document currently contains.
+export function readLessonSlidesUrl(unitIdx, lessonTitle) {
+  if (typeof window === "undefined" || unitIdx == null || !lessonTitle) return "";
+  try {
+    return window.localStorage.getItem(scopedKey(`lessonSlides:${unitIdx}:${lessonTitle}`)) || "";
+  } catch {
+    return "";
+  }
+}
+
+export function writeLessonSlidesUrl(unitIdx, lessonTitle, url) {
+  if (typeof window === "undefined" || unitIdx == null || !lessonTitle) return;
+  const key = scopedKey(`lessonSlides:${unitIdx}:${lessonTitle}`);
+  try {
+    if (!url) window.localStorage.removeItem(key);
+    else window.localStorage.setItem(key, url);
+  } catch { /* ignore */ }
 }
 
 // ── Board arrangement presets ───────────────────────────────────────────
@@ -109,6 +197,50 @@ export const BOARD_COMPONENTS = {
   bellRinger: { id: "bellRinger", label: "Bell Ringer", storageKey: "component:bellRinger", default: "false" },
   homeLearning: { id: "homeLearning", label: "Home Learning", storageKey: "component:homeLearning", default: "false" },
 };
+
+// ── Board content order ─────────────────────────────────────────────────
+// Which of the five BOARD_COMPONENTS above renders first, second, etc. in
+// the flat (non-sliding) goals column — independent of which ones are ON,
+// so a component still has a place in line while toggled off, and turning
+// it back on later doesn't silently bump it back to the end. Only the
+// flat board content column reads this; Sliding Boards mode keeps its own
+// fixed order (Learning Goals, then the four freeform fields in this same
+// default sequence) regardless of what a teacher sets here — a smaller
+// scope than the flat case, flagged as a follow-up rather than blocking
+// this on rebuilding the sliding-boards rendering path too.
+export const BOARD_CONTENT_ORDER_STORAGE_KEY = "boardContentOrder";
+export const DEFAULT_BOARD_CONTENT_ORDER = ["learningGoals", "essentialQuestion", "agenda", "bellRinger", "homeLearning"];
+
+function isValidBoardContentOrder(raw) {
+  try {
+    const arr = JSON.parse(raw);
+    if (!Array.isArray(arr) || arr.length !== DEFAULT_BOARD_CONTENT_ORDER.length) return false;
+    const want = new Set(DEFAULT_BOARD_CONTENT_ORDER);
+    return arr.every(k => want.has(k)) && new Set(arr).size === arr.length;
+  } catch {
+    return false;
+  }
+}
+
+// Cross-tab-synced exactly like useScopedSetting (same storage key/
+// `storage`-event mechanism), just with a JSON-encoded array instead of a
+// bare string at the boundary, since a component order isn't a single
+// value the way a preset id is.
+export function useBoardContentOrder() {
+  const [raw, setRaw] = useScopedSetting(
+    BOARD_CONTENT_ORDER_STORAGE_KEY,
+    JSON.stringify(DEFAULT_BOARD_CONTENT_ORDER),
+    isValidBoardContentOrder
+  );
+  let order;
+  try {
+    order = JSON.parse(raw);
+  } catch {
+    order = DEFAULT_BOARD_CONTENT_ORDER;
+  }
+  const setOrder = (nextOrder) => setRaw(JSON.stringify(nextOrder));
+  return [order, setOrder];
+}
 
 export const GOALS_STORAGE_KEY = "checkedGoals";
 

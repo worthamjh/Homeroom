@@ -113,6 +113,32 @@ export function useFullAgendaFields(storageKey) {
   return { content, editingKey, setEditingKey, save, resetToDefaults };
 }
 
+// The one header style shared by EVERY board content section — Essential
+// Question, Agenda, Bell Ringer, Home Learning, and Objectives &
+// Benchmarks/Learning Goals all render through this SAME function rather
+// than each having its own copy of the same style object, specifically so
+// they can never visually drift apart from each other again (Jay caught a
+// case where Objectives' heading looked different from the others').
+function SectionHeader({ label, surface }) {
+  return (
+    <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 12, color: surface.accent, letterSpacing: 2, textTransform: "uppercase", borderBottom: `1px solid ${surface.dividerBorder}`, paddingBottom: 6 }}>
+      {label}
+    </div>
+  );
+}
+
+// Metadata for the four freeform Full Agenda fields (label, placeholder,
+// textarea row count) — one place both FullAgendaFields (the all-four,
+// fixed-order block still used by Sliding Boards) and EditableField (the
+// single-field version the flat, reorderable board content column uses)
+// read from, so the two can never describe the same field differently.
+export const FULL_AGENDA_FIELD_META = {
+  essentialQuestion: { label: "Essential Question", placeholder: "Click to add today’s essential question...", rows: 2 },
+  agenda: { label: "Agenda", placeholder: "Click to add the agenda by period...", rows: 5 },
+  bellRinger: { label: "Bell Ringer", placeholder: "Click to add a bell ringer / warm-up...", rows: 2 },
+  homeLearning: { label: "Home Learning", placeholder: "Click to add homework / home learning...", rows: 2 },
+};
+
 // One section = a header + a body that's either rendered text (bulleted,
 // one line per non-empty row) or, while editing, a textarea. Shared by
 // every freely-editable field below so the click-to-edit behavior is
@@ -136,9 +162,7 @@ function Section({ label, value, placeholder, editing, onStartEdit, onSave, rows
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-      <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 12, color: surface.accent, letterSpacing: 2, textTransform: "uppercase", borderBottom: `1px solid ${surface.dividerBorder}`, paddingBottom: 6 }}>
-        {label}
-      </div>
+      <SectionHeader label={label} surface={surface} />
       {editing ? (
         <textarea
           ref={ref}
@@ -205,6 +229,46 @@ function Section({ label, value, placeholder, editing, onStartEdit, onSave, rows
 // renders the ones actually switched on. Content for a hidden field isn't
 // lost: it stays in `content`/localStorage untouched, so switching a
 // component back on later shows whatever was there before.
+// The "Reset Board" control on its own — pulled out of FullAgendaFields so
+// the flat, reorderable board content column (WebsterGrovesChemistry.jsx)
+// can place it once, independent of wherever Essential Question/Agenda/
+// etc. land in a teacher's chosen order, rather than it being tied to a
+// fixed position inside the all-four-fields block. Still used exactly as
+// before, at the top of that block, when Sliding Boards is on.
+export function ResetBoardButton({ onReset, surface = DEFAULT_SURFACE, interactive = true }) {
+  return (
+    <div style={{ display: "flex", justifyContent: "flex-end" }}>
+      {/* Always rendered — even on a non-interactive (non-front) panel —
+          and hidden with visibility rather than left out of the tree.
+          Conditionally not rendering it made this row collapse to zero
+          height the instant a panel's interactive state flipped (which
+          happens on every slide-handle click, for both the panel losing
+          front status and the one gaining it), shifting every field
+          below it up or down by the button's own height. visibility:
+          hidden keeps the row's box — and therefore everything below it
+          — exactly where it was, while still making the button
+          untargetable by mouse or keyboard on a panel that shouldn't be
+          interactive. */}
+      <button
+        onClick={interactive ? onReset : undefined}
+        title="Reset this board to the default template"
+        tabIndex={interactive ? 0 : -1}
+        style={{
+          fontFamily: "Lato, sans-serif", fontSize: 10, letterSpacing: 0.5, color: surface.placeholderText,
+          background: "transparent", border: `1px solid ${surface.dividerBorder}`, borderRadius: 3, padding: "3px 8px",
+          cursor: interactive ? "pointer" : "default",
+          visibility: interactive ? "visible" : "hidden",
+          pointerEvents: interactive ? "auto" : "none",
+        }}
+        onMouseEnter={e => { e.currentTarget.style.color = surface.accent; e.currentTarget.style.borderColor = surface.accent; }}
+        onMouseLeave={e => { e.currentTarget.style.color = surface.placeholderText; e.currentTarget.style.borderColor = surface.dividerBorder; }}
+      >
+        Reset Board
+      </button>
+    </div>
+  );
+}
+
 export function FullAgendaFields({
   content, editingKey, onStartEdit, onSave, onReset, surface = DEFAULT_SURFACE, interactive = true,
   showEssentialQuestion = true, showAgenda = true, showBellRinger = true, showHomeLearning = true,
@@ -225,40 +289,38 @@ export function FullAgendaFields({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
-      <div style={{ display: "flex", justifyContent: "flex-end" }}>
-        {/* Always rendered — even on a non-interactive (non-front) panel —
-            and hidden with visibility rather than left out of the tree.
-            Conditionally not rendering it made this row collapse to zero
-            height the instant a panel's interactive state flipped (which
-            happens on every slide-handle click, for both the panel losing
-            front status and the one gaining it), shifting every field
-            below it up or down by the button's own height. visibility:
-            hidden keeps the row's box — and therefore everything below it
-            — exactly where it was, while still making the button
-            untargetable by mouse or keyboard on a panel that shouldn't be
-            interactive. */}
-        <button
-          onClick={interactive ? onReset : undefined}
-          title="Reset this board to the default template"
-          tabIndex={interactive ? 0 : -1}
-          style={{
-            fontFamily: "Lato, sans-serif", fontSize: 10, letterSpacing: 0.5, color: surface.placeholderText,
-            background: "transparent", border: `1px solid ${surface.dividerBorder}`, borderRadius: 3, padding: "3px 8px",
-            cursor: interactive ? "pointer" : "default",
-            visibility: interactive ? "visible" : "hidden",
-            pointerEvents: interactive ? "auto" : "none",
-          }}
-          onMouseEnter={e => { e.currentTarget.style.color = surface.accent; e.currentTarget.style.borderColor = surface.accent; }}
-          onMouseLeave={e => { e.currentTarget.style.color = surface.placeholderText; e.currentTarget.style.borderColor = surface.dividerBorder; }}
-        >
-          Reset Board
-        </button>
-      </div>
-      {showEssentialQuestion && section("essentialQuestion", "Essential Question", { placeholder: "Click to add today’s essential question...", rows: 2 })}
-      {showAgenda && section("agenda", "Agenda", { placeholder: "Click to add the agenda by period...", rows: 5 })}
-      {showBellRinger && section("bellRinger", "Bell Ringer", { placeholder: "Click to add a bell ringer / warm-up...", rows: 2 })}
-      {showHomeLearning && section("homeLearning", "Home Learning", { placeholder: "Click to add homework / home learning...", rows: 2 })}
+      <ResetBoardButton onReset={onReset} surface={surface} interactive={interactive} />
+      {showEssentialQuestion && section("essentialQuestion", FULL_AGENDA_FIELD_META.essentialQuestion.label, FULL_AGENDA_FIELD_META.essentialQuestion)}
+      {showAgenda && section("agenda", FULL_AGENDA_FIELD_META.agenda.label, FULL_AGENDA_FIELD_META.agenda)}
+      {showBellRinger && section("bellRinger", FULL_AGENDA_FIELD_META.bellRinger.label, FULL_AGENDA_FIELD_META.bellRinger)}
+      {showHomeLearning && section("homeLearning", FULL_AGENDA_FIELD_META.homeLearning.label, FULL_AGENDA_FIELD_META.homeLearning)}
     </div>
+  );
+}
+
+// A single freeform field, standalone — same click-to-edit Section
+// underneath FullAgendaFields uses, just one at a time instead of all
+// four in a fixed block. This is what lets the flat (non-sliding) board
+// content column render Essential Question/Agenda/Bell Ringer/Home
+// Learning in whatever order a teacher has chosen (see
+// BOARD_CONTENT_ORDER_STORAGE_KEY in boardConfig.js) instead of always in
+// this same fixed sequence — Sliding Boards mode still uses the fixed
+// FullAgendaFields block above, so custom ordering doesn't apply there
+// yet.
+export function EditableField({ fieldKey, content, editingKey, onStartEdit, onSave, surface = DEFAULT_SURFACE }) {
+  const meta = FULL_AGENDA_FIELD_META[fieldKey];
+  if (!meta) return null;
+  return (
+    <Section
+      label={meta.label}
+      value={content[fieldKey]}
+      placeholder={meta.placeholder}
+      editing={editingKey === fieldKey}
+      onStartEdit={() => onStartEdit(fieldKey)}
+      onSave={val => onSave(fieldKey, val)}
+      rows={meta.rows}
+      surface={surface}
+    />
   );
 }
 
@@ -271,9 +333,7 @@ export function FullAgendaFields({
 export function ObjectivesChecklist({ goalItems, checkedGoals, toggleGoal, surface = DEFAULT_SURFACE, label = "Objectives & Benchmarks" }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-      <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 12, color: surface.accent, letterSpacing: 2, textTransform: "uppercase", borderBottom: `1px solid ${surface.dividerBorder}`, paddingBottom: 6 }}>
-        {label}
-      </div>
+      <SectionHeader label={label} surface={surface} />
       {goalItems.length === 0 ? (
         <div style={{ fontFamily: "Caveat, cursive", fontSize: 17, color: surface.placeholderText, fontStyle: "italic", padding: "2px 4px" }}>
           No learning goals set for this lesson yet.

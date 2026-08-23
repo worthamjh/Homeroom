@@ -1,8 +1,13 @@
 import { useState, useEffect, useRef } from "react";
 import ChalkboardBoardRow, { toGoalPanels } from "./ChalkboardBoardRow";
-import { useFullAgendaFields, FullAgendaFields, ObjectivesChecklist } from "./FullAgendaBoard";
+import { useFullAgendaFields, FullAgendaFields, ObjectivesChecklist, EditableField, ResetBoardButton } from "./FullAgendaBoard";
+import { fetchExtraAssignments, createExtraAssignment, deleteExtraAssignment } from "./lib/extraAssignments";
+import { uploadAssignmentPdf } from "./lib/cloudinary";
 import {
   scopedKey, useScopedSetting,
+  getActiveTeacherId, DEFAULT_TEACHER_ID,
+  readCalendarUrl, writeCalendarUrl,
+  readLessonSlidesUrl, writeLessonSlidesUrl,
   BOARD_ARRANGEMENTS, DEFAULT_ARRANGEMENT, ARRANGEMENT_STORAGE_KEY,
   BULLETIN_STYLES, DEFAULT_BULLETIN, BULLETIN_STORAGE_KEY,
   BOARD_COMPONENTS,
@@ -15,6 +20,7 @@ import {
   SLIDING_BOARDS_COUNT_KEY, DEFAULT_SLIDING_BOARDS_COUNT,
   buildSlidingPanels,
   CURRENT_VIEW_STORAGE_KEY, readCurrentView, writeCurrentView,
+  useBoardContentOrder,
 } from "./boardConfig";
 
 // True only for the embedded copy of this same app the Settings page
@@ -26,6 +32,16 @@ import {
 // region messages Settings sends when a category is selected. A real
 // board tab never reads or writes anything preview-related.
 const isPreviewMode = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("preview") === "1";
+
+// True only for the embedded copy of this same app the Build page
+// (BuildPage.jsx) renders in an iframe as its live, editable preview —
+// same idea as isPreviewMode above, but this copy is fully interactive
+// rather than a read-only mockup. Gates every inline "+ Add ..." tile and
+// every hover-reveal "Change"/"Remove" control below: true only inside
+// that embedded copy, so a real board tab (which can be projected in
+// front of a class) never shows any of them, no matter which teacher
+// identity is active.
+const isBuildMode = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("build") === "1";
 
 const THUMB = (id) => `https://drive.google.com/thumbnail?id=${id}&sz=w400`;
 
@@ -85,7 +101,7 @@ function ToolsFooter() {
   );
 }
 
-const curriculum = [
+export const curriculum = [
   {
     unit: "Unit 1",
     title: "Unit 1 — Matter & Measurement",
@@ -919,12 +935,148 @@ function SmartBoard({ src }) {
   );
 }
 
-function AssignmentThumb({ label, url, thumb }) {
+// A blank-shell teacher's stand-in for Webster Groves' hardcoded
+// CALENDAR_SRC on the unit overview screen — same spot the smartboard
+// occupies, same footprint, so the unit page looks like a real unit page
+// (per Jay's ask: stock unit pages should match Webster Groves' layout,
+// just with an "add calendar" affordance where the real one has an
+// already-configured calendar). Same collapsed-tile-then-inline-form
+// pattern as AddAssignmentCard, for visual consistency.
+// Shared "+ Add ..." tile → inline paste-a-URL form, used for both the
+// calendar slot and the slides/presentation slot below — same collapsed-
+// dashed-tile-then-inline-form pattern established by Full Agenda's
+// click-to-edit fields, just parameterized by label/prompt/placeholder
+// instead of two near-duplicate components. `initialUrl`, when set,
+// pre-fills the input — used when "Change" reopens the form on an
+// already-filled slot rather than starting from a blank field.
+function AddEmbedCard({ open, label, promptText, placeholder, initialUrl, onOpen, onCancel, onSave }) {
+  const [url, setUrl] = useState(initialUrl || "");
+
+  if (!open) {
+    return (
+      <div style={{ width: "100%", maxWidth: "100%", aspectRatio: "16/9", boxSizing: "border-box", border: "2px dashed rgba(255,255,255,0.25)", borderRadius: 8, color: "rgba(255,255,255,0.4)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6 }}>
+        <button
+          onClick={onOpen}
+          style={{ background: "transparent", border: "none", color: "inherit", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 6, fontFamily: "Oswald, sans-serif", fontSize: 13, letterSpacing: 0.5, textTransform: "uppercase" }}
+          onMouseEnter={e => { e.currentTarget.style.color = "#E87722"; }}
+          onMouseLeave={e => { e.currentTarget.style.color = "inherit"; }}
+        >
+          <span style={{ fontSize: 30, lineHeight: 1 }}>+</span>
+          {label}
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <form
+      onSubmit={e => { e.preventDefault(); if (url.trim()) onSave(url.trim()); }}
+      style={{ width: "100%", maxWidth: 480, boxSizing: "border-box", border: "2px solid #E87722", borderRadius: 8, background: "#242424", padding: 16, display: "flex", flexDirection: "column", gap: 10 }}
+    >
+      <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 12, color: "rgba(255,255,255,0.6)", textTransform: "uppercase", letterSpacing: 0.5 }}>
+        {promptText}
+      </div>
+      <input
+        type="url" placeholder={placeholder} value={url} onChange={e => setUrl(e.target.value)}
+        autoFocus
+        style={{ background: "#1a1a1a", border: "1px solid #444", borderRadius: 2, color: "white", fontSize: 12, padding: "8px 10px", fontFamily: "Lato, sans-serif" }}
+      />
+      <div style={{ display: "flex", gap: 6 }}>
+        <button type="submit" disabled={!url.trim()}
+          style={{ flex: 1, background: "#E87722", border: "none", borderRadius: 2, color: "#1a1a1a", fontFamily: "Oswald, sans-serif", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, padding: "8px 0", cursor: "pointer" }}>
+          Save
+        </button>
+        <button type="button" onClick={onCancel}
+          style={{ background: "transparent", border: "1px solid #555", borderRadius: 2, color: "rgba(255,255,255,0.6)", fontFamily: "Oswald, sans-serif", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, padding: "8px 14px", cursor: "pointer" }}>
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+}
+
+// A blank-shell teacher's stand-in for Webster Groves' hardcoded
+// CALENDAR_SRC on the unit overview screen — same spot the smartboard
+// occupies, same footprint, so the unit page looks like a real unit page
+// (per Jay's ask: stock unit pages should match Webster Groves' layout,
+// just with an "add calendar" affordance where the real one has an
+// already-configured calendar).
+export function AddCalendarCard(props) {
+  return (
+    <AddEmbedCard
+      {...props}
+      label="Add Calendar"
+      promptText="Paste your Google Calendar embed URL"
+      placeholder="https://calendar.google.com/calendar/embed?src=..."
+    />
+  );
+}
+
+// The lesson slideshow slot's empty-state tile — same idea as
+// AddCalendarCard, one slot lower (per-lesson rather than per-unit). A
+// "publish to web" Google Slides URL keeps working exactly like a normal
+// embed: edits made later in the source Slides file show up here with no
+// extra integration needed. A real Google Drive picker (browse-and-select
+// instead of paste-a-URL) is the longer-term goal but a bigger, separate
+// piece of work (real OAuth client + consent screen + Picker API).
+export function AddSlidesCard(props) {
+  return (
+    <AddEmbedCard
+      {...props}
+      label="Add Slides / Presentation"
+      promptText="Paste a Google Slides embed URL (File → Share → Publish to web)"
+      placeholder="https://docs.google.com/presentation/d/.../embed"
+    />
+  );
+}
+
+// Wraps an already-filled Build-mode slot (calendar, slides) with a
+// hover-revealed "Change" / "Remove" toolbar — never rendered outside
+// isBuildMode, so the real board tab never shows it. Sits on top of
+// whatever's already there (SmartBoard, an image, etc.) without changing
+// its layout.
+function BuildEditableSlot({ children, onChange, onRemove }) {
+  const [hovering, setHovering] = useState(false);
+  const btnStyle = {
+    background: "rgba(20,20,20,0.85)", border: "1px solid rgba(255,255,255,0.3)", borderRadius: 3,
+    color: "white", fontFamily: "Oswald, sans-serif", fontSize: 11, textTransform: "uppercase",
+    letterSpacing: 0.5, padding: "6px 10px", cursor: "pointer",
+  };
+  return (
+    <div
+      style={{ position: "relative", width: "100%", height: "100%" }}
+      onMouseEnter={() => setHovering(true)}
+      onMouseLeave={() => setHovering(false)}
+    >
+      {children}
+      {hovering && (
+        <div style={{ position: "absolute", top: 8, right: 8, display: "flex", gap: 6, zIndex: 5 }}>
+          <button style={btnStyle} onClick={onChange}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = "#E87722"; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.3)"; }}>
+            Change
+          </button>
+          <button style={{ ...btnStyle, color: "#ff8a65" }} onClick={onRemove}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = "#ff8a65"; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.3)"; }}>
+            Remove
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// `onRemove`, when passed (Build mode only, and only for teacher-uploaded
+// assignments — the hardcoded curriculum ones aren't deletable this way),
+// shows a small "×" in the corner on hover, matching the hover-reveal
+// pattern used elsewhere in Build mode.
+export function AssignmentThumb({ label, url, thumb, onRemove }) {
   return (
     <a href={url} target="_blank" rel="noreferrer"
       style={{ background: "white", borderRadius: 3, overflow: "hidden", cursor: "pointer", position: "relative", border: "2px solid transparent", transition: "all 0.15s", aspectRatio: "8.5/11", textDecoration: "none", display: "block" }}
-      onMouseEnter={e => { e.currentTarget.style.borderColor = "#E87722"; e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.querySelector(".aLabel").style.opacity = 1; }}
-      onMouseLeave={e => { e.currentTarget.style.borderColor = "transparent"; e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.querySelector(".aLabel").style.opacity = 0; }}
+      onMouseEnter={e => { e.currentTarget.style.borderColor = "#E87722"; e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.querySelector(".aLabel").style.opacity = 1; const r = e.currentTarget.querySelector(".aRemove"); if (r) r.style.opacity = 1; }}
+      onMouseLeave={e => { e.currentTarget.style.borderColor = "transparent"; e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.querySelector(".aLabel").style.opacity = 0; const r = e.currentTarget.querySelector(".aRemove"); if (r) r.style.opacity = 0; }}
     >
       {thumb ? (
         <img src={thumb} alt={label} style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "top", display: "block" }} />
@@ -935,10 +1087,83 @@ function AssignmentThumb({ label, url, thumb }) {
           {[80, 60, 95, 70, 55, 90].map((w, i) => <div key={i} style={{ height: 3, background: "#ccc", borderRadius: 1, width: `${w}%` }} />)}
         </div>
       )}
+      {onRemove && (
+        <button
+          className="aRemove"
+          onClick={e => { e.preventDefault(); e.stopPropagation(); onRemove(); }}
+          title="Remove assignment"
+          style={{ position: "absolute", top: 4, right: 4, width: 20, height: 20, borderRadius: "50%", border: "none", background: "rgba(20,20,20,0.75)", color: "#ff8a65", fontSize: 13, lineHeight: "20px", textAlign: "center", padding: 0, cursor: "pointer", opacity: 0, transition: "opacity 0.15s" }}
+        >
+          ×
+        </button>
+      )}
       <div className="aLabel" style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "rgba(232,119,34,0.95)", color: "white", fontSize: 10, fontFamily: "Oswald, sans-serif", padding: 5, textAlign: "center", opacity: 0, transition: "opacity 0.15s", letterSpacing: 0.5 }}>
         {label}
       </div>
     </a>
+  );
+}
+
+// The "bring your own PDF" tile: sits at the end of the assignments grid,
+// same footprint as AssignmentThumb so it lines up in the grid. Collapsed
+// state is just a dashed "+" tile; clicking it swaps in a tiny inline form
+// (label + file picker) rather than opening a separate modal, since the
+// whole point of this pattern (established by Full Agenda's click-to-edit
+// fields) is keeping edits in place rather than navigating away.
+export function AddAssignmentCard({ open, busy, error, onOpen, onCancel, onSubmit }) {
+  const [label, setLabel] = useState("");
+  const [file, setFile] = useState(null);
+
+  if (!open) {
+    return (
+      <button
+        onClick={onOpen}
+        style={{
+          background: "transparent", borderRadius: 3, cursor: "pointer", aspectRatio: "8.5/11",
+          border: "2px dashed rgba(255,255,255,0.25)", color: "rgba(255,255,255,0.4)",
+          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6,
+          fontFamily: "Oswald, sans-serif", fontSize: 12, letterSpacing: 0.5, textTransform: "uppercase",
+          transition: "all 0.15s",
+        }}
+        onMouseEnter={e => { e.currentTarget.style.borderColor = "#E87722"; e.currentTarget.style.color = "#E87722"; }}
+        onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.25)"; e.currentTarget.style.color = "rgba(255,255,255,0.4)"; }}
+      >
+        <span style={{ fontSize: 28, lineHeight: 1 }}>+</span>
+        Add Assignment
+      </button>
+    );
+  }
+
+  return (
+    <form
+      onSubmit={e => { e.preventDefault(); if (label.trim() && file) onSubmit({ label: label.trim(), file }); }}
+      style={{
+        background: "#242424", borderRadius: 3, aspectRatio: "8.5/11", border: "2px solid #E87722",
+        display: "flex", flexDirection: "column", gap: 8, padding: 10, boxSizing: "border-box",
+      }}
+    >
+      <input
+        type="text" placeholder="Assignment name" value={label} onChange={e => setLabel(e.target.value)}
+        disabled={busy} autoFocus
+        style={{ background: "#1a1a1a", border: "1px solid #444", borderRadius: 2, color: "white", fontSize: 12, padding: "6px 8px", fontFamily: "Lato, sans-serif" }}
+      />
+      <input
+        type="file" accept="application/pdf" disabled={busy}
+        onChange={e => setFile(e.target.files?.[0] || null)}
+        style={{ fontSize: 11, color: "rgba(255,255,255,0.7)" }}
+      />
+      {error && <div style={{ fontSize: 11, color: "#ff8a65", fontStyle: "italic" }}>{error}</div>}
+      <div style={{ marginTop: "auto", display: "flex", gap: 6 }}>
+        <button type="submit" disabled={busy || !label.trim() || !file}
+          style={{ flex: 1, background: "#E87722", border: "none", borderRadius: 2, color: "#1a1a1a", fontFamily: "Oswald, sans-serif", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, padding: "6px 0", cursor: busy ? "default" : "pointer", opacity: busy ? 0.6 : 1 }}>
+          {busy ? "Uploading…" : "Save"}
+        </button>
+        <button type="button" onClick={onCancel} disabled={busy}
+          style={{ background: "transparent", border: "1px solid #555", borderRadius: 2, color: "rgba(255,255,255,0.6)", fontFamily: "Oswald, sans-serif", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, padding: "6px 10px", cursor: "pointer" }}>
+          Cancel
+        </button>
+      </div>
+    </form>
   );
 }
 
@@ -1031,6 +1256,25 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
         >
           ⚙
         </button>
+
+        {/* Opens the Build page — where units/lessons/assignments/calendar
+            are actually added and edited — in its own tab, same pattern as
+            Settings above. Deliberately NOT inline on this board: whatever
+            is on this page is what could be projected in front of a class,
+            so no add/edit affordance ever lives here (see PROJECT_NOTES.md
+            / the open-platform plan doc for the reasoning — Add
+            Assignment and Add Calendar used to live inline here and were
+            moved out for exactly this reason). */}
+        <button
+          onClick={e => { e.stopPropagation(); window.open("/build", "_blank", "noopener"); }}
+          title="Build — add or edit units, lessons, assignments, calendar"
+          aria-label="Open Build page"
+          style={{ position: "absolute", right: SPACE.lg + 42, top: "50%", transform: "translateY(-50%)", width: 34, height: 34, borderRadius: "50%", border: "1px solid rgba(255,255,255,0.25)", background: "transparent", color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, transition: "all 0.15s" }}
+          onMouseEnter={e => { e.currentTarget.style.background = "#E87722"; e.currentTarget.style.color = "#1a1a1a"; }}
+          onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#fff"; }}
+        >
+          🛠
+        </button>
       </div>
 
       {/* Unit nav */}
@@ -1079,21 +1323,49 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
 // `lessons` (which shifts if lessons are ever reordered). unitIdx null or
 // lessonTitle null both mean "no lesson" — a unit overview only sets
 // unitIdx, the homepage sets neither.
-function resolveView(view) {
+function resolveView(view, curriculumData) {
   if (!view || view.unitIdx == null) return { unitIdx: null, lesson: null };
-  const unit = curriculum[view.unitIdx];
+  const unit = curriculumData[view.unitIdx];
   if (!unit) return { unitIdx: null, lesson: null };
   const lesson = view.lessonTitle ? unit.lessons.find(l => l.title === view.lessonTitle) || null : null;
   return { unitIdx: view.unitIdx, lesson };
 }
 
+// A "different teacher" shell — same board, same formatting system, zero
+// pre-filled content. Used for any active teacher id other than
+// DEFAULT_TEACHER_ID (Webster Groves' real site), so Jay can freely
+// experiment with the open-platform "bring your own content" flow
+// (uploading assignments now, slides/other resource types later) without
+// any risk of touching the real curriculum data above. One starter
+// unit/lesson so there's an actual page to land on and add content to —
+// adding more units/lessons through the UI itself isn't built yet.
+export const BLANK_CURRICULUM = [
+  {
+    unit: "Unit 1",
+    lessons: [
+      { title: "Lesson 1", slides: null, goals: [], assignments: [], videos: [] },
+    ],
+  },
+];
+
 export default function App() {
-  // A real board tab always starts at the homepage, same as always. Only
-  // the Settings page's embedded preview copy (isPreviewMode) restores
-  // whatever lesson the teacher's real board tab currently has open, so
-  // the preview opens already showing the right thing instead of the
-  // homepage every time a setting changes and the iframe reloads.
-  const initialView = isPreviewMode ? resolveView(readCurrentView()) : { unitIdx: null, lesson: null };
+  // Which "teacher" is active — DEFAULT_TEACHER_ID is the real Webster
+  // Groves site; anything else gets the blank shell below instead. See
+  // getActiveTeacherId in boardConfig.js for how this is chosen
+  // (?teacher=... URL param, sticky via localStorage).
+  const activeTeacherId = getActiveTeacherId();
+  const isBlankTeacher = activeTeacherId !== DEFAULT_TEACHER_ID;
+  const activeCurriculum = isBlankTeacher ? BLANK_CURRICULUM : curriculum;
+
+  // A real board tab always starts at the homepage, same as always. Both
+  // embedded copies of this same app — Settings' read-only preview
+  // (isPreviewMode) and Build's editable one (isBuildMode) — instead
+  // restore whatever lesson the teacher's real board tab currently has
+  // open, so clicking the gear or the wrench-and-hammer icon while on,
+  // say, Lesson 1 opens straight to that same Lesson 1 (editable, for
+  // Build) instead of dumping the teacher back at the homepage and making
+  // them re-navigate.
+  const initialView = (isPreviewMode || isBuildMode) ? resolveView(readCurrentView(), activeCurriculum) : { unitIdx: null, lesson: null };
   const [activeUnitIdx, setActiveUnitIdx] = useState(initialView.unitIdx);
   const [activeLesson, setActiveLesson] = useState(initialView.lesson);
   // Only meaningful in preview mode — which category Settings currently
@@ -1139,6 +1411,10 @@ export default function App() {
   // otherwise render an empty gap of its own layout gap/Reset button when
   // every one of its four sections is toggled off).
   const anyFullAgendaFieldOn = essentialQuestionIsOn || agendaIsOn || bellRingerIsOn || homeLearningIsOn;
+  // Which order the five Board Content components render in, in the flat
+  // (non-sliding) goals column — a teacher-chosen order (see Settings'
+  // Board Content section), independent of which ones are toggled on.
+  const [boardContentOrder] = useBoardContentOrder();
   const [wallTypeKey] = useScopedSetting(WALL_TYPE_STORAGE_KEY, DEFAULT_WALL_TYPE, k => !!WALL_TYPES[k]);
   const [wallColorKey] = useScopedSetting(WALL_COLOR_STORAGE_KEY, DEFAULT_WALL_COLOR_BY_TYPE[DEFAULT_WALL_TYPE], null);
   const [boardSurfaceKey] = useScopedSetting(BOARD_SURFACE_STORAGE_KEY, DEFAULT_BOARD_SURFACE, k => !!BOARD_SURFACES[k]);
@@ -1157,9 +1433,12 @@ export default function App() {
   // to it), so if it also wrote its own copy back, an even-later-loading
   // second preview iframe (or the real tab, if the preview's write raced
   // it) could end up reading the preview's own reflection instead of the
-  // teacher's actual navigation.
+  // teacher's actual navigation. Build mode is excluded for the same
+  // reason — navigating around while editing content shouldn't yank the
+  // teacher's real board tab (or a Settings preview) to whatever lesson
+  // Build happens to be looking at.
   useEffect(() => {
-    if (isPreviewMode) return;
+    if (isPreviewMode || isBuildMode) return;
     writeCurrentView(activeUnitIdx == null ? null : { unitIdx: activeUnitIdx, lessonTitle: activeLesson?.title || null });
   }, [activeUnitIdx, activeLesson]);
 
@@ -1222,8 +1501,136 @@ export default function App() {
   const slidingCount = parseInt(slidingBoardsCount, 10) || parseInt(DEFAULT_SLIDING_BOARDS_COUNT, 10);
 
   const isHome = activeUnitIdx === null;
-  const activeUnit = isHome ? null : curriculum[activeUnitIdx];
+  const activeUnit = isHome ? null : activeCurriculum[activeUnitIdx];
   const isOverview = activeLesson === null;
+
+  // A blank-shell teacher's own course calendar, shown on the unit
+  // overview screen in the same spot Webster Groves' hardcoded
+  // CALENDAR_SRC occupies (see boardSlides below). Real site is
+  // untouched — this only ever applies when isBlankTeacher. Normally
+  // read-only display on a real board tab; the setter and the add/change/
+  // remove handlers below are only ever invoked from inside Build mode
+  // (see the isBuildMode-gated JSX further down).
+  const [calendarUrl, setCalendarUrl] = useState(() => readCalendarUrl());
+  const [calendarEditing, setCalendarEditing] = useState(false);
+
+  const handleSaveCalendar = (url) => {
+    writeCalendarUrl(url);
+    setCalendarUrl(url);
+    setCalendarEditing(false);
+  };
+  const handleRemoveCalendar = () => {
+    writeCalendarUrl("");
+    setCalendarUrl("");
+  };
+
+  // A lesson's own slideshow, overriding the hardcoded curriculum
+  // `lesson.slides` when a teacher has pasted one in via Build mode's
+  // "+ Add Slides / Presentation" tile (see boardSlides below). Re-read
+  // whenever the lesson being viewed changes, same reasoning as the
+  // extraAssignments fetch below.
+  const [lessonSlidesUrl, setLessonSlidesUrl] = useState(() => readLessonSlidesUrl(initialView.unitIdx, initialView.lesson?.title));
+  const [slidesEditing, setSlidesEditing] = useState(false);
+
+  useEffect(() => {
+    setLessonSlidesUrl(readLessonSlidesUrl(activeUnitIdx, activeLesson?.title));
+    setSlidesEditing(false);
+  }, [activeUnitIdx, activeLesson]);
+
+  const handleSaveSlides = (url) => {
+    writeLessonSlidesUrl(activeUnitIdx, activeLesson?.title, url);
+    setLessonSlidesUrl(url);
+    setSlidesEditing(false);
+  };
+  const handleRemoveSlides = () => {
+    writeLessonSlidesUrl(activeUnitIdx, activeLesson?.title, "");
+    setLessonSlidesUrl("");
+  };
+
+  // Teacher-uploaded assignments (Cloudinary-hosted PDFs, Mongo-backed
+  // metadata) layered on top of the hardcoded curriculum `assignments`
+  // array for whichever lesson is currently open. Lesson view only for
+  // now — Unit Overview's aggregated list doesn't include these yet.
+  // Added/removed only from Build mode (handleAddAssignment/
+  // handleRemoveAssignment below); a real board tab just displays them.
+  const [extraAssignments, setExtraAssignments] = useState([]);
+  const [addAssignmentOpen, setAddAssignmentOpen] = useState(false);
+  const [addAssignmentBusy, setAddAssignmentBusy] = useState(false);
+  const [addAssignmentError, setAddAssignmentError] = useState(null);
+
+  useEffect(() => {
+    if (isHome || isOverview || !activeLesson) {
+      setExtraAssignments([]);
+      return;
+    }
+    let cancelled = false;
+    fetchExtraAssignments(activeUnitIdx, activeLesson.title)
+      .then(list => { if (!cancelled) setExtraAssignments(list); })
+      .catch(err => {
+        console.error("Failed to load extra assignments", err);
+        if (!cancelled) setExtraAssignments([]);
+      });
+    return () => { cancelled = true; };
+  }, [activeUnitIdx, activeLesson, isHome, isOverview]);
+
+  const handleAddAssignment = async ({ label, file }) => {
+    setAddAssignmentBusy(true);
+    setAddAssignmentError(null);
+    try {
+      const { pdfUrl, thumbUrl, publicId } = await uploadAssignmentPdf(file);
+      const saved = await createExtraAssignment({
+        unitIdx: activeUnitIdx, lessonTitle: activeLesson.title, label, url: pdfUrl, thumb: thumbUrl, cloudinaryPublicId: publicId,
+      });
+      setExtraAssignments(prev => [...prev, saved]);
+      setAddAssignmentOpen(false);
+    } catch (err) {
+      console.error("Failed to add assignment", err);
+      setAddAssignmentError(err.message || "Something went wrong uploading that file.");
+    } finally {
+      setAddAssignmentBusy(false);
+    }
+  };
+
+  const handleRemoveAssignment = async (id) => {
+    const previous = extraAssignments;
+    setExtraAssignments(prev => prev.filter(a => a.id !== id));
+    try {
+      await deleteExtraAssignment(id);
+    } catch (err) {
+      console.error("Failed to remove assignment", err);
+      setExtraAssignments(previous);
+    }
+  };
+
+  // Build-mode-only: tell the parent (BuildPage.jsx) how tall the full
+  // page actually is, so it can size the embedded iframe to match instead
+  // of cropping it to a fixed box. Settings' preview gets away with a
+  // fixed short box because it's just a glance at the board; Build needs
+  // the WHOLE page reachable — the assignments grid and video library
+  // live below the fold on a real board tab too, and that's exactly where
+  // "+ Add Assignment" and per-item remove controls live. This is safe
+  // now that oneScreenHeight above is a fixed 900px reference rather than
+  // 100vh — the measured height here no longer depends on whatever height
+  // the iframe currently happens to be, so feeding it back to resize the
+  // iframe doesn't loop (an earlier version of this tied the board area
+  // to 100vh directly, which did loop — see the comment on
+  // oneScreenHeight). Re-measures via a ResizeObserver on the document
+  // body, which catches lesson navigation, an add/remove form opening,
+  // assignment thumbnails finishing loading, or anything else that
+  // changes the page's height.
+  useEffect(() => {
+    if (!isBuildMode || typeof ResizeObserver === "undefined") return;
+    const report = () => {
+      window.parent?.postMessage(
+        { type: "homeroom-build-content-height", height: document.documentElement.scrollHeight },
+        window.location.origin
+      );
+    };
+    report();
+    const ro = new ResizeObserver(report);
+    ro.observe(document.body);
+    return () => ro.disconnect();
+  }, []);
 
   const toggleGoal = (panelKey, idx) => {
     const key = `${panelKey}-${idx}`;
@@ -1247,7 +1654,7 @@ export default function App() {
     l.assignments.map(a => ({ ...a, lessonTitle: l.title }))
   );
 
-  const boardSlides = isHome ? null : (isOverview ? CALENDAR_SRC : activeLesson?.slides);
+  const boardSlides = isHome ? null : (isOverview ? (isBlankTeacher ? (calendarUrl || null) : CALENDAR_SRC) : (lessonSlidesUrl || activeLesson?.slides));
   const boardTitle = isHome ? null : (isOverview ? activeUnit.title : activeLesson?.title);
 
   // The active lesson's goals, flattened to one flat list of
@@ -1317,33 +1724,64 @@ export default function App() {
 
   const goHome = () => { setActiveUnitIdx(null); setActiveLesson(null); setOpenDropdown(null); };
   const topBarProps = {
-    curriculum, activeUnitIdx, isOverview, activeLesson, openDropdown, setOpenDropdown, handleUnitOverview, handleLessonClick, goHome,
+    curriculum: activeCurriculum, activeUnitIdx, isOverview, activeLesson, openDropdown, setOpenDropdown, handleUnitOverview, handleLessonClick, goHome,
   };
+
+  // On a real board tab, "one screen" legitimately means the teacher's
+  // actual browser window (100vh) — the board fills their real monitor.
+  // Inside an embedded copy (Settings' preview, or Build), the iframe's
+  // OWN height is something WE assign from code, so tying "one screen" to
+  // 100vh there means it's tied to whatever we last set the iframe's
+  // height to — which Build needs to do based on the page's real content
+  // height (see the postMessage effect below), and that combination is a
+  // feedback loop: grow the iframe → 100vh grows → the "one screen" board
+  // region grows → measured content height grows → grow the iframe more
+  // → ... (this actually happened during development — the iframe ballooned
+  // to a nonsensical size in one pass). Pinning "one screen" to a fixed
+  // pixel reference inside these embedded copies breaks that loop: it no
+  // longer depends on whatever height the iframe happens to have.
+  const oneScreenHeight = (isPreviewMode || isBuildMode) ? "900px" : "100vh";
 
   return (
     <div onClick={() => setOpenDropdown(null)}
       style={isHome
-        ? { background: "#1a1a1a", height: "100vh", fontFamily: "Lato, sans-serif", display: "flex", flexDirection: "column", overflow: "hidden" }
-        : { ...wallStyle, minHeight: "100vh", fontFamily: "Lato, sans-serif", display: "flex", flexDirection: "column", ...highlightStyle("background") }
+        ? { background: "#1a1a1a", height: oneScreenHeight, fontFamily: "Lato, sans-serif", display: "flex", flexDirection: "column", overflow: "hidden" }
+        : { ...wallStyle, minHeight: oneScreenHeight, fontFamily: "Lato, sans-serif", display: "flex", flexDirection: "column", ...highlightStyle("background") }
       }>
+
+      {isBlankTeacher && (
+        // Unmissable on purpose — this is the only thing distinguishing a
+        // blank experimentation shell from the real, live Webster Groves
+        // site at a glance, so it needs to survive being seen for half a
+        // second, not just be technically present.
+        <div style={{ background: "#7a3ff0", color: "white", fontFamily: "Oswald, sans-serif", fontSize: 12, letterSpacing: 1, textTransform: "uppercase", textAlign: "center", padding: "6px 12px", flexShrink: 0 }}>
+          Blank shell — teacher: "{activeTeacherId}" — not the real Webster Groves site
+        </div>
+      )}
 
       {isHome ? (
         <>
           <TopBar {...topBarProps} />
           <div style={{ flex: 1, minHeight: 0, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", background: "#1a1a1a" }}>
-            <div style={{ height: "100%", aspectRatio: "2.1", overflow: "hidden" }}>
-              <img
-                src="/images/wghs-building.jpg"
-                alt="Webster Groves High School"
-                style={{ width: "100%", height: "100%", display: "block", objectFit: "cover" }}
-              />
-            </div>
+            {isBlankTeacher ? (
+              <div style={{ color: "rgba(255,255,255,0.4)", fontFamily: "Oswald, sans-serif", fontSize: 14, letterSpacing: 1, textTransform: "uppercase" }}>
+                No content yet — pick a unit above to start adding assignments
+              </div>
+            ) : (
+              <div style={{ height: "100%", aspectRatio: "2.1", overflow: "hidden" }}>
+                <img
+                  src="/images/wghs-building.jpg"
+                  alt="Webster Groves High School"
+                  style={{ width: "100%", height: "100%", display: "block", objectFit: "cover" }}
+                />
+              </div>
+            )}
           </div>
         </>
       ) : (
       <>
       {/* ── First screen: nav + board fill exactly one viewport; assignments live below the fold ── */}
-      <div style={{ height: "100vh", flexShrink: 0, display: "flex", flexDirection: "column", boxSizing: "border-box", overflow: "hidden" }}>
+      <div style={{ height: oneScreenHeight, flexShrink: 0, display: "flex", flexDirection: "column", boxSizing: "border-box", overflow: "hidden" }}>
         <TopBar {...topBarProps} />
 
         {/* Room */}
@@ -1422,7 +1860,58 @@ export default function App() {
                 const slidesNode = (
                   <div key="slides" style={{ minHeight: 0, minWidth: 0, display: "flex", flexDirection: "column", alignItems: "center", padding: SPACE.md, gap: SPACE.sm }}>
                     <div style={{ flex: 1, minHeight: 0, minWidth: 0, width: "100%", maxWidth: "100%", display: "flex", justifyContent: "center", boxSizing: "border-box", overflow: "hidden" }}>
-                      <SmartBoard src={boardSlides} />
+                      {isOverview && isBlankTeacher && !calendarUrl ? (
+                        isBuildMode ? (
+                          <AddCalendarCard
+                            open={calendarEditing}
+                            onOpen={() => setCalendarEditing(true)}
+                            onCancel={() => setCalendarEditing(false)}
+                            onSave={handleSaveCalendar}
+                          />
+                        ) : (
+                          // Read-only on purpose — this is the live board,
+                          // which could be projected in front of a class, so
+                          // it never shows an add/edit affordance. Adding a
+                          // calendar happens on the Build page (🛠 icon
+                          // above) instead.
+                          <div style={{ width: "100%", maxWidth: "100%", aspectRatio: "16/9", boxSizing: "border-box", border: "2px dashed rgba(255,255,255,0.15)", borderRadius: 8, color: "rgba(255,255,255,0.3)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Oswald, sans-serif", fontSize: 13, letterSpacing: 0.5, textTransform: "uppercase", textAlign: "center", padding: SPACE.md }}>
+                            No calendar added yet — add one from the Build page
+                          </div>
+                        )
+                      ) : isOverview && isBlankTeacher && isBuildMode && calendarEditing ? (
+                        <AddCalendarCard
+                          open={true}
+                          initialUrl={calendarUrl}
+                          onOpen={() => {}}
+                          onCancel={() => setCalendarEditing(false)}
+                          onSave={handleSaveCalendar}
+                        />
+                      ) : isOverview && isBlankTeacher && isBuildMode ? (
+                        <BuildEditableSlot onChange={() => setCalendarEditing(true)} onRemove={handleRemoveCalendar}>
+                          <SmartBoard src={boardSlides} />
+                        </BuildEditableSlot>
+                      ) : !isOverview && isBuildMode && !boardSlides ? (
+                        <AddSlidesCard
+                          open={slidesEditing}
+                          onOpen={() => setSlidesEditing(true)}
+                          onCancel={() => setSlidesEditing(false)}
+                          onSave={handleSaveSlides}
+                        />
+                      ) : !isOverview && isBuildMode && slidesEditing ? (
+                        <AddSlidesCard
+                          open={true}
+                          initialUrl={lessonSlidesUrl}
+                          onOpen={() => {}}
+                          onCancel={() => setSlidesEditing(false)}
+                          onSave={handleSaveSlides}
+                        />
+                      ) : !isOverview && isBuildMode ? (
+                        <BuildEditableSlot onChange={() => setSlidesEditing(true)} onRemove={handleRemoveSlides}>
+                          <SmartBoard src={boardSlides} />
+                        </BuildEditableSlot>
+                      ) : (
+                        <SmartBoard src={boardSlides} />
+                      )}
                     </div>
                   </div>
                 );
@@ -1448,41 +1937,54 @@ export default function App() {
                     ) : (
                       // Flat (non-sliding) board content — replaces just
                       // the goals column (slides/SmartBoard stay put).
-                      // Each of the five components below renders only
-                      // when its Settings toggle is on (BOARD_COMPONENTS
-                      // in boardConfig.js); Learning Goals reuses the same
-                      // Objectives checklist Full Agenda's sliding case
-                      // uses, labeled "Objectives & Benchmarks" whenever
-                      // it's sharing the column with any of the other four,
-                      // or plain "Learning Goals" when it's the only thing
-                      // on (matching the old Simple Goals look). The four
-                      // freeform fields use the SAME fullAgendaFields hook
-                      // instance as the sliding case above, so switching
-                      // Sliding Boards on/off never shows stale content.
+                      // Rendered in whatever order the teacher has set
+                      // (boardContentOrder, from Settings' Board Content
+                      // section — see BOARD_CONTENT_ORDER_STORAGE_KEY in
+                      // boardConfig.js) rather than a fixed sequence; each
+                      // of the five only actually renders when its own
+                      // Settings toggle is on. Learning Goals reuses the
+                      // same Objectives checklist Full Agenda's sliding
+                      // case uses, labeled "Objectives & Benchmarks"
+                      // whenever it's sharing the column with any of the
+                      // other four, or plain "Learning Goals" when it's the
+                      // only thing on (matching the old Simple Goals look).
+                      // The four freeform fields use the SAME
+                      // fullAgendaFields hook instance as the sliding case
+                      // above, so switching Sliding Boards on/off never
+                      // shows stale content. Reset Board is placed once, up
+                      // front, rather than tied to wherever the first
+                      // freeform field happens to land in the order.
                       <>
-                        {learningGoalsIsOn && (
-                          <ObjectivesChecklist
-                            goalItems={goalItems}
-                            checkedGoals={checkedGoals}
-                            toggleGoal={toggleGoal}
-                            surface={surface}
-                            label={anyFullAgendaFieldOn ? "Objectives & Benchmarks" : "Learning Goals"}
-                          />
-                        )}
                         {anyFullAgendaFieldOn && (
-                          <FullAgendaFields
-                            content={fullAgendaFields.content}
-                            editingKey={fullAgendaFields.editingKey}
-                            onStartEdit={fullAgendaFields.setEditingKey}
-                            onSave={fullAgendaFields.save}
-                            onReset={fullAgendaFields.resetToDefaults}
-                            surface={surface}
-                            showEssentialQuestion={essentialQuestionIsOn}
-                            showAgenda={agendaIsOn}
-                            showBellRinger={bellRingerIsOn}
-                            showHomeLearning={homeLearningIsOn}
-                          />
+                          <ResetBoardButton onReset={fullAgendaFields.resetToDefaults} surface={surface} />
                         )}
+                        {boardContentOrder.map(key => {
+                          if (key === "learningGoals") {
+                            return learningGoalsIsOn ? (
+                              <ObjectivesChecklist
+                                key={key}
+                                goalItems={goalItems}
+                                checkedGoals={checkedGoals}
+                                toggleGoal={toggleGoal}
+                                surface={surface}
+                                label={anyFullAgendaFieldOn ? "Objectives & Benchmarks" : "Learning Goals"}
+                              />
+                            ) : null;
+                          }
+                          const isOnByKey = { essentialQuestion: essentialQuestionIsOn, agenda: agendaIsOn, bellRinger: bellRingerIsOn, homeLearning: homeLearningIsOn };
+                          if (!isOnByKey[key]) return null;
+                          return (
+                            <EditableField
+                              key={key}
+                              fieldKey={key}
+                              content={fullAgendaFields.content}
+                              editingKey={fullAgendaFields.editingKey}
+                              onStartEdit={fullAgendaFields.setEditingKey}
+                              onSave={fullAgendaFields.save}
+                              surface={surface}
+                            />
+                          );
+                        })}
                         {!learningGoalsIsOn && !anyFullAgendaFieldOn && (
                           <div style={{ fontFamily: "Caveat, cursive", fontSize: 17, color: surface.placeholderText, fontStyle: "italic", padding: "2px 4px" }}>
                             No board content is turned on. Turn on Learning Goals, Essential Question, Agenda, Bell Ringer, or Home Learning in Settings.
@@ -1538,15 +2040,32 @@ export default function App() {
                 ))
               )
             ) : (
-              activeLesson?.assignments.length === 0 ? (
-                <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 13, padding: 20, textAlign: "center", fontStyle: "italic" }}>No assignments yet for this lesson.</div>
-              ) : (
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: SPACE.md }}>
-                  {activeLesson?.assignments.map((a, ai) => (
-                    <AssignmentThumb key={ai} {...a} />
-                  ))}
-                </div>
-              )
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: SPACE.md }}>
+                {/* The "+ Add Assignment" tile and per-item remove controls
+                    only ever render in Build mode (isBuildMode) — this is
+                    otherwise the live board, which could be projected in
+                    front of a class, so it stays a read-only display of
+                    whatever's already been added. */}
+                {!isBuildMode && activeLesson?.assignments.length === 0 && extraAssignments.length === 0 && (
+                  <div style={{ gridColumn: "1 / -1", color: "rgba(255,255,255,0.3)", fontSize: 13, padding: 20, textAlign: "center", fontStyle: "italic" }}>No assignments yet for this lesson.</div>
+                )}
+                {activeLesson?.assignments.map((a, ai) => (
+                  <AssignmentThumb key={`base-${ai}`} {...a} />
+                ))}
+                {extraAssignments.map((a) => (
+                  <AssignmentThumb key={a.id} {...a} onRemove={isBuildMode ? () => handleRemoveAssignment(a.id) : undefined} />
+                ))}
+                {isBuildMode && (
+                  <AddAssignmentCard
+                    open={addAssignmentOpen}
+                    busy={addAssignmentBusy}
+                    error={addAssignmentError}
+                    onOpen={() => { setAddAssignmentError(null); setAddAssignmentOpen(true); }}
+                    onCancel={() => { setAddAssignmentOpen(false); setAddAssignmentError(null); }}
+                    onSubmit={handleAddAssignment}
+                  />
+                )}
+              </div>
             )}
           </div>
         </div>

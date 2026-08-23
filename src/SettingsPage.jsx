@@ -3,7 +3,7 @@ import {
   useScopedSetting,
   BOARD_ARRANGEMENTS, DEFAULT_ARRANGEMENT, ARRANGEMENT_STORAGE_KEY,
   BULLETIN_STYLES, DEFAULT_BULLETIN, BULLETIN_STORAGE_KEY,
-  BOARD_COMPONENTS,
+  BOARD_COMPONENTS, useBoardContentOrder,
   WALL_TYPES, DEFAULT_WALL_TYPE, WALL_TYPE_STORAGE_KEY,
   WALL_COLORS, DEFAULT_WALL_COLOR_BY_TYPE, WALL_COLOR_STORAGE_KEY,
   wallColorSwatch,
@@ -159,19 +159,51 @@ function RadioRow({ selected, onClick, label, swatch }) {
 // Board Content is a set of independent on/off switches (any combination
 // can be on at once), unlike every other category here which is a
 // single-choice preset — so it gets its own checkbox-style row instead of
-// reusing RadioRow's single-selection radio-button look.
-function ToggleRow({ checked, onClick, label }) {
+// reusing RadioRow's single-selection radio-button look. `onMoveUp`/
+// `onMoveDown`, when passed, add a pair of small ▲▼ buttons on the right
+// for reordering this component within the board content column — plain
+// up/down buttons rather than drag-and-drop, since a reliable click beats
+// a fiddly drag for a quick "move this up one" on a laptop trackpad (and
+// there's no extra library to add). Pass null/undefined for whichever end
+// is already at the top/bottom of the list so that arrow simply doesn't
+// render, instead of rendering disabled.
+function ToggleRow({ checked, onClick, label, onMoveUp, onMoveDown }) {
+  const arrowStyle = {
+    width: 20, height: 20, borderRadius: 3, border: "1px solid rgba(255,255,255,0.25)", background: "transparent",
+    color: "rgba(255,255,255,0.55)", fontSize: 10, lineHeight: 1, cursor: "pointer", display: "flex",
+    alignItems: "center", justifyContent: "center", flexShrink: 0,
+  };
   return (
     <div
-      onClick={onClick}
-      style={{ padding: "10px 14px", fontSize: 13, fontFamily: "Lato, sans-serif", fontWeight: 700, color: checked ? "#E87722" : "#ccc", cursor: "pointer", display: "flex", alignItems: "center", gap: 10, borderRadius: 5 }}
+      style={{ padding: "6px 14px", display: "flex", alignItems: "center", gap: 10, borderRadius: 5 }}
       onMouseEnter={e => { e.currentTarget.style.background = "#242424"; }}
       onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}
     >
-      <span style={{ width: 14, height: 14, borderRadius: 3, border: `2px solid ${checked ? "#E87722" : "rgba(255,255,255,0.35)"}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, background: checked ? "#E87722" : "transparent" }}>
-        {checked && <span style={{ color: "#1a1a1a", fontSize: 10, lineHeight: 1, fontWeight: 900 }}>✓</span>}
-      </span>
-      {label}
+      <div
+        onClick={onClick}
+        style={{ flex: 1, display: "flex", alignItems: "center", gap: 10, fontSize: 13, fontFamily: "Lato, sans-serif", fontWeight: 700, color: checked ? "#E87722" : "#ccc", cursor: "pointer", padding: "4px 0", minWidth: 0 }}
+      >
+        <span style={{ width: 14, height: 14, borderRadius: 3, border: `2px solid ${checked ? "#E87722" : "rgba(255,255,255,0.35)"}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, background: checked ? "#E87722" : "transparent" }}>
+          {checked && <span style={{ color: "#1a1a1a", fontSize: 10, lineHeight: 1, fontWeight: 900 }}>✓</span>}
+        </span>
+        {label}
+      </div>
+      {(onMoveUp || onMoveDown) && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 2, flexShrink: 0 }}>
+          <button
+            onClick={onMoveUp} disabled={!onMoveUp} title="Move up"
+            style={{ ...arrowStyle, visibility: onMoveUp ? "visible" : "hidden", opacity: onMoveUp ? 1 : 0 }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = "#E87722"; e.currentTarget.style.color = "#E87722"; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.25)"; e.currentTarget.style.color = "rgba(255,255,255,0.55)"; }}
+          >▲</button>
+          <button
+            onClick={onMoveDown} disabled={!onMoveDown} title="Move down"
+            style={{ ...arrowStyle, visibility: onMoveDown ? "visible" : "hidden", opacity: onMoveDown ? 1 : 0 }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = "#E87722"; e.currentTarget.style.color = "#E87722"; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.25)"; e.currentTarget.style.color = "rgba(255,255,255,0.55)"; }}
+          >▼</button>
+        </div>
+      )}
     </div>
   );
 }
@@ -205,6 +237,30 @@ export default function SettingsPage() {
   const [bellRingerOn, setBellRingerOn] = useScopedSetting(BOARD_COMPONENTS.bellRinger.storageKey, BOARD_COMPONENTS.bellRinger.default, isOnOff);
   const [homeLearningOn, setHomeLearningOn] = useScopedSetting(BOARD_COMPONENTS.homeLearning.storageKey, BOARD_COMPONENTS.homeLearning.default, isOnOff);
   const toggleComponent = (value, setValue) => setValue(value === "true" ? "false" : "true");
+  // Which order the five components above render in on the board — see
+  // useBoardContentOrder/BOARD_CONTENT_ORDER_STORAGE_KEY in boardConfig.js.
+  // Kept independent of the on/off state above so toggling something off
+  // and back on doesn't lose its place in line.
+  const [boardContentOrder, setBoardContentOrder] = useBoardContentOrder();
+  const moveBoardContentItem = (key, direction) => {
+    const idx = boardContentOrder.indexOf(key);
+    const swapWith = idx + direction;
+    if (idx < 0 || swapWith < 0 || swapWith >= boardContentOrder.length) return;
+    const next = [...boardContentOrder];
+    [next[idx], next[swapWith]] = [next[swapWith], next[idx]];
+    setBoardContentOrder(next);
+  };
+  // Lookup tables so the Board Content rows below can render themselves
+  // by iterating boardContentOrder instead of five near-identical
+  // hardcoded <ToggleRow> lines — checked state and its setter for
+  // whichever component key is being rendered.
+  const boardContentState = {
+    learningGoals: [learningGoalsOn, setLearningGoalsOn],
+    essentialQuestion: [essentialQuestionOn, setEssentialQuestionOn],
+    agenda: [agendaOn, setAgendaOn],
+    bellRinger: [bellRingerOn, setBellRingerOn],
+    homeLearning: [homeLearningOn, setHomeLearningOn],
+  };
   const [wallTypeKey, setWallTypeKey] = useScopedSetting(WALL_TYPE_STORAGE_KEY, DEFAULT_WALL_TYPE, k => !!WALL_TYPES[k]);
   const [wallColorKey, setWallColorKey] = useScopedSetting(WALL_COLOR_STORAGE_KEY, DEFAULT_WALL_COLOR_BY_TYPE[DEFAULT_WALL_TYPE], null);
   const [boardSurfaceKey, setBoardSurfaceKey] = useScopedSetting(BOARD_SURFACE_STORAGE_KEY, DEFAULT_BOARD_SURFACE, k => !!BOARD_SURFACES[k]);
@@ -333,13 +389,21 @@ export default function SettingsPage() {
                   {cat.id === "content" && (
                     <>
                       <SectionHeading>Board Content</SectionHeading>
-                      <ToggleRow checked={learningGoalsOn === "true"} onClick={() => toggleComponent(learningGoalsOn, setLearningGoalsOn)} label="Learning Goals" />
-                      <ToggleRow checked={essentialQuestionOn === "true"} onClick={() => toggleComponent(essentialQuestionOn, setEssentialQuestionOn)} label="Essential Question" />
-                      <ToggleRow checked={agendaOn === "true"} onClick={() => toggleComponent(agendaOn, setAgendaOn)} label="Agenda" />
-                      <ToggleRow checked={bellRingerOn === "true"} onClick={() => toggleComponent(bellRingerOn, setBellRingerOn)} label="Bell Ringer" />
-                      <ToggleRow checked={homeLearningOn === "true"} onClick={() => toggleComponent(homeLearningOn, setHomeLearningOn)} label="Home Learning" />
+                      {boardContentOrder.map((key, idx) => {
+                        const [value, setValue] = boardContentState[key];
+                        return (
+                          <ToggleRow
+                            key={key}
+                            checked={value === "true"}
+                            onClick={() => toggleComponent(value, setValue)}
+                            label={BOARD_COMPONENTS[key].label}
+                            onMoveUp={idx > 0 ? () => moveBoardContentItem(key, -1) : null}
+                            onMoveDown={idx < boardContentOrder.length - 1 ? () => moveBoardContentItem(key, 1) : null}
+                          />
+                        );
+                      })}
                       <div style={{ fontFamily: "Lato, sans-serif", fontSize: 11, color: "rgba(255,255,255,0.4)", padding: "8px 14px 0", lineHeight: 1.5 }}>
-                        Turn any combination on — each has its own space on the board. Turning one off keeps whatever you've written there; it comes back if you turn it on again.
+                        Turn any combination on — each has its own space on the board. Use the ▲▼ arrows to change the order they appear in top to bottom. Turning one off keeps whatever you've written there; it comes back if you turn it on again. (Order only applies with Sliding Boards off, below — sliding panels always show Learning Goals first.)
                       </div>
                     </>
                   )}
