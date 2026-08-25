@@ -470,7 +470,13 @@ export default function ChalkboardBoardRow({
                     const dividerStyle = renderedCount > 0 ? { marginTop: 4, paddingTop: 8, borderTop: "1px solid rgba(255,255,255,0.12)" } : undefined;
 
                     if (key === "learningGoals") {
-                      if (!showGoals) return null;
+                      // A board can legitimately have zero goals now that
+                      // the board count is fixed rather than goal-driven
+                      // (see buildSlidingPanels in boardConfig.js) — skip
+                      // the header entirely rather than showing "Learning
+                      // Goals" over an empty list, so a blank board reads
+                      // as blank, not broken.
+                      if (!showGoals || panel.goals.length === 0) return null;
                       renderedCount++;
                       return (
                         <div key={key} style={dividerStyle}>

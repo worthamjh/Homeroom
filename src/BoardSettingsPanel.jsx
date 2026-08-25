@@ -308,13 +308,8 @@ export default function BoardSettingsPanel({ selected, onSelect, panelCountInfo 
                         ))}
                       </div>
                       <div style={{ padding: "0 14px 4px", fontFamily: "Lato, sans-serif", fontSize: 11, color: "rgba(255,255,255,0.4)", lineHeight: 1.4 }}>
-                        Applies to lessons that don't already define their own boards (Unit 10's Testing lessons keep their own board count). This is a maximum, not a fixed count — a lesson needs at least one learning goal per board, so one with fewer goals than the number picked here ends up with fewer boards too. Requires Learning Goals to be turned on in Board Content — with it off, there's nothing to split across boards, so it slides as a single board.
+                        Applies to lessons that don't already define their own boards (Unit 10's Testing lessons keep their own board count). This is a fixed count — you'll always get exactly this many boards, even if a lesson has fewer learning goals than that (the extra boards are simply blank, or carry only whatever else is turned on in Board Content) or Learning Goals is toggled off entirely.
                       </div>
-                      {panelCountInfo?.requestedCount != null && panelCountInfo.resolvedCount != null && panelCountInfo.resolvedCount < panelCountInfo.requestedCount && (
-                        <div style={{ margin: "0 14px 8px", padding: "8px 10px", fontFamily: "Lato, sans-serif", fontSize: 11, lineHeight: 1.4, color: "var(--board-secondary-accent)", background: "rgba(232,119,34,0.1)", border: "1px solid rgba(232,119,34,0.35)", borderRadius: 4 }}>
-                          The lesson currently open above only has enough learning goals for {panelCountInfo.resolvedCount} board{panelCountInfo.resolvedCount === 1 ? "" : "s"} — it'll stay at {panelCountInfo.resolvedCount} even with {panelCountInfo.requestedCount} selected. Lessons with more goals will use more of them.
-                        </div>
-                      )}
                     </>
                   )}
                 </>

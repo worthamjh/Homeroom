@@ -1326,7 +1326,20 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
             Add Calendar used to live inline here and were moved out for
             exactly this reason). */}
         <button
-          onClick={e => { e.stopPropagation(); window.open("/build", "_blank", "noopener"); }}
+          onClick={e => {
+            e.stopPropagation();
+            // A named target ("homeroom-build" instead of "_blank") means
+            // clicking this again while a Build tab is already open just
+            // refocuses that same tab instead of stacking up a fresh one
+            // every time. Deliberately NOT passing "noopener" here — Build
+            // reads window.opener (see its "← Back to board" handler in
+            // BuildPage.jsx) to hand its current lesson back to THIS tab
+            // and close itself, instead of opening yet another new tab
+            // when a teacher is done editing. Safe to skip noopener: this
+            // is a same-origin, first-party popup, not a link to some
+            // other site.
+            window.open("/build", "homeroom-build");
+          }}
           title="Build — add or edit content, and change how the board looks"
           aria-label="Open Build page"
           style={{ position: "absolute", right: SPACE.lg, top: "50%", transform: "translateY(-50%)", width: 34, height: 34, borderRadius: "50%", border: "1px solid rgba(255,255,255,0.25)", background: "transparent", color: "var(--board-primary-fg)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, transition: "all 0.15s" }}
@@ -1849,32 +1862,22 @@ export default function App() {
   // The actual set of boards ChalkboardBoardRow will render for the
   // current lesson — computed once here (rather than inline at the call
   // site below) so preview mode can also report its *length* back to
-  // Settings. That length can legitimately be smaller than the Sliding
-  // Boards Count setting: buildSlidingPanels round-robins goals into that
-  // many buckets and then drops any that end up empty, so a lesson with
-  // only 3 goals produces at most 3 boards no matter how high the count
-  // is set — asking for 5 boards to share 3 goals doesn't invent 2 blank
-  // ones. Without surfacing that, picking 4 or 5 on a lesson like that
-  // looks like the setting silently stopped working.
-  // When Learning Goals is toggled off, auto-splitting into N panels no
-  // longer means anything for a lesson that doesn't author its own
-  // goalPanels — buildSlidingPanels exists purely to divide up the goals
-  // list, and with the checklist hidden there's nothing left to divide.
-  // Force a single panel in that case so the board doesn't show N empty
-  // sliding boards; Unit 10's curriculum-authored goalPanels lessons keep
-  // their real multi-panel layout regardless, since those panels aren't
-  // goals-driven splitting in the first place.
+  // Settings. This always matches the Sliding Boards Count setting
+  // exactly (buildSlidingPanels always returns exactly that many panels
+  // now, goals or no goals) — the one exception is a lesson that authors
+  // its own explicit goalPanels (Unit 10's Testing lessons), which keeps
+  // its real multi-panel layout regardless of the count setting.
   const slidingPanelsForLesson = (!isOverview && activeLesson)
     ? (activeLesson.goalPanels
         ? toGoalPanels(activeLesson)
-        : (learningGoalsIsOn ? buildSlidingPanels(goalItems, slidingCount) : buildSlidingPanels(goalItems, 1)))
+        : buildSlidingPanels(goalItems, slidingCount))
     : [];
 
   // Preview- and Build-mode: tell Settings (or Build's own merged
-  // BoardSettingsPanel) how many boards this lesson actually resolved to,
-  // so it can explain a count setting that looks like it did nothing (see
-  // the comment on slidingPanelsForLesson above) instead of leaving a
-  // teacher to assume Sliding Boards is broken.
+  // BoardSettingsPanel) how many boards this lesson actually resolved to.
+  // Now always equal to the Sliding Boards Count setting, except for a
+  // lesson with its own curriculum-authored goalPanels (requestedCount is
+  // null there, since the count setting doesn't apply to it).
   const isSlidingActive = !isOverview && (activeLesson?.goalPanels || slidingEnabled);
   useEffect(() => {
     if (!isPreviewMode && !isBuildMode) return;

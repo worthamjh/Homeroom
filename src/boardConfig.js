@@ -509,17 +509,26 @@ export const SLIDING_BOARDS_COUNT_OPTIONS = ["2", "3", "4", "5"];
 // Objectives & Benchmarks checklist (FullAgendaBoard.jsx) so Sliding
 // Boards behaves consistently under either content template.
 export function buildSlidingPanels(goalItems, count) {
-  if (goalItems.length === 0) return [{ label: undefined, goals: [] }];
   const n = Math.max(1, count);
+  // Board count is a fixed setting, not a maximum -- always return exactly
+  // n panels, even when there are fewer goals than boards (or none at
+  // all). A board with no goals on it isn't broken; it's just a blank
+  // board, which is a perfectly normal thing for a teacher to want (room
+  // for freehand notes, or a board that's only carrying an Agenda/Bell
+  // Ringer field). Previously this filtered out empty buckets, so the
+  // number of boards a lesson actually showed silently shrank whenever it
+  // had fewer goals than the configured count -- see the removed warning
+  // in BoardSettingsPanel.jsx for the UI that used to explain that away
+  // instead of just not doing it.
+  const lessonPanelKey = goalItems[0]?.panelKey;
   const buckets = Array.from({ length: n }, () => []);
   goalItems.forEach((item, i) => {
     buckets[i % n].push(item);
   });
   return buckets
-    .filter(b => b.length > 0)
     .map((items, i) => ({
       label: `Board ${i + 1}`,
-      panelKey: items[0].panelKey,
+      panelKey: lessonPanelKey,
       goals: items.map(it => ({ text: it.text, idx: it.idx })),
     }));
 }

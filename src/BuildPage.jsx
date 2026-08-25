@@ -222,6 +222,31 @@ export default function BuildPage() {
     return qs ? `/board?${qs}` : "/board";
   })();
 
+  // Build is opened from the real board tab via a NAMED window.open target
+  // (see TopBar in WebsterGrovesChemistry.jsx) rather than "_blank", so
+  // window.opener here still points back at that same tab instead of it
+  // being severed. That's what lets "← Back to board" hand the teacher
+  // back to the tab they actually came from — updated to whatever
+  // unit/lesson Build had open (backHref, above) — and close THIS tab,
+  // instead of every click opening yet another new one (the old behavior:
+  // a plain href with no opener handling just kept stacking new tabs).
+  // Falls back to a normal same-tab navigation when there's no opener to
+  // hand off to — e.g. Build was reached directly, by a bookmark or a
+  // pasted link, rather than via the 🛠 icon.
+  const handleBackToBoard = (e) => {
+    if (window.opener && !window.opener.closed) {
+      e.preventDefault();
+      try {
+        window.opener.location.href = backHref;
+        window.opener.focus();
+      } catch {
+        // Shouldn't happen (same-origin), but don't leave the teacher
+        // stuck on Build with a dead click if it ever does.
+      }
+      window.close();
+    }
+  };
+
   // The board + its own "not built yet" footnote, as one unit — reused
   // identically whether Clerk is configured (rendered only <SignedIn>) or
   // not (rendered unconditionally, same as every page behaved before this
@@ -279,7 +304,7 @@ export default function BuildPage() {
               </SignedOut>
             </>
           )}
-          <a href={backHref} style={{ color: "var(--board-secondary-accent)", fontFamily: "Oswald, sans-serif", fontSize: 13, textTransform: "uppercase", letterSpacing: 0.5, textDecoration: "none", flexShrink: 0 }}>
+          <a href={backHref} onClick={handleBackToBoard} style={{ color: "var(--board-secondary-accent)", fontFamily: "Oswald, sans-serif", fontSize: 13, textTransform: "uppercase", letterSpacing: 0.5, textDecoration: "none", flexShrink: 0 }}>
             ← Back to board
           </a>
         </div>
