@@ -194,10 +194,11 @@ export default function BoardSettingsPanel({ selected, onSelect, panelCountInfo 
   };
 
   return (
-    <div style={{ background: "#191919", borderRadius: 10, overflow: "hidden" }}>
+    <div data-tour="tour-sidebar" style={{ background: "#191919", borderRadius: 10, overflow: "hidden" }}>
       {BOARD_SETTINGS_CATEGORIES.map(cat => (
         <div key={cat.id}>
           <div
+            data-tour={`tour-cat-${cat.id}`}
             onClick={() => onSelect(prev => prev === cat.id ? null : cat.id)}
             style={{
               padding: "14px 20px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between",

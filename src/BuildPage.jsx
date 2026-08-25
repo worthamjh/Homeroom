@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/clerk-react";
-import { getActiveTeacherId, DEFAULT_TEACHER_ID, CLERK_CONFIGURED, boardThemeVars } from "./boardConfig";
+import { getActiveTeacherId, DEFAULT_TEACHER_ID, CLERK_CONFIGURED, boardThemeVars, useScopedSetting, BUILD_TOUR_DONE_KEY, DEFAULT_BUILD_TOUR_DONE } from "./boardConfig";
 import { fetchProfile } from "./lib/profileApi";
 import BoardSettingsPanel from "./BoardSettingsPanel";
+import GuidedTour from "./GuidedTour";
 
 /**
  * BuildPage — "Build", opened in its own browser tab from the 🛠 icon on
@@ -211,6 +212,20 @@ export default function BuildPage() {
   // it back to a fresh real tab as ?unit=&lesson= deep-link params.
   const [currentView, setCurrentView] = useState(null);
 
+  // First-run guided tour (see GuidedTour.jsx) -- a blank-shell teacher
+  // who has never finished or skipped it gets it started automatically
+  // a beat after landing here (the iframe needs a moment to load before
+  // GuidedTour has anything to spotlight); anyone else can re-open it
+  // any time from the "Take the tour" link below.
+  const [tourDone] = useScopedSetting(BUILD_TOUR_DONE_KEY, DEFAULT_BUILD_TOUR_DONE, k => k === "true" || k === "false");
+  const [tourActive, setTourActive] = useState(false);
+  useEffect(() => {
+    if (!isBlankTeacher || tourDone === "true") return;
+    const t = setTimeout(() => setTourActive(true), 1200);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isBlankTeacher]);
+
   const backHref = (() => {
     const params = new URLSearchParams();
     if (isBlankTeacher) params.set("teacher", activeTeacherId);
@@ -262,7 +277,20 @@ export default function BuildPage() {
         onViewChange={setCurrentView}
       />
       <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 12, fontStyle: "italic", marginTop: 16, textAlign: "center" }}>
-        Adding whole new units and lessons isn't built yet — this manages content within the units/lessons that already exist. Browsing your Google Drive to pick slides (instead of pasting a link) is the next big step for this page.
+        {isBlankTeacher ? (
+          <>
+            Browsing your Google Drive to pick slides (instead of pasting a link) is the next big step for this page.{" "}
+            <button
+              type="button"
+              onClick={() => setTourActive(true)}
+              style={{ background: "transparent", border: "none", color: "var(--board-secondary-accent)", fontSize: 12, fontStyle: "italic", textDecoration: "underline", cursor: "pointer", padding: 0, fontFamily: "Lato, sans-serif" }}
+            >
+              Take the tour again
+            </button>
+          </>
+        ) : (
+          "Adding whole new units and lessons isn't built yet — this manages content within the units/lessons that already exist. Browsing your Google Drive to pick slides (instead of pasting a link) is the next big step for this page."
+        )}
       </div>
     </div>
   );
@@ -271,6 +299,19 @@ export default function BuildPage() {
       <BoardSettingsPanel selected={selected} onSelect={setSelected} panelCountInfo={panelCountInfo} />
     </div>
   );
+
+  // See GuidedTour.jsx -- reads/writes the iframe board (via iframeRef,
+  // same-origin) and the sidebar's own `selected` category directly, so
+  // it needs no plumbing beyond what BuildPage already has.
+  const guidedTour = isBlankTeacher ? (
+    <GuidedTour
+      active={tourActive}
+      onDone={() => setTourActive(false)}
+      iframeRef={iframeRef}
+      selected={selected}
+      boardWidth={BOARD_W}
+    />
+  ) : null;
 
   return (
     <div style={{ ...themeVars, minHeight: "100vh", background: "#141414", fontFamily: "Lato, sans-serif" }}>
@@ -316,6 +357,7 @@ export default function BuildPage() {
             <SignedIn>
               {board}
               {settingsPanel}
+              {guidedTour}
             </SignedIn>
             <SignedOut>
               <div style={{ flex: "1 1 100%" }}>
@@ -327,6 +369,7 @@ export default function BuildPage() {
           <>
             {board}
             {settingsPanel}
+            {guidedTour}
           </>
         )}
       </div>

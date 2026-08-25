@@ -500,6 +500,14 @@ export const DEFAULT_SLIDING_BOARDS_COUNT = "3";
 // Number of Boards control; picking 1 board IS off.
 export const SLIDING_BOARDS_COUNT_OPTIONS = ["1", "2", "3", "4", "5"];
 
+// Whether a blank-shell teacher has finished (or skipped) the guided
+// Build tour (see GuidedTour.jsx) -- a plain "true"/"false" scoped
+// setting like every other per-teacher preference, so it is Mongo-
+// synced the same way and does not re-prompt a teacher who already
+// went through it on a different device or after a cleared cache.
+export const BUILD_TOUR_DONE_KEY = "buildTourDone";
+export const DEFAULT_BUILD_TOUR_DONE = "false";
+
 // Splits a flat goalItems list (each { text, panelKey, idx }, see the
 // goalItems derivation in WebsterGrovesChemistry.jsx's App()) into N
 // sliding-chalkboard panels, for lessons that don't author their own
