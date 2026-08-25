@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { fetchBoardContent, saveBoardContent, deleteBoardContent } from "./lib/boardContentApi";
 
 /**
  * FullAgendaBoard
@@ -94,7 +95,18 @@ const DEFAULT_SURFACE = { accent: "var(--board-secondary-accent)", headerText: "
 // never inside something that gets rendered multiple times (like a
 // per-panel component), or independent copies of "content" would drift
 // out of sync with each other as a teacher edits.
-export function useFullAgendaFields(storageKey) {
+//
+// `mongoKey` (optional: { teacherId, unitIdx, lessonTitle }) is what makes
+// this content survive a different browser or a cleared cache instead of
+// living only in THIS browser's localStorage (loadContent/save above
+// still write there first, unconditionally — an instant, offline-
+// friendly cache; Mongo is purely additive on top of it). Pass null/
+// undefined to skip the Mongo mirror entirely (e.g. no lesson is active
+// yet). On mount/lesson change, whatever's saved remotely is fetched and
+// merged over the localStorage-seeded state — remote wins per-field,
+// since another device may have edited more recently than this browser's
+// own cache.
+export function useFullAgendaFields(storageKey, mongoKey) {
   const [content, setContent] = useState(() => loadContent(storageKey));
   const [editingKey, setEditingKey] = useState(null);
   const [checkedAgendaLines, setCheckedAgendaLines] = useState(() => loadAgendaChecked(storageKey));
@@ -107,6 +119,21 @@ export function useFullAgendaFields(storageKey) {
     setCheckedAgendaLines(loadAgendaChecked(storageKey));
   }, [storageKey]);
 
+  useEffect(() => {
+    if (!mongoKey) return;
+    let cancelled = false;
+    fetchBoardContent(mongoKey.teacherId, mongoKey.unitIdx, mongoKey.lessonTitle)
+      .then(remote => {
+        if (cancelled || !remote) return;
+        const { checkedAgendaLines: remoteChecked, ...remoteText } = remote;
+        if (Object.keys(remoteText).length) setContent(prev => ({ ...prev, ...remoteText }));
+        if (remoteChecked && Object.keys(remoteChecked).length) setCheckedAgendaLines(prev => ({ ...prev, ...remoteChecked }));
+      })
+      .catch(() => {}); // no saved data yet, or a transient error — this browser's own cache stands
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mongoKey?.teacherId, mongoKey?.unitIdx, mongoKey?.lessonTitle]);
+
   const save = (key, value) => {
     setEditingKey(null);
     setContent(prev => {
@@ -116,6 +143,7 @@ export function useFullAgendaFields(storageKey) {
       }
       return next;
     });
+    if (mongoKey) saveBoardContent(mongoKey.teacherId, mongoKey.unitIdx, mongoKey.lessonTitle, { [key]: value }).catch(() => {});
   };
 
   // Toggles one Agenda line's checked state by its position in the
@@ -127,6 +155,7 @@ export function useFullAgendaFields(storageKey) {
       if (typeof window !== "undefined") {
         try { window.localStorage.setItem(agendaCheckedKey(storageKey), JSON.stringify(next)); } catch { /* ignore */ }
       }
+      if (mongoKey) saveBoardContent(mongoKey.teacherId, mongoKey.unitIdx, mongoKey.lessonTitle, { checkedAgendaLines: next }).catch(() => {});
       return next;
     });
   };
@@ -143,6 +172,7 @@ export function useFullAgendaFields(storageKey) {
         window.localStorage.removeItem(agendaCheckedKey(storageKey));
       } catch { /* ignore */ }
     }
+    if (mongoKey) deleteBoardContent(mongoKey.teacherId, mongoKey.unitIdx, mongoKey.lessonTitle).catch(() => {});
   };
 
   return { content, editingKey, setEditingKey, save, resetToDefaults, checkedAgendaLines, toggleAgendaLine };

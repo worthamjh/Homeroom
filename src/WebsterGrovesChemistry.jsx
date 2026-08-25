@@ -5,6 +5,7 @@ import { fetchExtraAssignments, createExtraAssignment, deleteExtraAssignment } f
 import { uploadAssignmentPdf } from "./lib/cloudinary";
 import { fetchProfile } from "./lib/profileApi";
 import { fetchCurriculum, saveCurriculum } from "./lib/curriculumApi";
+import { fetchCheckedGoals, saveCheckedGoals } from "./lib/checkedGoalsApi";
 import {
   scopedKey, useScopedSetting,
   getActiveTeacherId, DEFAULT_TEACHER_ID,
@@ -1572,6 +1573,30 @@ export default function App() {
     window.localStorage.setItem(scopedKey(GOALS_STORAGE_KEY), JSON.stringify(checkedGoals));
   }, [checkedGoals]);
 
+  // Mongo mirror of checkedGoals, so a teacher's checked-off learning
+  // goals show up the same way on any device instead of living only in
+  // this one browser's localStorage (which the state above still writes
+  // to first, unconditionally — an instant, offline-friendly cache; this
+  // is purely additive). On mount, pull whatever's saved remotely and
+  // merge it over the localStorage-seeded initial state — remote wins
+  // per-key, since another device may have checked/unchecked something
+  // more recently than this browser's own cache. `hasLoadedRemote` gates
+  // the save effect below so it can't fire (and overwrite that remote
+  // data with this tab's pre-merge state) before the merge above lands.
+  const hasLoadedRemote = useRef(false);
+  useEffect(() => {
+    let cancelled = false;
+    fetchCheckedGoals(activeTeacherId)
+      .then(remote => { if (!cancelled && remote) setCheckedGoals(prev => ({ ...prev, ...remote })); })
+      .catch(() => {}) // no saved data yet, or a transient error — this browser's own cache stands
+      .finally(() => { if (!cancelled) hasLoadedRemote.current = true; });
+    return () => { cancelled = true; };
+  }, [activeTeacherId]);
+  useEffect(() => {
+    if (!hasLoadedRemote.current) return;
+    saveCheckedGoals(activeTeacherId, checkedGoals).catch(() => {}); // offline/misconfigured Mongo — localStorage above already has it
+  }, [activeTeacherId, checkedGoals]);
+
   // Publish "what's currently open" so the Settings page's preview iframe
   // can restore it (see resolveView above) and keep following it live —
   // but only from a real board tab. The preview copy has isPreviewMode
@@ -1862,22 +1887,32 @@ export default function App() {
   // The actual set of boards ChalkboardBoardRow will render for the
   // current lesson — computed once here (rather than inline at the call
   // site below) so preview mode can also report its *length* back to
-  // Settings. This always matches the Sliding Boards Count setting
-  // exactly (buildSlidingPanels always returns exactly that many panels
-  // now, goals or no goals) — the one exception is a lesson that authors
-  // its own explicit goalPanels (Unit 10's Testing lessons), which keeps
-  // its real multi-panel layout regardless of the count setting.
+  // Settings. That length can legitimately be smaller than the Sliding
+  // Boards Count setting: buildSlidingPanels round-robins goals into that
+  // many buckets and then drops any that end up empty, so a lesson with
+  // only 3 goals produces at most 3 boards no matter how high the count
+  // is set — asking for 5 boards to share 3 goals doesn't invent 2 blank
+  // ones. Without surfacing that, picking 4 or 5 on a lesson like that
+  // looks like the setting silently stopped working.
+  // When Learning Goals is toggled off, auto-splitting into N panels no
+  // longer means anything for a lesson that doesn't author its own
+  // goalPanels — buildSlidingPanels exists purely to divide up the goals
+  // list, and with the checklist hidden there's nothing left to divide.
+  // Force a single panel in that case so the board doesn't show N empty
+  // sliding boards; Unit 10's curriculum-authored goalPanels lessons keep
+  // their real multi-panel layout regardless, since those panels aren't
+  // goals-driven splitting in the first place.
   const slidingPanelsForLesson = (!isOverview && activeLesson)
     ? (activeLesson.goalPanels
         ? toGoalPanels(activeLesson)
-        : buildSlidingPanels(goalItems, slidingCount))
+        : (learningGoalsIsOn ? buildSlidingPanels(goalItems, slidingCount) : buildSlidingPanels(goalItems, 1)))
     : [];
 
   // Preview- and Build-mode: tell Settings (or Build's own merged
-  // BoardSettingsPanel) how many boards this lesson actually resolved to.
-  // Now always equal to the Sliding Boards Count setting, except for a
-  // lesson with its own curriculum-authored goalPanels (requestedCount is
-  // null there, since the count setting doesn't apply to it).
+  // BoardSettingsPanel) how many boards this lesson actually resolved to,
+  // so it can explain a count setting that looks like it did nothing (see
+  // the comment on slidingPanelsForLesson above) instead of leaving a
+  // teacher to assume Sliding Boards is broken.
   const isSlidingActive = !isOverview && (activeLesson?.goalPanels || slidingEnabled);
   useEffect(() => {
     if (!isPreviewMode && !isBuildMode) return;
@@ -1895,8 +1930,17 @@ export default function App() {
   // once per panel face), every render reads/writes the exact same
   // content instead of drifting out of sync. See useFullAgendaFields in
   // FullAgendaBoard.jsx. Called unconditionally (rules of hooks) with a
-  // safe fallback key when there's no active lesson yet.
-  const fullAgendaFields = useFullAgendaFields(scopedKey(`fullAgenda:${activeLesson?.title || "none"}`));
+  // safe fallback key when there's no active lesson yet. The second
+  // argument scopes this lesson's content to Mongo too (null at the
+  // overview, where there's no lesson to scope it to) — see the
+  // `mongoKey` param on useFullAgendaFields for why this is what lets a
+  // teacher's Essential Question/Agenda/Bell Ringer/Home Learning text
+  // survive a different browser or a cleared cache, instead of living
+  // only in this one browser's localStorage.
+  const fullAgendaFields = useFullAgendaFields(
+    scopedKey(`fullAgenda:${activeLesson?.title || "none"}`),
+    activeLesson && activeUnitIdx != null ? { teacherId: activeTeacherId, unitIdx: activeUnitIdx, lessonTitle: activeLesson.title } : null
+  );
 
   const goHome = () => { setActiveUnitIdx(null); setActiveLesson(null); setOpenDropdown(null); };
   const topBarProps = {
