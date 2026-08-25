@@ -249,7 +249,7 @@ export default function ChalkboardBoardRow({
           {overviewItems.map((item, i) => (
             <div key={i} onClick={() => onOverviewItemClick(item)}
               style={{ display: "flex", alignItems: "flex-start", gap: 8, cursor: "pointer", padding: "4px 0", borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
-              <span style={{ fontFamily: "Oswald, sans-serif", fontSize: 11, color: "var(--board-secondary)", minWidth: 18, opacity: 0.8 }}>{String(i + 1).padStart(2, "0")}</span>
+              <span style={{ fontFamily: "Oswald, sans-serif", fontSize: 11, color: "var(--board-secondary-accent)", minWidth: 18, opacity: 0.8 }}>{String(i + 1).padStart(2, "0")}</span>
               <span style={{ fontFamily: "Caveat, cursive", fontSize: 14, color: "rgba(255,255,255,0.82)", lineHeight: 1.3, textShadow: "1px 1px 2px rgba(0,0,0,0.5)" }}>{item}</span>
             </div>
           ))}
@@ -497,7 +497,7 @@ export default function ChalkboardBoardRow({
                               <div key={idx} onClick={() => toggleGoal(panelKey, idx)}
                                 style={{ display: "flex", alignItems: "flex-start", gap: 8, cursor: "pointer", padding: "4px 0" }}>
                                 <div style={{ width: 15, height: 15, border: `2px solid ${checked ? "var(--board-secondary)" : surface.checkboxBorder}`, borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 2, background: checked ? "var(--board-secondary)" : "transparent", transition: "all 0.15s" }}>
-                                  {checked && <span style={{ color: "white", fontSize: 9, lineHeight: 1 }}>✓</span>}
+                                  {checked && <span style={{ color: "var(--board-secondary-fg)", fontSize: 9, lineHeight: 1 }}>✓</span>}
                                 </div>
                                 <span style={{ fontFamily: "Caveat, cursive", fontSize: 15, color: checked ? surface.bodyTextChecked : surface.bodyText, lineHeight: 1.35, textShadow: surface.textShadow, textDecoration: checked ? "line-through" : "none", minWidth: 0, wordBreak: "break-word" }}>
                                   {text}

@@ -981,7 +981,7 @@ function AddEmbedCard({ open, label, promptText, placeholder, initialUrl, onOpen
         <button
           onClick={onOpen}
           style={{ background: "transparent", border: "none", color: "inherit", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 6, fontFamily: "Oswald, sans-serif", fontSize: 13, letterSpacing: 0.5, textTransform: "uppercase" }}
-          onMouseEnter={e => { e.currentTarget.style.color = "var(--board-secondary)"; }}
+          onMouseEnter={e => { e.currentTarget.style.color = "var(--board-secondary-accent)"; }}
           onMouseLeave={e => { e.currentTarget.style.color = "inherit"; }}
         >
           <span style={{ fontSize: 30, lineHeight: 1 }}>+</span>
@@ -1002,11 +1002,11 @@ function AddEmbedCard({ open, label, promptText, placeholder, initialUrl, onOpen
       <input
         type="url" placeholder={placeholder} value={url} onChange={e => setUrl(e.target.value)}
         autoFocus
-        style={{ background: "var(--board-primary)", border: "1px solid #444", borderRadius: 2, color: "white", fontSize: 12, padding: "8px 10px", fontFamily: "Lato, sans-serif" }}
+        style={{ background: "var(--board-primary)", border: "1px solid #444", borderRadius: 2, color: "var(--board-primary-fg)", fontSize: 12, padding: "8px 10px", fontFamily: "Lato, sans-serif" }}
       />
       <div style={{ display: "flex", gap: 6 }}>
         <button type="submit" disabled={!url.trim()}
-          style={{ flex: 1, background: "var(--board-secondary)", border: "none", borderRadius: 2, color: "var(--board-primary)", fontFamily: "Oswald, sans-serif", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, padding: "8px 0", cursor: "pointer" }}>
+          style={{ flex: 1, background: "var(--board-secondary)", border: "none", borderRadius: 2, color: "var(--board-secondary-fg)", fontFamily: "Oswald, sans-serif", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, padding: "8px 0", cursor: "pointer" }}>
           Save
         </button>
         <button type="button" onClick={onCancel}
@@ -1148,7 +1148,7 @@ export function AddAssignmentCard({ open, busy, error, onOpen, onCancel, onSubmi
           fontFamily: "Oswald, sans-serif", fontSize: 12, letterSpacing: 0.5, textTransform: "uppercase",
           transition: "all 0.15s",
         }}
-        onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--board-secondary)"; e.currentTarget.style.color = "var(--board-secondary)"; }}
+        onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--board-secondary-accent)"; e.currentTarget.style.color = "var(--board-secondary-accent)"; }}
         onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.25)"; e.currentTarget.style.color = "rgba(255,255,255,0.4)"; }}
       >
         <span style={{ fontSize: 28, lineHeight: 1 }}>+</span>
@@ -1168,7 +1168,7 @@ export function AddAssignmentCard({ open, busy, error, onOpen, onCancel, onSubmi
       <input
         type="text" placeholder="Assignment name" value={label} onChange={e => setLabel(e.target.value)}
         disabled={busy} autoFocus
-        style={{ background: "var(--board-primary)", border: "1px solid #444", borderRadius: 2, color: "white", fontSize: 12, padding: "6px 8px", fontFamily: "Lato, sans-serif" }}
+        style={{ background: "var(--board-primary)", border: "1px solid #444", borderRadius: 2, color: "var(--board-primary-fg)", fontSize: 12, padding: "6px 8px", fontFamily: "Lato, sans-serif" }}
       />
       <input
         type="file" accept="application/pdf" disabled={busy}
@@ -1178,7 +1178,7 @@ export function AddAssignmentCard({ open, busy, error, onOpen, onCancel, onSubmi
       {error && <div style={{ fontSize: 11, color: "#ff8a65", fontStyle: "italic" }}>{error}</div>}
       <div style={{ marginTop: "auto", display: "flex", gap: 6 }}>
         <button type="submit" disabled={busy || !label.trim() || !file}
-          style={{ flex: 1, background: "var(--board-secondary)", border: "none", borderRadius: 2, color: "var(--board-primary)", fontFamily: "Oswald, sans-serif", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, padding: "6px 0", cursor: busy ? "default" : "pointer", opacity: busy ? 0.6 : 1 }}>
+          style={{ flex: 1, background: "var(--board-secondary)", border: "none", borderRadius: 2, color: "var(--board-secondary-fg)", fontFamily: "Oswald, sans-serif", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, padding: "6px 0", cursor: busy ? "default" : "pointer", opacity: busy ? 0.6 : 1 }}>
           {busy ? "Uploading…" : "Save"}
         </button>
         <button type="button" onClick={onCancel} disabled={busy}
@@ -1217,7 +1217,7 @@ function VideoLibrary({ videos, playingVideoId, setPlayingVideoId }) {
   return (
     <div style={{ padding: `0 ${SPACE.lg}px ${SPACE.lg}px`, maxWidth: 1700, width: "100%", margin: "0 auto", boxSizing: "border-box" }}>
       <div style={{ background: "var(--board-primary)", border: "3px solid var(--board-secondary)", borderRadius: 4, overflow: "hidden", boxShadow: "0 3px 12px rgba(0,0,0,0.25)" }}>
-        <div style={{ background: "var(--board-secondary)", padding: `${SPACE.xs}px ${SPACE.md}px`, fontFamily: "Oswald, sans-serif", fontSize: 14, color: "var(--board-primary)", letterSpacing: 1, textTransform: "uppercase", fontWeight: 600 }}>
+        <div style={{ background: "var(--board-secondary)", padding: `${SPACE.xs}px ${SPACE.md}px`, fontFamily: "Oswald, sans-serif", fontSize: 14, color: "var(--board-secondary-fg)", letterSpacing: 1, textTransform: "uppercase", fontWeight: 600 }}>
           Video Library
         </div>
         <div style={{ padding: SPACE.sm }}>
@@ -1268,7 +1268,7 @@ function InlineAddButton({ label, placeholder, defaultValue, onAdd, style, input
         type="button"
         onClick={(e) => { e.stopPropagation(); setValue(defaultValue || ""); setEditing(true); }}
         style={{ background: "transparent", border: "1px dashed rgba(255,255,255,0.4)", color: "rgba(255,255,255,0.6)", cursor: "pointer", fontFamily: "Oswald, sans-serif", fontSize: 12, letterSpacing: 0.5, textTransform: "uppercase", ...style }}
-        onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--board-secondary)"; e.currentTarget.style.color = "var(--board-secondary)"; }}
+        onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--board-secondary-accent)"; e.currentTarget.style.color = "var(--board-secondary-accent)"; }}
         onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.4)"; e.currentTarget.style.color = "rgba(255,255,255,0.6)"; }}
       >
         + {label}
@@ -1295,7 +1295,7 @@ function InlineAddButton({ label, placeholder, defaultValue, onAdd, style, input
         onChange={e => setValue(e.target.value)}
         onBlur={commit}
         onKeyDown={e => { if (e.key === "Escape") { setEditing(false); } }}
-        style={{ background: "var(--board-primary)", border: "1px solid #444", borderRadius: 2, color: "white", fontSize: 12, padding: "4px 6px", fontFamily: "Lato, sans-serif", minWidth: 0, ...inputStyle }}
+        style={{ background: "var(--board-primary)", border: "1px solid #444", borderRadius: 2, color: "var(--board-primary-fg)", fontSize: 12, padding: "4px 6px", fontFamily: "Lato, sans-serif", minWidth: 0, ...inputStyle }}
       />
     </form>
   );
@@ -1307,9 +1307,9 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
       <div style={{ padding: `${SPACE.md}px ${SPACE.lg}px ${SPACE.sm}px`, textAlign: "center", position: "relative" }}>
         <div
           onClick={goHome}
-          style={{ fontFamily: "Oswald, sans-serif", color: "#fff", fontSize: 26, fontWeight: 600, letterSpacing: 2, cursor: "pointer", display: "inline-block" }}
+          style={{ fontFamily: "Oswald, sans-serif", color: "var(--board-primary-fg)", fontSize: 26, fontWeight: 600, letterSpacing: 2, cursor: "pointer", display: "inline-block" }}
         >
-          {titleMain ?? "Webster Groves"} <span style={{ color: "var(--board-secondary)" }}>{titleAccent ?? "Chemistry"}</span>
+          {titleMain ?? "Webster Groves"} <span style={{ color: "var(--board-secondary-accent)" }}>{titleAccent ?? "Chemistry"}</span>
         </div>
 
         {/* Opens the Build page — where units/lessons/assignments/calendar
@@ -1329,9 +1329,9 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
           onClick={e => { e.stopPropagation(); window.open("/build", "_blank", "noopener"); }}
           title="Build — add or edit content, and change how the board looks"
           aria-label="Open Build page"
-          style={{ position: "absolute", right: SPACE.lg, top: "50%", transform: "translateY(-50%)", width: 34, height: 34, borderRadius: "50%", border: "1px solid rgba(255,255,255,0.25)", background: "transparent", color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, transition: "all 0.15s" }}
-          onMouseEnter={e => { e.currentTarget.style.background = "var(--board-secondary)"; e.currentTarget.style.color = "var(--board-primary)"; }}
-          onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#fff"; }}
+          style={{ position: "absolute", right: SPACE.lg, top: "50%", transform: "translateY(-50%)", width: 34, height: 34, borderRadius: "50%", border: "1px solid rgba(255,255,255,0.25)", background: "transparent", color: "var(--board-primary-fg)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, transition: "all 0.15s" }}
+          onMouseEnter={e => { e.currentTarget.style.background = "var(--board-secondary)"; e.currentTarget.style.color = "var(--board-secondary-fg)"; }}
+          onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--board-primary-fg)"; }}
         >
           🛠
         </button>
@@ -1346,9 +1346,9 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
           >
             <button
               onClick={() => handleUnitOverview(ui)}
-              style={{ background: activeUnitIdx === ui && isOverview ? "#fff" : "var(--board-secondary)", color: activeUnitIdx === ui && isOverview ? "var(--board-secondary)" : "var(--board-primary)", border: "none", borderRight: "1px solid rgba(0,0,0,0.2)", padding: `${SPACE.sm}px ${SPACE.xs}px`, fontSize: 13, fontFamily: "Oswald, sans-serif", cursor: "pointer", letterSpacing: 0.5, width: "100%", fontWeight: 600, transition: "all 0.15s" }}
-              onMouseEnter={e => { if (!(activeUnitIdx === ui && isOverview)) { e.currentTarget.style.background = "#fff"; e.currentTarget.style.color = "var(--board-primary)"; }}}
-              onMouseLeave={e => { if (!(activeUnitIdx === ui && isOverview)) { e.currentTarget.style.background = "var(--board-secondary)"; e.currentTarget.style.color = "var(--board-primary)"; }}}
+              style={{ background: activeUnitIdx === ui && isOverview ? "#fff" : "var(--board-secondary)", color: activeUnitIdx === ui && isOverview ? "var(--board-secondary-accent)" : "var(--board-secondary-fg)", border: "none", borderRight: "1px solid rgba(0,0,0,0.2)", padding: `${SPACE.sm}px ${SPACE.xs}px`, fontSize: 13, fontFamily: "Oswald, sans-serif", cursor: "pointer", letterSpacing: 0.5, width: "100%", fontWeight: 600, transition: "all 0.15s" }}
+              onMouseEnter={e => { if (!(activeUnitIdx === ui && isOverview)) { e.currentTarget.style.background = "#fff"; e.currentTarget.style.color = "var(--board-secondary-accent)"; }}}
+              onMouseLeave={e => { if (!(activeUnitIdx === ui && isOverview)) { e.currentTarget.style.background = "var(--board-secondary)"; e.currentTarget.style.color = "var(--board-secondary-fg)"; }}}
             >
               {u.unit}
             </button>
@@ -1361,9 +1361,9 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
                 {u.lessons.map((lesson, li) => (
                   <div key={li}
                     onClick={() => handleLessonClick(ui, lesson)}
-                    style={{ padding: `${SPACE.sm}px ${SPACE.md}px`, fontSize: 13, fontFamily: "Lato, sans-serif", fontWeight: 700, color: activeLesson?.title === lesson.title ? "var(--board-secondary)" : "#ccc", cursor: "pointer", borderBottom: "1px solid #2a2a2a", transition: "all 0.12s", whiteSpace: "nowrap", borderLeft: activeLesson?.title === lesson.title ? "3px solid var(--board-secondary)" : "3px solid transparent", paddingLeft: activeLesson?.title === lesson.title ? SPACE.md - 3 : SPACE.md }}
-                    onMouseEnter={e => { e.currentTarget.style.background = "var(--board-secondary)"; e.currentTarget.style.color = "#fff"; }}
-                    onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = activeLesson?.title === lesson.title ? "var(--board-secondary)" : "#ccc"; }}
+                    style={{ padding: `${SPACE.sm}px ${SPACE.md}px`, fontSize: 13, fontFamily: "Lato, sans-serif", fontWeight: 700, color: activeLesson?.title === lesson.title ? "var(--board-secondary-accent)" : "#ccc", cursor: "pointer", borderBottom: "1px solid #2a2a2a", transition: "all 0.12s", whiteSpace: "nowrap", borderLeft: activeLesson?.title === lesson.title ? "3px solid var(--board-secondary-accent)" : "3px solid transparent", paddingLeft: activeLesson?.title === lesson.title ? SPACE.md - 3 : SPACE.md }}
+                    onMouseEnter={e => { e.currentTarget.style.background = "var(--board-secondary)"; e.currentTarget.style.color = "var(--board-secondary-fg)"; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = activeLesson?.title === lesson.title ? "var(--board-secondary-accent)" : "#ccc"; }}
                   >
                     {lesson.title}
                   </div>
@@ -2031,6 +2031,8 @@ export default function App() {
                         onSave={fullAgendaFields.save}
                         surface={surface}
                         interactive={isFront}
+                        checkedLines={fullAgendaFields.checkedAgendaLines}
+                        onToggleLine={fullAgendaFields.toggleAgendaLine}
                       />
                     );
                   } : null}
@@ -2169,6 +2171,8 @@ export default function App() {
                               onStartEdit={fullAgendaFields.setEditingKey}
                               onSave={fullAgendaFields.save}
                               surface={surface}
+                              checkedLines={fullAgendaFields.checkedAgendaLines}
+                              onToggleLine={fullAgendaFields.toggleAgendaLine}
                             />
                           );
                         })}
@@ -2204,7 +2208,7 @@ export default function App() {
       {/* ── Assignments — below the fold, scroll to reveal ── */}
       <div style={{ padding: `0 ${SPACE.lg}px ${SPACE.lg}px`, maxWidth: 1700, width: "100%", margin: "0 auto", boxSizing: "border-box" }}>
         <div style={{ background: "var(--board-primary)", border: "3px solid var(--board-secondary)", borderRadius: 4, overflow: "hidden", boxShadow: "0 3px 12px rgba(0,0,0,0.25)" }}>
-          <div style={{ background: "var(--board-secondary)", padding: `${SPACE.xs}px ${SPACE.md}px`, fontFamily: "Oswald, sans-serif", fontSize: 14, color: "var(--board-primary)", letterSpacing: 1, textTransform: "uppercase", fontWeight: 600, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ background: "var(--board-secondary)", padding: `${SPACE.xs}px ${SPACE.md}px`, fontFamily: "Oswald, sans-serif", fontSize: 14, color: "var(--board-secondary-fg)", letterSpacing: 1, textTransform: "uppercase", fontWeight: 600, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <span>{isOverview ? `${activeUnit.unit} — All Assignments` : "Assignments & Classwork"}</span>
             {isOverview && <span style={{ fontSize: 11, fontFamily: "Lato, sans-serif", fontWeight: 400, opacity: 0.7, letterSpacing: 0 }}>in curriculum order</span>}
           </div>
@@ -2215,7 +2219,7 @@ export default function App() {
               ) : (
                 activeUnit.lessons.map((lesson, li) => (
                   <div key={li}>
-                    <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 12, color: "var(--board-secondary)", letterSpacing: 1, textTransform: "uppercase", padding: li === 0 ? `0 0 ${SPACE.xs}px` : `${SPACE.sm}px 0 ${SPACE.xs}px`, borderTop: li === 0 ? "none" : "1px solid #333" }}>
+                    <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 12, color: "var(--board-secondary-accent)", letterSpacing: 1, textTransform: "uppercase", padding: li === 0 ? `0 0 ${SPACE.xs}px` : `${SPACE.sm}px 0 ${SPACE.xs}px`, borderTop: li === 0 ? "none" : "1px solid #333" }}>
                       {lesson.title}
                     </div>
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: SPACE.md }}>

@@ -164,14 +164,14 @@ function LiveBuildBoard({ teacherId, highlightRegion, onPanelCountInfo, onViewCh
 function SignInPrompt() {
   return (
     <div style={{ background: "var(--board-primary)", border: "1px dashed rgba(255,255,255,0.25)", borderRadius: 10, padding: "48px 24px", textAlign: "center" }}>
-      <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 18, color: "#fff", marginBottom: 8 }}>
+      <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 18, color: "var(--board-primary-fg)", marginBottom: 8 }}>
         Sign in to build your board
       </div>
       <div style={{ fontSize: 13, color: "rgba(255,255,255,0.5)", marginBottom: 20, maxWidth: 420, marginLeft: "auto", marginRight: "auto" }}>
         Signing in gives you your own Homeroom — your calendar, slides, and assignments, saved under your account instead of a shared browser.
       </div>
       <SignInButton mode="modal">
-        <button style={{ background: "var(--board-secondary)", color: "var(--board-primary)", border: "none", borderRadius: 6, padding: "10px 22px", fontFamily: "Oswald, sans-serif", fontSize: 14, fontWeight: 600, letterSpacing: 0.5, cursor: "pointer" }}>
+        <button style={{ background: "var(--board-secondary)", color: "var(--board-secondary-fg)", border: "none", borderRadius: 6, padding: "10px 22px", fontFamily: "Oswald, sans-serif", fontSize: 14, fontWeight: 600, letterSpacing: 0.5, cursor: "pointer" }}>
           Sign in
         </button>
       </SignInButton>
@@ -251,8 +251,8 @@ export default function BuildPage() {
     <div style={{ ...themeVars, minHeight: "100vh", background: "#141414", fontFamily: "Lato, sans-serif" }}>
       <div style={{ background: "var(--board-primary)", borderBottom: "3px solid var(--board-secondary)", padding: "14px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
         <div>
-          <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 20, color: "#fff", letterSpacing: 1 }}>
-            🛠 Build {isBlankTeacher && <span style={{ color: "var(--board-secondary)" }}>— teacher: "{activeTeacherId}"</span>}
+          <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 20, color: "var(--board-primary-fg)", letterSpacing: 1 }}>
+            🛠 Build {isBlankTeacher && <span style={{ color: "var(--board-secondary-accent)" }}>— teacher: "{activeTeacherId}"</span>}
           </div>
           <div style={{ fontSize: 12, color: "rgba(255,255,255,0.45)", marginTop: 2, maxWidth: 640 }}>
             This is your actual board — click a "+" to add a calendar, slides, or an assignment right where it will show up, or use the panel on the right to change how the board looks. Changes save immediately and show up next time the real board tab loads. This page itself is never meant to be projected in class.
@@ -272,14 +272,14 @@ export default function BuildPage() {
               </SignedIn>
               <SignedOut>
                 <SignInButton mode="modal">
-                  <button style={{ background: "transparent", color: "var(--board-secondary)", border: "1px solid var(--board-secondary)", borderRadius: 6, padding: "6px 14px", fontFamily: "Oswald, sans-serif", fontSize: 12, textTransform: "uppercase", letterSpacing: 0.5, cursor: "pointer" }}>
+                  <button style={{ background: "transparent", color: "var(--board-secondary-accent)", border: "1px solid var(--board-secondary-accent)", borderRadius: 6, padding: "6px 14px", fontFamily: "Oswald, sans-serif", fontSize: 12, textTransform: "uppercase", letterSpacing: 0.5, cursor: "pointer" }}>
                     Sign in
                   </button>
                 </SignInButton>
               </SignedOut>
             </>
           )}
-          <a href={backHref} style={{ color: "var(--board-secondary)", fontFamily: "Oswald, sans-serif", fontSize: 13, textTransform: "uppercase", letterSpacing: 0.5, textDecoration: "none", flexShrink: 0 }}>
+          <a href={backHref} style={{ color: "var(--board-secondary-accent)", fontFamily: "Oswald, sans-serif", fontSize: 13, textTransform: "uppercase", letterSpacing: 0.5, textDecoration: "none", flexShrink: 0 }}>
             ← Back to board
           </a>
         </div>

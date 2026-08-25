@@ -71,7 +71,23 @@ function loadContent(storageKey) {
   }
 }
 
-const DEFAULT_SURFACE = { accent: "var(--board-secondary)", headerText: "var(--board-secondary)", bodyText: "rgba(255,255,255,0.88)", bodyTextChecked: "rgba(255,255,255,0.3)", placeholderText: "rgba(255,255,255,0.4)", dividerBorder: "rgba(255,255,255,0.2)", textShadow: "1px 1px 2px rgba(0,0,0,0.5)", checkboxBorder: "rgba(255,255,255,0.4)" };
+// Which Agenda lines (by their line index within the agenda text) a
+// teacher has checked off — its own small piece of state, separate from
+// `content` itself, since checking an item off isn't editing the agenda
+// text. Stored under a sibling key so it survives a refresh the same way
+// the rest of a lesson's board content does, and resets along with
+// everything else on "Reset Board".
+function agendaCheckedKey(storageKey) { return `${storageKey}:agendaChecked`; }
+function loadAgendaChecked(storageKey) {
+  if (typeof window === "undefined") return {};
+  try {
+    return JSON.parse(window.localStorage.getItem(agendaCheckedKey(storageKey))) || {};
+  } catch {
+    return {};
+  }
+}
+
+const DEFAULT_SURFACE = { accent: "var(--board-secondary-accent)", headerText: "var(--board-secondary-accent)", bodyText: "rgba(255,255,255,0.88)", bodyTextChecked: "rgba(255,255,255,0.3)", placeholderText: "rgba(255,255,255,0.4)", dividerBorder: "rgba(255,255,255,0.2)", textShadow: "1px 1px 2px rgba(0,0,0,0.5)", checkboxBorder: "rgba(255,255,255,0.4)" };
 
 // Single source of truth for Full Agenda's freeform field content. Call
 // this ONCE per active lesson (in WebsterGrovesChemistry.jsx's App()),
@@ -81,12 +97,14 @@ const DEFAULT_SURFACE = { accent: "var(--board-secondary)", headerText: "var(--b
 export function useFullAgendaFields(storageKey) {
   const [content, setContent] = useState(() => loadContent(storageKey));
   const [editingKey, setEditingKey] = useState(null);
+  const [checkedAgendaLines, setCheckedAgendaLines] = useState(() => loadAgendaChecked(storageKey));
 
   // Reload (keeping any prior edits for *this* lesson) whenever the
   // storage key changes — i.e. the teacher navigated to a different lesson.
   useEffect(() => {
     setContent(loadContent(storageKey));
     setEditingKey(null);
+    setCheckedAgendaLines(loadAgendaChecked(storageKey));
   }, [storageKey]);
 
   const save = (key, value) => {
@@ -100,17 +118,34 @@ export function useFullAgendaFields(storageKey) {
     });
   };
 
+  // Toggles one Agenda line's checked state by its position in the
+  // (non-empty-line-filtered) list — independent of `content.agenda`
+  // itself, since checking an item shouldn't count as editing the text.
+  const toggleAgendaLine = (lineIdx) => {
+    setCheckedAgendaLines(prev => {
+      const next = { ...prev, [lineIdx]: !prev[lineIdx] };
+      if (typeof window !== "undefined") {
+        try { window.localStorage.setItem(agendaCheckedKey(storageKey), JSON.stringify(next)); } catch { /* ignore */ }
+      }
+      return next;
+    });
+  };
+
   const resetToDefaults = () => {
     if (typeof window !== "undefined" && !window.confirm("Reset this board back to the default template for this lesson? Your edits will be lost.")) return;
     const fresh = defaultFullAgendaContent();
     setContent(fresh);
     setEditingKey(null);
+    setCheckedAgendaLines({});
     if (typeof window !== "undefined") {
-      try { window.localStorage.removeItem(storageKey); } catch { /* ignore */ }
+      try {
+        window.localStorage.removeItem(storageKey);
+        window.localStorage.removeItem(agendaCheckedKey(storageKey));
+      } catch { /* ignore */ }
     }
   };
 
-  return { content, editingKey, setEditingKey, save, resetToDefaults };
+  return { content, editingKey, setEditingKey, save, resetToDefaults, checkedAgendaLines, toggleAgendaLine };
 }
 
 // The one header style shared by EVERY board content section — Essential
@@ -134,7 +169,11 @@ function SectionHeader({ label, surface }) {
 // read from, so the two can never describe the same field differently.
 export const FULL_AGENDA_FIELD_META = {
   essentialQuestion: { label: "Essential Question", placeholder: "Click to add today’s essential question...", rows: 2 },
-  agenda: { label: "Agenda", placeholder: "Click to add the agenda by period...", rows: 5 },
+  // itemized: each non-empty line of Agenda gets its own checkbox (see
+  // Section below) instead of rendering as a single block of text — Jay's
+  // ask: agenda items should be individually clickable to check off, and
+  // the text itself shouldn't be selectable the way a plain paragraph is.
+  agenda: { label: "Agenda", placeholder: "Click to add the agenda by period...", rows: 5, itemized: true },
   bellRinger: { label: "Bell Ringer", placeholder: "Click to add a bell ringer / warm-up...", rows: 2 },
   homeLearning: { label: "Home Learning", placeholder: "Click to add homework / home learning...", rows: 2 },
 };
@@ -143,7 +182,16 @@ export const FULL_AGENDA_FIELD_META = {
 // one line per non-empty row) or, while editing, a textarea. Shared by
 // every freely-editable field below so the click-to-edit behavior is
 // consistent.
-function Section({ label, value, placeholder, editing, onStartEdit, onSave, rows = 3, minHeight, surface }) {
+//
+// `itemized` (Agenda only, see FULL_AGENDA_FIELD_META above) swaps the
+// plain-text display for one checkbox row per line — `checkedLines`/
+// `onToggleLine` are keyed by a line's position in the filtered
+// (non-empty) list, from useFullAgendaFields' own checkedAgendaLines
+// state, so checking an item off is independent of editing the text
+// itself. Each row uses userSelect: "none" so clicking to check something
+// off doesn't drag-select the text the way clicking plain paragraph text
+// would.
+function Section({ label, value, placeholder, editing, onStartEdit, onSave, rows = 3, minHeight, surface, itemized, checkedLines, onToggleLine }) {
   const ref = useRef(null);
   const [draft, setDraft] = useState(value);
 
@@ -174,11 +222,56 @@ function Section({ label, value, placeholder, editing, onStartEdit, onSave, rows
             if (e.key === "Escape") { setDraft(value); onSave(value); }
           }}
           style={{
-            fontFamily: "Caveat, cursive", fontSize: 17, lineHeight: 1.4, color: "var(--board-primary)",
+            // Always a fixed dark color, NOT var(--board-primary) — this
+            // box's own background is always this same near-white
+            // regardless of a teacher's theme, so the text color has to
+            // stay fixed too, or an arbitrary light primary color makes
+            // whatever's typed here invisible (the original bug report:
+            // "click to type, can't read/type anything").
+            fontFamily: "Caveat, cursive", fontSize: 17, lineHeight: 1.4, color: "#1a1a1a",
             background: "rgba(255,255,255,0.92)", border: `2px solid ${surface.accent}`, borderRadius: 4,
             padding: 8, resize: "vertical", width: "100%", boxSizing: "border-box",
           }}
         />
+      ) : itemized && lines.length > 0 ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+          {lines.map((line, li) => {
+            const checked = !!(checkedLines && checkedLines[li]);
+            return (
+              <div
+                key={li}
+                onClick={(e) => { e.stopPropagation(); onToggleLine?.(li); }}
+                style={{ display: "flex", alignItems: "flex-start", gap: 8, cursor: "pointer", padding: "3px 2px", userSelect: "none", WebkitUserSelect: "none" }}
+              >
+                <span style={{ width: 14, height: 14, marginTop: 3, borderRadius: 3, border: `2px solid ${checked ? surface.accent : surface.checkboxBorder}`, background: checked ? surface.accent : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "all 0.15s" }}>
+                  {checked && <span style={{ color: "white", fontSize: 9, lineHeight: 1 }}>✓</span>}
+                </span>
+                <span style={{
+                  fontFamily: "Caveat, cursive", fontSize: 17, lineHeight: 1.4, minWidth: 0, wordBreak: "break-word",
+                  color: checked ? surface.bodyTextChecked : surface.bodyText, textShadow: surface.textShadow,
+                  textDecoration: checked ? "line-through" : "none",
+                }}>
+                  {line}
+                </span>
+              </div>
+            );
+          })}
+          {/* A small, deliberately low-key affordance to re-open the
+              textarea — the checkbox rows above swallow clicks (via
+              stopPropagation) so checking an item off never accidentally
+              starts editing, which means the itemized view needs its own
+              explicit way back into edit mode instead of "click anywhere"
+              like the plain-text sections still use. */}
+          <div
+            onClick={onStartEdit}
+            title="Click to edit"
+            style={{ fontFamily: "Lato, sans-serif", fontSize: 10, letterSpacing: 0.5, textTransform: "uppercase", color: surface.placeholderText, cursor: "pointer", padding: "4px 2px 0" }}
+            onMouseEnter={e => { e.currentTarget.style.color = surface.accent; }}
+            onMouseLeave={e => { e.currentTarget.style.color = surface.placeholderText; }}
+          >
+            Edit
+          </div>
+        </div>
       ) : (
         <div
           onClick={onStartEdit}
@@ -272,6 +365,7 @@ export function ResetBoardButton({ onReset, surface = DEFAULT_SURFACE, interacti
 export function FullAgendaFields({
   content, editingKey, onStartEdit, onSave, onReset, surface = DEFAULT_SURFACE, interactive = true,
   showEssentialQuestion = true, showAgenda = true, showBellRinger = true, showHomeLearning = true,
+  checkedAgendaLines, onToggleAgendaLine,
 }) {
   const section = (key, label, opts = {}) => (
     <Section
@@ -284,6 +378,9 @@ export function FullAgendaFields({
       rows={opts.rows}
       minHeight={opts.minHeight}
       surface={surface}
+      itemized={opts.itemized}
+      checkedLines={key === "agenda" ? checkedAgendaLines : undefined}
+      onToggleLine={interactive && key === "agenda" ? onToggleAgendaLine : undefined}
     />
   );
 
@@ -315,7 +412,7 @@ export function FullAgendaFields({
 // edit mode, or clicking one would flip every mounted copy into edit mode
 // in the same render. The flat (non-sliding) column only ever mounts one
 // copy of each field, so it never needs to pass this.
-export function EditableField({ fieldKey, content, editingKey, onStartEdit, onSave, surface = DEFAULT_SURFACE, interactive = true }) {
+export function EditableField({ fieldKey, content, editingKey, onStartEdit, onSave, surface = DEFAULT_SURFACE, interactive = true, checkedLines, onToggleLine }) {
   const meta = FULL_AGENDA_FIELD_META[fieldKey];
   if (!meta) return null;
   return (
@@ -328,6 +425,9 @@ export function EditableField({ fieldKey, content, editingKey, onStartEdit, onSa
       onSave={val => onSave(fieldKey, val)}
       rows={meta.rows}
       surface={surface}
+      itemized={meta.itemized}
+      checkedLines={checkedLines}
+      onToggleLine={interactive ? onToggleLine : undefined}
     />
   );
 }

@@ -141,16 +141,75 @@ export const scopedKey = (key) => `homeroom:${getActiveTeacherId()}:${key}`;
 export const DEFAULT_PRIMARY_COLOR = "#1a1a1a";
 export const DEFAULT_SECONDARY_COLOR = "#E87722";
 
-// Ready-to-spread style object defining the two CSS custom properties
-// every themed inline style in this codebase reads via var(--board-...).
-// Call this once on whichever element is the root of a themed subtree
-// (the board's outermost div, Build page's outermost div, ...) — CSS
-// custom properties inherit down through the DOM like any other
-// inherited property, so nothing further down needs its own copy.
+// A teacher can pick literally any two hex colors, which the original
+// hardcoded black/orange never had to account for: black text always
+// worked on the orange fills, white text always worked on the black
+// fills. With arbitrary colors that assumption breaks (e.g. a light
+// primary makes white title text disappear; a light secondary makes an
+// accent-colored label disappear against the app's own dark chrome).
+// These helpers compute safe derived colors so text stays legible
+// regardless of what a teacher picks, without needing every call site to
+// reason about contrast itself.
+function hexToRgb(hex) {
+  const m = /^#([0-9a-fA-F]{6})$/.exec(hex || "");
+  if (!m) return [26, 26, 26];
+  const n = parseInt(m[1], 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+function relativeLuminance([r, g, b]) {
+  const chan = (c) => { const s = c / 255; return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4); };
+  return 0.2126 * chan(r) + 0.7152 * chan(g) + 0.0722 * chan(b);
+}
+function blendToward(rgb, target, amount) {
+  return rgb.map((c, i) => Math.round(c + (target[i] - c) * amount));
+}
+function toHex(rgb) {
+  return "#" + rgb.map(c => Math.max(0, Math.min(255, c)).toString(16).padStart(2, "0")).join("");
+}
+// A foreground color (near-black or near-white) guaranteed to read on
+// top of a SOLID FILL of `hex` — for text/icons sitting directly on a
+// var(--board-primary)/var(--board-secondary) background.
+function readableForeground(hex) {
+  return relativeLuminance(hexToRgb(hex)) > 0.5 ? "#1a1a1a" : "#ffffff";
+}
+// A variant of `hex` clamped into a legible middle luminance band — for
+// when a color is used as an ACCENT (a label, a checkmark, a selection
+// indicator) against this app's own fixed dark chrome (settings panels,
+// dropdowns) rather than as a background the surrounding text was
+// designed around. Too-dark colors get lightened, too-light colors get
+// darkened, so the accent stays visible either way; anything already in
+// a reasonable range passes through unchanged.
+function accentSafe(hex) {
+  const rgb = hexToRgb(hex);
+  const lum = relativeLuminance(rgb);
+  if (lum < 0.25) return toHex(blendToward(rgb, [255, 255, 255], 0.4));
+  if (lum > 0.75) return toHex(blendToward(rgb, [0, 0, 0], 0.4));
+  return hex;
+}
+
+// Ready-to-spread style object defining the CSS custom properties every
+// themed inline style in this codebase reads via var(--board-...). Call
+// this once on whichever element is the root of a themed subtree (the
+// board's outermost div, Build page's outermost div, ...) — CSS custom
+// properties inherit down through the DOM like any other inherited
+// property, so nothing further down needs its own copy.
 export function boardThemeVars(primaryColor, secondaryColor) {
+  const primary = primaryColor || DEFAULT_PRIMARY_COLOR;
+  const secondary = secondaryColor || DEFAULT_SECONDARY_COLOR;
   return {
-    "--board-primary": primaryColor || DEFAULT_PRIMARY_COLOR,
-    "--board-secondary": secondaryColor || DEFAULT_SECONDARY_COLOR,
+    "--board-primary": primary,
+    "--board-secondary": secondary,
+    // Text/icon color for anything sitting on a solid --board-primary or
+    // --board-secondary fill (title text on the primary title bar, a
+    // button's own label on a secondary-filled button, ...).
+    "--board-primary-fg": readableForeground(primary),
+    "--board-secondary-fg": readableForeground(secondary),
+    // The secondary color, clamped so it stays visible as an accent
+    // (selected-state text, a checkmark, a highlighted label) against
+    // this app's own fixed dark UI chrome — used instead of the raw
+    // secondary wherever a teacher's color is a label/indicator rather
+    // than a background fill.
+    "--board-secondary-accent": accentSafe(secondary),
   };
 }
 
