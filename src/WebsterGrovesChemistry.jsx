@@ -4,6 +4,7 @@ import { useFullAgendaFields, ObjectivesChecklist, EditableField, ResetBoardButt
 import { fetchExtraAssignments, createExtraAssignment, deleteExtraAssignment } from "./lib/extraAssignments";
 import { uploadAssignmentPdf } from "./lib/cloudinary";
 import { fetchProfile } from "./lib/profileApi";
+import { fetchCurriculum, saveCurriculum } from "./lib/curriculumApi";
 import {
   scopedKey, useScopedSetting,
   getActiveTeacherId, DEFAULT_TEACHER_ID,
@@ -1250,7 +1251,57 @@ function VideoLibrary({ videos, playingVideoId, setPlayingVideoId }) {
   );
 }
 
-function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropdown, setOpenDropdown, handleUnitOverview, handleLessonClick, goHome, titleMain, titleAccent }) {
+// Collapsed dashed "+" button that expands into a small inline text
+// input on click — same collapsed-tile-then-inline-form idea as
+// AddEmbedCard above, just small enough to sit inside TopBar's thin
+// nav strip and dropdown rows instead of a full card. Used for both
+// "+ Add Unit" (in the unit nav row) and "+ Add Lesson" (in a unit's
+// dropdown) — blank-shell + Build-mode only, never shown on the real
+// Webster Groves site or outside Build.
+function InlineAddButton({ label, placeholder, defaultValue, onAdd, style, inputStyle }) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState("");
+
+  if (!editing) {
+    return (
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); setValue(defaultValue || ""); setEditing(true); }}
+        style={{ background: "transparent", border: "1px dashed rgba(255,255,255,0.4)", color: "rgba(255,255,255,0.6)", cursor: "pointer", fontFamily: "Oswald, sans-serif", fontSize: 12, letterSpacing: 0.5, textTransform: "uppercase", ...style }}
+        onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--board-secondary)"; e.currentTarget.style.color = "var(--board-secondary)"; }}
+        onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.4)"; e.currentTarget.style.color = "rgba(255,255,255,0.6)"; }}
+      >
+        + {label}
+      </button>
+    );
+  }
+
+  const commit = () => {
+    const trimmed = value.trim();
+    setEditing(false);
+    if (trimmed) onAdd(trimmed);
+  };
+
+  return (
+    <form
+      onClick={e => e.stopPropagation()}
+      onSubmit={e => { e.preventDefault(); commit(); }}
+      style={{ display: "flex", gap: 4, ...style }}
+    >
+      <input
+        autoFocus
+        value={value}
+        placeholder={placeholder}
+        onChange={e => setValue(e.target.value)}
+        onBlur={commit}
+        onKeyDown={e => { if (e.key === "Escape") { setEditing(false); } }}
+        style={{ background: "var(--board-primary)", border: "1px solid #444", borderRadius: 2, color: "white", fontSize: 12, padding: "4px 6px", fontFamily: "Lato, sans-serif", minWidth: 0, ...inputStyle }}
+      />
+    </form>
+  );
+}
+
+function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropdown, setOpenDropdown, handleUnitOverview, handleLessonClick, goHome, titleMain, titleAccent, isBlankTeacher, onAddUnit, onAddLesson }) {
   return (
     <div style={{ background: "var(--board-primary)", borderBottom: "4px solid var(--board-secondary)", flexShrink: 0, position: "relative" }}>
       <div style={{ padding: `${SPACE.md}px ${SPACE.lg}px ${SPACE.sm}px`, textAlign: "center", position: "relative" }}>
@@ -1290,7 +1341,7 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
       <div style={{ display: "flex", borderTop: "1px solid #333" }} onClick={e => e.stopPropagation()}>
         {curriculum.map((u, ui) => (
           <div key={ui} style={{ position: "relative", flex: 1 }}
-            onMouseEnter={() => u.lessons.length > 0 && setOpenDropdown(ui)}
+            onMouseEnter={() => (u.lessons.length > 0 || (isBuildMode && isBlankTeacher)) && setOpenDropdown(ui)}
             onMouseLeave={() => setOpenDropdown(prev => (prev === ui ? null : prev))}
           >
             <button
@@ -1302,8 +1353,10 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
               {u.unit}
             </button>
 
-            {/* Dropdown */}
-            {openDropdown === ui && u.lessons.length > 0 && (
+            {/* Dropdown — also opens (empty except the add-lesson row) for a
+                zero-lesson unit while in Build mode, so a freshly-added
+                unit is actually reachable to add its first lesson. */}
+            {openDropdown === ui && (u.lessons.length > 0 || (isBuildMode && isBlankTeacher)) && (
               <div style={{ position: "absolute", top: "100%", left: 0, minWidth: 210, background: "var(--board-primary)", border: "1px solid var(--board-secondary)", borderTop: "none", borderRadius: "0 0 4px 4px", zIndex: 5000, overflow: "hidden" }}>
                 {u.lessons.map((lesson, li) => (
                   <div key={li}
@@ -1315,10 +1368,34 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
                     {lesson.title}
                   </div>
                 ))}
+                {isBuildMode && isBlankTeacher && (
+                  <div style={{ padding: `${SPACE.sm}px ${SPACE.md}px` }}>
+                    <InlineAddButton
+                      label="Add Lesson"
+                      placeholder={`Lesson ${u.lessons.length + 1}`}
+                      defaultValue={`Lesson ${u.lessons.length + 1}`}
+                      onAdd={(title) => onAddLesson(ui, title)}
+                      style={{ width: "100%", padding: "6px 8px" }}
+                      inputStyle={{ width: "100%" }}
+                    />
+                  </div>
+                )}
               </div>
             )}
           </div>
         ))}
+
+        {isBuildMode && isBlankTeacher && (
+          <div style={{ flex: "0 0 auto", display: "flex", alignItems: "center", padding: `0 ${SPACE.sm}px` }}>
+            <InlineAddButton
+              label="Add Unit"
+              placeholder={`Unit ${curriculum.length + 1}`}
+              defaultValue={`Unit ${curriculum.length + 1}`}
+              onAdd={onAddUnit}
+              style={{ padding: "8px 12px" }}
+            />
+          </div>
+        )}
       </div>
 
     </div>
@@ -1364,7 +1441,26 @@ export default function App() {
   // (?teacher=... URL param, sticky via localStorage).
   const activeTeacherId = getActiveTeacherId();
   const isBlankTeacher = activeTeacherId !== DEFAULT_TEACHER_ID;
-  const activeCurriculum = isBlankTeacher ? BLANK_CURRICULUM : curriculum;
+
+  // Blank-shell teachers only: their own saved units/lessons list, added
+  // to via the "+ Add Unit"/"+ Add Lesson" controls in TopBar (Build mode
+  // only — see handleAddUnit/handleAddLesson below). Starts as
+  // BLANK_CURRICULUM's one starter unit — same as before this existed —
+  // and gets replaced once a saved document actually loads, so a teacher
+  // who's never added anything still lands on a real page instead of an
+  // empty one. The real Webster Groves site (DEFAULT_TEACHER_ID) never
+  // fetches or writes this at all; its curriculum stays the hardcoded
+  // `curriculum` export below, unrelated to any of this.
+  const [blankUnits, setBlankUnits] = useState(BLANK_CURRICULUM);
+  useEffect(() => {
+    if (!isBlankTeacher) return;
+    let cancelled = false;
+    fetchCurriculum(activeTeacherId)
+      .then(units => { if (!cancelled && units && units.length) setBlankUnits(units); })
+      .catch(() => {}); // no saved curriculum yet, or a transient error — the starter unit stays
+    return () => { cancelled = true; };
+  }, [isBlankTeacher, activeTeacherId]);
+  const activeCurriculum = isBlankTeacher ? blankUnits : curriculum;
 
   // Blank-shell teachers only: the school/subject + colors they picked
   // during onboarding (ProfileOnboarding.jsx) become this board's title
@@ -1705,6 +1801,25 @@ export default function App() {
     setOpenDropdown(null);
   };
 
+  // Blank-shell + Build-mode only (see the "+ Add Unit"/"+ Add Lesson"
+  // controls in TopBar) — appends a new unit/lesson to blankUnits and
+  // persists it. Best-effort save: if it fails, the new unit/lesson still
+  // shows locally for the rest of this session (same as the rest of
+  // Build's "changes save automatically" controls assume success rather
+  // than surfacing a save-failed state for every click).
+  const handleAddUnit = (title) => {
+    const next = [...blankUnits, { unit: title, lessons: [] }];
+    setBlankUnits(next);
+    saveCurriculum(activeTeacherId, next).catch(() => {});
+  };
+
+  const handleAddLesson = (unitIdx, title) => {
+    const newLesson = { title, slides: null, goals: [], assignments: [], videos: [] };
+    const next = blankUnits.map((u, i) => i === unitIdx ? { ...u, lessons: [...u.lessons, newLesson] } : u);
+    setBlankUnits(next);
+    saveCurriculum(activeTeacherId, next).catch(() => {});
+  };
+
   // All assignments across the unit in order
   const allAssignments = isHome ? [] : activeUnit.lessons.flatMap(l =>
     l.assignments.map(a => ({ ...a, lessonTitle: l.title }))
@@ -1783,6 +1898,7 @@ export default function App() {
   const topBarProps = {
     curriculum: activeCurriculum, activeUnitIdx, isOverview, activeLesson, openDropdown, setOpenDropdown, handleUnitOverview, handleLessonClick, goHome,
     titleMain: boardTitleMain, titleAccent: boardTitleAccent,
+    isBlankTeacher, onAddUnit: handleAddUnit, onAddLesson: handleAddLesson,
   };
 
   // On a real board tab, "one screen" legitimately means the teacher's
