@@ -281,7 +281,14 @@ export default function GuidedTour({ active, onDone, iframeRef, selected, boardW
     const check = () => {
       let done = false;
       if (step.id === "open-unit") {
-        done = boardTargetExists(iframeRef.current, '[data-tour="tour-add-lesson"]');
+        // Deliberately NOT "does tour-add-lesson exist" -- the unit tab's
+        // dropdown (which is what actually renders that button) opens on
+        // mouse *hover*, not just click (see TopBar), so a cursor merely
+        // passing over the tab on its way to this tooltip's own button was
+        // enough to satisfy that check without a real click ever happening.
+        // data-tour-clicked is only set once handleUnitOverview has
+        // actually run, which only a real click triggers.
+        done = boardTargetExists(iframeRef.current, '[data-tour="tour-unit-tab"][data-tour-clicked="true"]');
       } else if (step.id === "add-lesson") {
         done = boardTargetExists(iframeRef.current, '[data-tour="tour-lesson-item"]');
       } else if (step.id === "open-lesson") {

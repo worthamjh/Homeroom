@@ -1360,6 +1360,7 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
           >
             <button
               data-tour={ui === 0 ? "tour-unit-tab" : undefined}
+              data-tour-clicked={ui === 0 && activeUnitIdx === ui && isOverview ? "true" : undefined}
               onClick={() => { handleUnitOverview(ui); setOpenDropdown(ui); }}
               style={{ background: activeUnitIdx === ui && isOverview ? "#fff" : "var(--board-secondary)", color: activeUnitIdx === ui && isOverview ? "var(--board-secondary-accent)" : "var(--board-secondary-fg)", border: "none", borderRight: "1px solid rgba(0,0,0,0.2)", padding: `${SPACE.sm}px ${SPACE.xs}px`, fontSize: 13, fontFamily: "Oswald, sans-serif", cursor: "pointer", letterSpacing: 0.5, width: "100%", fontWeight: 600, transition: "all 0.15s" }}
               onMouseEnter={e => { if (!(activeUnitIdx === ui && isOverview)) { e.currentTarget.style.background = "#fff"; e.currentTarget.style.color = "var(--board-secondary-accent)"; }}}
