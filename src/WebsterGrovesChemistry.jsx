@@ -973,12 +973,12 @@ function SmartBoard({ src }) {
 // instead of two near-duplicate components. `initialUrl`, when set,
 // pre-fills the input — used when "Change" reopens the form on an
 // already-filled slot rather than starting from a blank field.
-function AddEmbedCard({ open, label, promptText, placeholder, initialUrl, onOpen, onCancel, onSave }) {
+function AddEmbedCard({ open, label, promptText, placeholder, initialUrl, onOpen, onCancel, onSave, dataTour }) {
   const [url, setUrl] = useState(initialUrl || "");
 
   if (!open) {
     return (
-      <div style={{ width: "100%", maxWidth: "100%", aspectRatio: "16/9", boxSizing: "border-box", border: "2px dashed rgba(255,255,255,0.25)", borderRadius: 8, color: "rgba(255,255,255,0.4)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6 }}>
+      <div data-tour={dataTour} style={{ width: "100%", maxWidth: "100%", aspectRatio: "16/9", boxSizing: "border-box", border: "2px dashed rgba(255,255,255,0.25)", borderRadius: 8, color: "rgba(255,255,255,0.4)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6 }}>
         <button
           onClick={onOpen}
           style={{ background: "transparent", border: "none", color: "inherit", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 6, fontFamily: "Oswald, sans-serif", fontSize: 13, letterSpacing: 0.5, textTransform: "uppercase" }}
@@ -1359,7 +1359,8 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
             onMouseLeave={() => setOpenDropdown(prev => (prev === ui ? null : prev))}
           >
             <button
-              onClick={() => handleUnitOverview(ui)}
+              data-tour={ui === 0 ? "tour-unit-tab" : undefined}
+              onClick={() => { handleUnitOverview(ui); setOpenDropdown(ui); }}
               style={{ background: activeUnitIdx === ui && isOverview ? "#fff" : "var(--board-secondary)", color: activeUnitIdx === ui && isOverview ? "var(--board-secondary-accent)" : "var(--board-secondary-fg)", border: "none", borderRight: "1px solid rgba(0,0,0,0.2)", padding: `${SPACE.sm}px ${SPACE.xs}px`, fontSize: 13, fontFamily: "Oswald, sans-serif", cursor: "pointer", letterSpacing: 0.5, width: "100%", fontWeight: 600, transition: "all 0.15s" }}
               onMouseEnter={e => { if (!(activeUnitIdx === ui && isOverview)) { e.currentTarget.style.background = "#fff"; e.currentTarget.style.color = "var(--board-secondary-accent)"; }}}
               onMouseLeave={e => { if (!(activeUnitIdx === ui && isOverview)) { e.currentTarget.style.background = "var(--board-secondary)"; e.currentTarget.style.color = "var(--board-secondary-fg)"; }}}
@@ -1371,11 +1372,21 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
                 zero-lesson unit while in Build mode, so a freshly-added
                 unit is actually reachable to add its first lesson. */}
             {openDropdown === ui && (u.lessons.length > 0 || (isBuildMode && isBlankTeacher)) && (
-              <div style={{ position: "absolute", top: "100%", left: 0, minWidth: 210, background: "var(--board-primary)", border: "1px solid var(--board-secondary)", borderTop: "none", borderRadius: "0 0 4px 4px", zIndex: 5000, overflow: "hidden" }}>
+              // Deliberately `width: "100%"` rather than the old fixed
+              // `minWidth: 210` — this div's parent is the same `flex: 1`
+              // column as the unit's own button above, so `100%` makes the
+              // dropdown line up exactly with that unit's segment of the
+              // nav bar, whatever that happens to be (one wide segment
+              // with a single unit, several narrower ones with many).
+              // `whiteSpace: "normal"` (was `"nowrap"`) lets a long lesson
+              // title wrap onto a second line instead of overflowing past
+              // that width when a unit segment is narrow.
+              <div style={{ position: "absolute", top: "100%", left: 0, width: "100%", background: "var(--board-primary)", border: "1px solid var(--board-secondary)", borderTop: "none", borderRadius: "0 0 4px 4px", zIndex: 5000, overflow: "hidden" }}>
                 {u.lessons.map((lesson, li) => (
                   <div key={li}
+                    data-tour={ui === 0 && li === 0 ? "tour-lesson-item" : undefined}
                     onClick={() => handleLessonClick(ui, lesson)}
-                    style={{ padding: `${SPACE.sm}px ${SPACE.md}px`, fontSize: 13, fontFamily: "Lato, sans-serif", fontWeight: 700, color: activeLesson?.title === lesson.title ? "var(--board-secondary-accent)" : "#ccc", cursor: "pointer", borderBottom: "1px solid #2a2a2a", transition: "all 0.12s", whiteSpace: "nowrap", borderLeft: activeLesson?.title === lesson.title ? "3px solid var(--board-secondary-accent)" : "3px solid transparent", paddingLeft: activeLesson?.title === lesson.title ? SPACE.md - 3 : SPACE.md }}
+                    style={{ padding: `${SPACE.sm}px ${SPACE.md}px`, fontSize: 13, fontFamily: "Lato, sans-serif", fontWeight: 700, color: activeLesson?.title === lesson.title ? "var(--board-secondary-accent)" : "#ccc", cursor: "pointer", borderBottom: "1px solid #2a2a2a", transition: "all 0.12s", whiteSpace: "normal", borderLeft: activeLesson?.title === lesson.title ? "3px solid var(--board-secondary-accent)" : "3px solid transparent", paddingLeft: activeLesson?.title === lesson.title ? SPACE.md - 3 : SPACE.md }}
                     onMouseEnter={e => { e.currentTarget.style.background = "var(--board-secondary)"; e.currentTarget.style.color = "var(--board-secondary-fg)"; }}
                     onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = activeLesson?.title === lesson.title ? "var(--board-secondary-accent)" : "#ccc"; }}
                   >
@@ -1383,7 +1394,7 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
                   </div>
                 ))}
                 {isBuildMode && isBlankTeacher && (
-                  <div style={{ padding: `${SPACE.sm}px ${SPACE.md}px` }}>
+                  <div data-tour={ui === 0 ? "tour-add-lesson" : undefined} style={{ padding: `${SPACE.sm}px ${SPACE.md}px` }}>
                     <InlineAddButton
                       label="Add Lesson"
                       placeholder={`Lesson ${u.lessons.length + 1}`}
@@ -2164,6 +2175,7 @@ export default function App() {
                           onOpen={() => setSlidesEditing(true)}
                           onCancel={() => setSlidesEditing(false)}
                           onSave={handleSaveSlides}
+                          dataTour="tour-add-slides"
                         />
                       ) : !isOverview && isBuildMode && slidesEditing ? (
                         <AddSlidesCard
@@ -2231,28 +2243,30 @@ export default function App() {
                             if (!learningGoalsIsOn) return null;
                             if (useEditableLearningGoals) {
                               return (
-                                <EditableField
-                                  key={key}
-                                  fieldKey="learningGoals"
-                                  content={fullAgendaFields.content}
-                                  editingKey={fullAgendaFields.editingKey}
-                                  onStartEdit={fullAgendaFields.setEditingKey}
-                                  onSave={fullAgendaFields.save}
-                                  surface={surface}
-                                  checkedLines={fullAgendaFields.checkedLearningGoalsLines}
-                                  onToggleLine={fullAgendaFields.toggleLearningGoalsLine}
-                                />
+                                <div key={key} data-tour="tour-learning-goals">
+                                  <EditableField
+                                    fieldKey="learningGoals"
+                                    content={fullAgendaFields.content}
+                                    editingKey={fullAgendaFields.editingKey}
+                                    onStartEdit={fullAgendaFields.setEditingKey}
+                                    onSave={fullAgendaFields.save}
+                                    surface={surface}
+                                    checkedLines={fullAgendaFields.checkedLearningGoalsLines}
+                                    onToggleLine={fullAgendaFields.toggleLearningGoalsLine}
+                                  />
+                                </div>
                               );
                             }
                             return (
-                              <ObjectivesChecklist
-                                key={key}
-                                goalItems={goalItems}
-                                checkedGoals={checkedGoals}
-                                toggleGoal={toggleGoal}
-                                surface={surface}
-                                label={anyFullAgendaFieldOn ? "Objectives & Benchmarks" : "Learning Goals"}
-                              />
+                              <div key={key} data-tour="tour-learning-goals">
+                                <ObjectivesChecklist
+                                  goalItems={goalItems}
+                                  checkedGoals={checkedGoals}
+                                  toggleGoal={toggleGoal}
+                                  surface={surface}
+                                  label={anyFullAgendaFieldOn ? "Objectives & Benchmarks" : "Learning Goals"}
+                                />
+                              </div>
                             );
                           }
                           const isOnByKey = { essentialQuestion: essentialQuestionIsOn, agenda: agendaIsOn, bellRinger: bellRingerIsOn, homeLearning: homeLearningIsOn };
