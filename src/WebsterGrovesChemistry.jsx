@@ -1428,6 +1428,7 @@ function resolveView(view, curriculumData) {
 export const BLANK_CURRICULUM = [
   {
     unit: "Unit 1",
+    overview: [],
     lessons: [
       { title: "Lesson 1", slides: null, goals: [], assignments: [], videos: [] },
     ],
@@ -1808,7 +1809,7 @@ export default function App() {
   // Build's "changes save automatically" controls assume success rather
   // than surfacing a save-failed state for every click).
   const handleAddUnit = (title) => {
-    const next = [...blankUnits, { unit: title, lessons: [] }];
+    const next = [...blankUnits, { unit: title, overview: [], lessons: [] }];
     setBlankUnits(next);
     saveCurriculum(activeTeacherId, next).catch(() => {});
   };
@@ -2113,7 +2114,7 @@ export default function App() {
                         <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 12, color: surface.headerText, letterSpacing: 2, textTransform: "uppercase", borderBottom: `1px solid ${surface.dividerBorder}`, paddingBottom: SPACE.xs }}>
                           Unit Lessons
                         </div>
-                        {activeUnit.overview.map((item, i) => (
+                        {(activeUnit.overview || []).map((item, i) => (
                           <div key={i}
                             onClick={() => { const lesson = activeUnit.lessons.find(l => l.title === item); if (lesson) setActiveLesson(lesson); }}
                             style={{ display: "flex", alignItems: "flex-start", gap: 8, cursor: activeUnit.lessons.find(l => l.title === item) ? "pointer" : "default", padding: "4px 0", borderBottom: `1px solid ${surface.dividerBorder}` }}
