@@ -48,13 +48,13 @@ function RadioRow({ selected, onClick, label, swatch }) {
   return (
     <div
       onClick={onClick}
-      style={{ padding: "10px 14px", fontSize: 13, fontFamily: "Lato, sans-serif", fontWeight: 700, color: selected ? "#E87722" : "#ccc", cursor: "pointer", display: "flex", alignItems: "center", gap: 10, borderRadius: 5 }}
+      style={{ padding: "10px 14px", fontSize: 13, fontFamily: "Lato, sans-serif", fontWeight: 700, color: selected ? "var(--board-secondary)" : "#ccc", cursor: "pointer", display: "flex", alignItems: "center", gap: 10, borderRadius: 5 }}
       onMouseEnter={e => { e.currentTarget.style.background = "#242424"; }}
       onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}
     >
       {swatch ? swatch : (
-        <span style={{ width: 14, height: 14, borderRadius: "50%", border: `2px solid ${selected ? "#E87722" : "rgba(255,255,255,0.35)"}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-          {selected && <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#E87722" }} />}
+        <span style={{ width: 14, height: 14, borderRadius: "50%", border: `2px solid ${selected ? "var(--board-secondary)" : "rgba(255,255,255,0.35)"}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+          {selected && <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--board-secondary)" }} />}
         </span>
       )}
       {label}
@@ -79,7 +79,7 @@ function ToggleRow({ checked, onClick, label, draggable, onDragStart, onDragOver
       style={{
         padding: "6px 14px 6px 6px", display: "flex", alignItems: "center", gap: 6, borderRadius: 5,
         opacity: isDragging ? 0.4 : 1,
-        outline: isDropTarget ? "2px dashed #E87722" : "none",
+        outline: isDropTarget ? "2px dashed var(--board-secondary)" : "none",
         outlineOffset: -2,
       }}
       onMouseEnter={e => { if (!isDropTarget) e.currentTarget.style.background = "#242424"; }}
@@ -94,17 +94,17 @@ function ToggleRow({ checked, onClick, label, draggable, onDragStart, onDragOver
           width: 20, height: 28, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
           cursor: "grab", color: "rgba(255,255,255,0.35)", fontSize: 14, letterSpacing: 1,
         }}
-        onMouseEnter={e => { e.currentTarget.style.color = "#E87722"; }}
+        onMouseEnter={e => { e.currentTarget.style.color = "var(--board-secondary)"; }}
         onMouseLeave={e => { e.currentTarget.style.color = "rgba(255,255,255,0.35)"; }}
       >
         ☰
       </div>
       <div
         onClick={onClick}
-        style={{ flex: 1, display: "flex", alignItems: "center", gap: 10, fontSize: 13, fontFamily: "Lato, sans-serif", fontWeight: 700, color: checked ? "#E87722" : "#ccc", cursor: "pointer", padding: "4px 0", minWidth: 0 }}
+        style={{ flex: 1, display: "flex", alignItems: "center", gap: 10, fontSize: 13, fontFamily: "Lato, sans-serif", fontWeight: 700, color: checked ? "var(--board-secondary)" : "#ccc", cursor: "pointer", padding: "4px 0", minWidth: 0 }}
       >
-        <span style={{ width: 14, height: 14, borderRadius: 3, border: `2px solid ${checked ? "#E87722" : "rgba(255,255,255,0.35)"}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, background: checked ? "#E87722" : "transparent" }}>
-          {checked && <span style={{ color: "#1a1a1a", fontSize: 10, lineHeight: 1, fontWeight: 900 }}>✓</span>}
+        <span style={{ width: 14, height: 14, borderRadius: 3, border: `2px solid ${checked ? "var(--board-secondary)" : "rgba(255,255,255,0.35)"}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, background: checked ? "var(--board-secondary)" : "transparent" }}>
+          {checked && <span style={{ color: "var(--board-primary)", fontSize: 10, lineHeight: 1, fontWeight: 900 }}>✓</span>}
         </span>
         {label}
       </div>
@@ -188,12 +188,12 @@ export default function BoardSettingsPanel({ selected, onSelect, panelCountInfo 
             style={{
               padding: "14px 20px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between",
               background: selected === cat.id ? "#242424" : "transparent",
-              borderLeft: selected === cat.id ? "3px solid #E87722" : "3px solid transparent",
+              borderLeft: selected === cat.id ? "3px solid var(--board-secondary)" : "3px solid transparent",
             }}
             onMouseEnter={e => { if (selected !== cat.id) e.currentTarget.style.background = "#1f1f1f"; }}
             onMouseLeave={e => { if (selected !== cat.id) e.currentTarget.style.background = "transparent"; }}
           >
-            <span style={{ fontFamily: "Oswald, sans-serif", fontSize: 15, fontWeight: 600, color: selected === cat.id ? "#E87722" : "#fff", letterSpacing: 0.5 }}>
+            <span style={{ fontFamily: "Oswald, sans-serif", fontSize: 15, fontWeight: 600, color: selected === cat.id ? "var(--board-secondary)" : "#fff", letterSpacing: 0.5 }}>
               {cat.label}
             </span>
             <span style={{ color: "rgba(255,255,255,0.35)", fontSize: 12 }}>{selected === cat.id ? "▾" : "▸"}</span>
@@ -214,7 +214,7 @@ export default function BoardSettingsPanel({ selected, onSelect, panelCountInfo 
                       selected={wallColorSwatch(wallTypeKey, wallColorKey).id === c.id}
                       onClick={() => setWallColorKey(c.id)}
                       label={c.label}
-                      swatch={<span style={{ width: 16, height: 16, borderRadius: 3, flexShrink: 0, background: c.base, border: `2px solid ${wallColorSwatch(wallTypeKey, wallColorKey).id === c.id ? "#E87722" : "rgba(255,255,255,0.3)"}` }} />}
+                      swatch={<span style={{ width: 16, height: 16, borderRadius: 3, flexShrink: 0, background: c.base, border: `2px solid ${wallColorSwatch(wallTypeKey, wallColorKey).id === c.id ? "var(--board-secondary)" : "rgba(255,255,255,0.3)"}` }} />}
                     />
                   ))}
                 </>
@@ -238,7 +238,7 @@ export default function BoardSettingsPanel({ selected, onSelect, panelCountInfo 
                       selected={bulletinStyleKey === b.id}
                       onClick={() => setBulletinStyleKey(b.id)}
                       label={b.label}
-                      swatch={<span style={{ width: 16, height: 16, borderRadius: 3, flexShrink: 0, background: b.background, backgroundImage: b.trim || undefined, backgroundSize: b.trim ? "10px 5px" : undefined, border: `2px solid ${bulletinStyleKey === b.id ? "#E87722" : "rgba(255,255,255,0.3)"}` }} />}
+                      swatch={<span style={{ width: 16, height: 16, borderRadius: 3, flexShrink: 0, background: b.background, backgroundImage: b.trim || undefined, backgroundSize: b.trim ? "10px 5px" : undefined, border: `2px solid ${bulletinStyleKey === b.id ? "var(--board-secondary)" : "rgba(255,255,255,0.3)"}` }} />}
                     />
                   ))}
                 </>
@@ -297,9 +297,9 @@ export default function BoardSettingsPanel({ selected, onSelect, panelCountInfo 
                             onClick={() => setSlidingBoardsCount(n)}
                             style={{
                               width: 34, height: 34, borderRadius: "50%",
-                              border: `2px solid ${slidingBoardsCount === n ? "#E87722" : "rgba(255,255,255,0.3)"}`,
-                              background: slidingBoardsCount === n ? "#E87722" : "transparent",
-                              color: slidingBoardsCount === n ? "#1a1a1a" : "#ccc",
+                              border: `2px solid ${slidingBoardsCount === n ? "var(--board-secondary)" : "rgba(255,255,255,0.3)"}`,
+                              background: slidingBoardsCount === n ? "var(--board-secondary)" : "transparent",
+                              color: slidingBoardsCount === n ? "var(--board-primary)" : "#ccc",
                               fontFamily: "Oswald, sans-serif", fontWeight: 700, fontSize: 14, cursor: "pointer",
                             }}
                           >
@@ -311,7 +311,7 @@ export default function BoardSettingsPanel({ selected, onSelect, panelCountInfo 
                         Applies to lessons that don't already define their own boards (Unit 10's Testing lessons keep their own board count). This is a maximum, not a fixed count — a lesson needs at least one learning goal per board, so one with fewer goals than the number picked here ends up with fewer boards too. Requires Learning Goals to be turned on in Board Content — with it off, there's nothing to split across boards, so it slides as a single board.
                       </div>
                       {panelCountInfo?.requestedCount != null && panelCountInfo.resolvedCount != null && panelCountInfo.resolvedCount < panelCountInfo.requestedCount && (
-                        <div style={{ margin: "0 14px 8px", padding: "8px 10px", fontFamily: "Lato, sans-serif", fontSize: 11, lineHeight: 1.4, color: "#E87722", background: "rgba(232,119,34,0.1)", border: "1px solid rgba(232,119,34,0.35)", borderRadius: 4 }}>
+                        <div style={{ margin: "0 14px 8px", padding: "8px 10px", fontFamily: "Lato, sans-serif", fontSize: 11, lineHeight: 1.4, color: "var(--board-secondary)", background: "rgba(232,119,34,0.1)", border: "1px solid rgba(232,119,34,0.35)", borderRadius: 4 }}>
                           The lesson currently open above only has enough learning goals for {panelCountInfo.resolvedCount} board{panelCountInfo.resolvedCount === 1 ? "" : "s"} — it'll stay at {panelCountInfo.resolvedCount} even with {panelCountInfo.requestedCount} selected. Lessons with more goals will use more of them.
                         </div>
                       )}

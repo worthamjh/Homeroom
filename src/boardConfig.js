@@ -112,6 +112,48 @@ export function useSyncAuthIdentity() {
 
 export const scopedKey = (key) => `homeroom:${getActiveTeacherId()}:${key}`;
 
+// ── Blank-shell theme (school/subject title + primary/secondary color) ──
+// Added 2026-08-25, per Jay's ask on the sandbox: a blank-shell teacher's
+// board should show THEIR school/subject as the title (replacing the
+// hardcoded "Webster Groves Chemistry") and use colors THEY picked
+// (replacing the hardcoded black/orange) — set once via the onboarding
+// form (ProfileOnboarding.jsx) and saved to the same Mongo `profiles`
+// document as their name/school/subject (api/profile.js).
+//
+// Deliberately scoped to blank-shell teachers only — DEFAULT_TEACHER_ID
+// (the real Webster Groves pitch-demo site) never reads a saved profile
+// for its title/colors and always uses these exact same two values as
+// its literal defaults, so the demo is visually unchanged. That's also
+// why these are plain exported constants rather than something baked
+// into a teacher's profile as their "default" — a teacher who never
+// touches the color pickers still gets a coherent black/orange look
+// rather than an arbitrary one.
+//
+// These match every one of the ~60 hardcoded "#1a1a1a"/"#E87722"
+// literals that used to be scattered across WebsterGrovesChemistry.jsx,
+// BuildPage.jsx, BoardSettingsPanel.jsx, ChalkboardBoardRow.jsx, and
+// FullAgendaBoard.jsx — all replaced with `var(--board-primary)` /
+// `var(--board-secondary)` in that same pass, resolved via
+// boardThemeVars() below on a wrapping element. api/profile.js validates
+// any saved color against this same six-hex-digit shape before storing
+// it (see sanitizeHexColor there), so a value read back from Mongo is
+// always safe to hand straight to a CSS custom property.
+export const DEFAULT_PRIMARY_COLOR = "#1a1a1a";
+export const DEFAULT_SECONDARY_COLOR = "#E87722";
+
+// Ready-to-spread style object defining the two CSS custom properties
+// every themed inline style in this codebase reads via var(--board-...).
+// Call this once on whichever element is the root of a themed subtree
+// (the board's outermost div, Build page's outermost div, ...) — CSS
+// custom properties inherit down through the DOM like any other
+// inherited property, so nothing further down needs its own copy.
+export function boardThemeVars(primaryColor, secondaryColor) {
+  return {
+    "--board-primary": primaryColor || DEFAULT_PRIMARY_COLOR,
+    "--board-secondary": secondaryColor || DEFAULT_SECONDARY_COLOR,
+  };
+}
+
 // ── "Currently open lesson" — read by the Settings page's live preview ──
 // The Settings page (SettingsPage.jsx) opens in its own tab and renders an
 // actual embedded copy of the board (an iframe on "/?preview=1") rather

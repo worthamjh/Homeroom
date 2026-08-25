@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { saveProfile } from "./lib/profileApi";
+import { DEFAULT_PRIMARY_COLOR, DEFAULT_SECONDARY_COLOR } from "./boardConfig";
 
 /**
  * ProfileOnboarding — the short form a brand-new signed-in teacher fills
@@ -16,6 +17,11 @@ export default function ProfileOnboarding({ teacherId, onComplete }) {
   const [teacherName, setTeacherName] = useState("");
   const [school, setSchool] = useState("");
   const [subject, setSubject] = useState("");
+  // Default to Webster Groves' own black/orange — a teacher who never
+  // touches these still gets a coherent look (see boardThemeVars in
+  // boardConfig.js) rather than saving `null`/empty colors.
+  const [primaryColor, setPrimaryColor] = useState(DEFAULT_PRIMARY_COLOR);
+  const [secondaryColor, setSecondaryColor] = useState(DEFAULT_SECONDARY_COLOR);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -32,6 +38,8 @@ export default function ProfileOnboarding({ teacherId, onComplete }) {
         teacherName: teacherName.trim(),
         school: school.trim(),
         subject: subject.trim(),
+        primaryColor,
+        secondaryColor,
       });
       onComplete(saved);
     } catch (err) {
@@ -111,6 +119,54 @@ export default function ProfileOnboarding({ teacherId, onComplete }) {
             onChange={e => setSubject(e.target.value)}
             placeholder="e.g. Chemistry, Room 214"
           />
+        </div>
+
+        {/* Board colors — primary replaces the board's black, secondary
+            replaces its orange, everywhere from the title bar to Build's
+            own chrome (see boardConfig.js's boardThemeVars). School/
+            subject above become the board's title the same way Webster
+            Groves' own name does today — this is that same idea extended
+            to color, so a teacher's board actually looks like theirs
+            instead of an unbranded copy of the demo. */}
+        <div style={{ marginBottom: 16, display: "flex", gap: 16 }}>
+          <div style={{ flex: 1 }}>
+            <label style={labelStyle} htmlFor="primaryColor">Primary color</label>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <input
+                id="primaryColor"
+                type="color"
+                value={primaryColor}
+                onChange={e => setPrimaryColor(e.target.value)}
+                style={{ width: 40, height: 36, padding: 2, background: "#0f0f0f", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, cursor: "pointer" }}
+              />
+              <span style={{ fontSize: 12, color: "rgba(255,255,255,0.45)", fontFamily: "Lato, sans-serif" }}>{primaryColor}</span>
+            </div>
+          </div>
+          <div style={{ flex: 1 }}>
+            <label style={labelStyle} htmlFor="secondaryColor">Secondary color</label>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <input
+                id="secondaryColor"
+                type="color"
+                value={secondaryColor}
+                onChange={e => setSecondaryColor(e.target.value)}
+                style={{ width: 40, height: 36, padding: 2, background: "#0f0f0f", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, cursor: "pointer" }}
+              />
+              <span style={{ fontSize: 12, color: "rgba(255,255,255,0.45)", fontFamily: "Lato, sans-serif" }}>{secondaryColor}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Live preview of the board's title bar, exactly as it'll render
+            for real (see TopBar in WebsterGrovesChemistry.jsx) — same
+            school/subject split, same primary/secondary usage — so the
+            color choice above isn't a guess. */}
+        <div style={{ marginBottom: 24, borderRadius: 4, overflow: "hidden", border: "1px solid rgba(255,255,255,0.15)" }}>
+          <div style={{ background: primaryColor, borderBottom: `4px solid ${secondaryColor}`, padding: "14px 16px", textAlign: "center" }}>
+            <span style={{ fontFamily: "Oswald, sans-serif", color: "#fff", fontSize: 16, letterSpacing: 1 }}>
+              {school.trim() || "Your School"} <span style={{ color: secondaryColor }}>{subject.trim() || "Your Subject"}</span>
+            </span>
+          </div>
         </div>
 
         {error && (

@@ -17,6 +17,18 @@ import { MongoClient } from "mongodb";
 const DB_NAME = process.env.MONGODB_DB || "homeroom";
 const COLLECTION = "profiles";
 
+// Matches boardConfig.js's DEFAULT_PRIMARY_COLOR/DEFAULT_SECONDARY_COLOR —
+// duplicated here (rather than shared) since this file can't import from
+// src/ (separate Vercel function bundle). A saved profile's colors, once
+// set, become the theme for that teacher's whole blank-shell board (see
+// the 2026-08-25 "school/subject title + theme colors" pass) — the
+// Webster Groves demo (DEFAULT_TEACHER_ID) never reaches this endpoint's
+// colors at all, since only blank-shell teachers get themed.
+const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/;
+function sanitizeHexColor(value, fallback) {
+  return typeof value === "string" && HEX_COLOR_RE.test(value) ? value : fallback;
+}
+
 // Same warm-lambda connection reuse as api/assignments.js — see the
 // comments there for why this is structured as a lazy getter rather than
 // connecting at module load time.
@@ -56,7 +68,7 @@ export default async function handler(req, res) {
     }
 
     if (req.method === "POST") {
-      const { teacherId, teacherName, school, subject } = req.body || {};
+      const { teacherId, teacherName, school, subject, primaryColor, secondaryColor } = req.body || {};
       if (!teacherId || !teacherName) {
         res.status(400).json({ error: "teacherId and teacherName are required" });
         return;
@@ -68,6 +80,11 @@ export default async function handler(req, res) {
         teacherName: String(teacherName),
         school: school ? String(school) : null,
         subject: subject ? String(subject) : null,
+        // Silently falls back to null (→ the board's own defaults, see
+        // boardConfig.js) rather than erroring on a malformed value — a
+        // stray hex typo shouldn't block saving the rest of the profile.
+        primaryColor: sanitizeHexColor(primaryColor, null),
+        secondaryColor: sanitizeHexColor(secondaryColor, null),
         updatedAt: now,
       };
       // Upsert keyed on teacherId — a teacher only ever has one profile
@@ -98,5 +115,7 @@ function toClientShape(doc) {
     teacherName: doc.teacherName,
     school: doc.school || "",
     subject: doc.subject || "",
+    primaryColor: doc.primaryColor || null,
+    secondaryColor: doc.secondaryColor || null,
   };
 }

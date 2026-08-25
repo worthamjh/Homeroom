@@ -3,9 +3,11 @@ import ChalkboardBoardRow, { toGoalPanels } from "./ChalkboardBoardRow";
 import { useFullAgendaFields, ObjectivesChecklist, EditableField, ResetBoardButton } from "./FullAgendaBoard";
 import { fetchExtraAssignments, createExtraAssignment, deleteExtraAssignment } from "./lib/extraAssignments";
 import { uploadAssignmentPdf } from "./lib/cloudinary";
+import { fetchProfile } from "./lib/profileApi";
 import {
   scopedKey, useScopedSetting,
   getActiveTeacherId, DEFAULT_TEACHER_ID,
+  boardThemeVars,
   readCalendarUrl, writeCalendarUrl,
   readLessonSlidesUrl, writeLessonSlidesUrl,
   BOARD_ARRANGEMENTS, DEFAULT_ARRANGEMENT, ARRANGEMENT_STORAGE_KEY,
@@ -107,7 +109,7 @@ const FOOTER_LINKS = [
 
 function ToolsFooter() {
   return (
-    <div style={{ background: "#1a1a1a", borderTop: "4px solid #E87722", padding: `${SPACE.md}px ${SPACE.lg}px`, display: "flex", flexWrap: "wrap", justifyContent: "center", gap: SPACE.md, flexShrink: 0 }}>
+    <div style={{ background: "var(--board-primary)", borderTop: "4px solid var(--board-secondary)", padding: `${SPACE.md}px ${SPACE.lg}px`, display: "flex", flexWrap: "wrap", justifyContent: "center", gap: SPACE.md, flexShrink: 0 }}>
       {FOOTER_LINKS.map((t, i) => (
         <a key={i} href={t.href} target="_blank" rel="noopener noreferrer" title={t.label}
           style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 48, height: 48, background: "transparent", borderRadius: 10, padding: 6, transition: "transform 0.15s" }}
@@ -938,7 +940,7 @@ function SmartBoard({ src }) {
   return (
     <div style={{ width: "100%", maxWidth: "100%", minWidth: 0, height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", boxSizing: "border-box" }}>
       <div style={{ width: "100%", maxWidth: "100%", boxSizing: "border-box", background: "#111", borderRadius: "8px 8px 0 0", padding: "8px 8px 0", border: "2px solid #2a2a2a", borderBottom: "none", pointerEvents: "auto" }}>
-        <div style={{ width: "100%", background: "#0a0a0a", borderRadius: "4px 4px 0 0", aspectRatio: "16/9", overflow: "hidden", border: "1px solid #1a1a1a" }}>
+        <div style={{ width: "100%", background: "#0a0a0a", borderRadius: "4px 4px 0 0", aspectRatio: "16/9", overflow: "hidden", border: "1px solid var(--board-primary)" }}>
           <iframe src={src} style={{ width: "100%", height: "100%", border: "none", display: "block" }} allowFullScreen title="slides" />
         </div>
       </div>
@@ -978,7 +980,7 @@ function AddEmbedCard({ open, label, promptText, placeholder, initialUrl, onOpen
         <button
           onClick={onOpen}
           style={{ background: "transparent", border: "none", color: "inherit", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 6, fontFamily: "Oswald, sans-serif", fontSize: 13, letterSpacing: 0.5, textTransform: "uppercase" }}
-          onMouseEnter={e => { e.currentTarget.style.color = "#E87722"; }}
+          onMouseEnter={e => { e.currentTarget.style.color = "var(--board-secondary)"; }}
           onMouseLeave={e => { e.currentTarget.style.color = "inherit"; }}
         >
           <span style={{ fontSize: 30, lineHeight: 1 }}>+</span>
@@ -991,7 +993,7 @@ function AddEmbedCard({ open, label, promptText, placeholder, initialUrl, onOpen
   return (
     <form
       onSubmit={e => { e.preventDefault(); if (url.trim()) onSave(url.trim()); }}
-      style={{ width: "100%", maxWidth: 480, boxSizing: "border-box", border: "2px solid #E87722", borderRadius: 8, background: "#242424", padding: 16, display: "flex", flexDirection: "column", gap: 10 }}
+      style={{ width: "100%", maxWidth: 480, boxSizing: "border-box", border: "2px solid var(--board-secondary)", borderRadius: 8, background: "#242424", padding: 16, display: "flex", flexDirection: "column", gap: 10 }}
     >
       <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 12, color: "rgba(255,255,255,0.6)", textTransform: "uppercase", letterSpacing: 0.5 }}>
         {promptText}
@@ -999,11 +1001,11 @@ function AddEmbedCard({ open, label, promptText, placeholder, initialUrl, onOpen
       <input
         type="url" placeholder={placeholder} value={url} onChange={e => setUrl(e.target.value)}
         autoFocus
-        style={{ background: "#1a1a1a", border: "1px solid #444", borderRadius: 2, color: "white", fontSize: 12, padding: "8px 10px", fontFamily: "Lato, sans-serif" }}
+        style={{ background: "var(--board-primary)", border: "1px solid #444", borderRadius: 2, color: "white", fontSize: 12, padding: "8px 10px", fontFamily: "Lato, sans-serif" }}
       />
       <div style={{ display: "flex", gap: 6 }}>
         <button type="submit" disabled={!url.trim()}
-          style={{ flex: 1, background: "#E87722", border: "none", borderRadius: 2, color: "#1a1a1a", fontFamily: "Oswald, sans-serif", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, padding: "8px 0", cursor: "pointer" }}>
+          style={{ flex: 1, background: "var(--board-secondary)", border: "none", borderRadius: 2, color: "var(--board-primary)", fontFamily: "Oswald, sans-serif", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, padding: "8px 0", cursor: "pointer" }}>
           Save
         </button>
         <button type="button" onClick={onCancel}
@@ -1072,7 +1074,7 @@ function BuildEditableSlot({ children, onChange, onRemove }) {
       {hovering && (
         <div style={{ position: "absolute", top: 8, right: 8, display: "flex", gap: 6, zIndex: 5 }}>
           <button style={btnStyle} onClick={onChange}
-            onMouseEnter={e => { e.currentTarget.style.borderColor = "#E87722"; }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--board-secondary)"; }}
             onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.3)"; }}>
             Change
           </button>
@@ -1095,7 +1097,7 @@ export function AssignmentThumb({ label, url, thumb, onRemove }) {
   return (
     <a href={url} target="_blank" rel="noreferrer"
       style={{ background: "white", borderRadius: 3, overflow: "hidden", cursor: "pointer", position: "relative", border: "2px solid transparent", transition: "all 0.15s", aspectRatio: "8.5/11", textDecoration: "none", display: "block" }}
-      onMouseEnter={e => { e.currentTarget.style.borderColor = "#E87722"; e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.querySelector(".aLabel").style.opacity = 1; const r = e.currentTarget.querySelector(".aRemove"); if (r) r.style.opacity = 1; }}
+      onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--board-secondary)"; e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.querySelector(".aLabel").style.opacity = 1; const r = e.currentTarget.querySelector(".aRemove"); if (r) r.style.opacity = 1; }}
       onMouseLeave={e => { e.currentTarget.style.borderColor = "transparent"; e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.querySelector(".aLabel").style.opacity = 0; const r = e.currentTarget.querySelector(".aRemove"); if (r) r.style.opacity = 0; }}
     >
       {thumb ? (
@@ -1145,7 +1147,7 @@ export function AddAssignmentCard({ open, busy, error, onOpen, onCancel, onSubmi
           fontFamily: "Oswald, sans-serif", fontSize: 12, letterSpacing: 0.5, textTransform: "uppercase",
           transition: "all 0.15s",
         }}
-        onMouseEnter={e => { e.currentTarget.style.borderColor = "#E87722"; e.currentTarget.style.color = "#E87722"; }}
+        onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--board-secondary)"; e.currentTarget.style.color = "var(--board-secondary)"; }}
         onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.25)"; e.currentTarget.style.color = "rgba(255,255,255,0.4)"; }}
       >
         <span style={{ fontSize: 28, lineHeight: 1 }}>+</span>
@@ -1158,14 +1160,14 @@ export function AddAssignmentCard({ open, busy, error, onOpen, onCancel, onSubmi
     <form
       onSubmit={e => { e.preventDefault(); if (label.trim() && file) onSubmit({ label: label.trim(), file }); }}
       style={{
-        background: "#242424", borderRadius: 3, aspectRatio: "8.5/11", border: "2px solid #E87722",
+        background: "#242424", borderRadius: 3, aspectRatio: "8.5/11", border: "2px solid var(--board-secondary)",
         display: "flex", flexDirection: "column", gap: 8, padding: 10, boxSizing: "border-box",
       }}
     >
       <input
         type="text" placeholder="Assignment name" value={label} onChange={e => setLabel(e.target.value)}
         disabled={busy} autoFocus
-        style={{ background: "#1a1a1a", border: "1px solid #444", borderRadius: 2, color: "white", fontSize: 12, padding: "6px 8px", fontFamily: "Lato, sans-serif" }}
+        style={{ background: "var(--board-primary)", border: "1px solid #444", borderRadius: 2, color: "white", fontSize: 12, padding: "6px 8px", fontFamily: "Lato, sans-serif" }}
       />
       <input
         type="file" accept="application/pdf" disabled={busy}
@@ -1175,7 +1177,7 @@ export function AddAssignmentCard({ open, busy, error, onOpen, onCancel, onSubmi
       {error && <div style={{ fontSize: 11, color: "#ff8a65", fontStyle: "italic" }}>{error}</div>}
       <div style={{ marginTop: "auto", display: "flex", gap: 6 }}>
         <button type="submit" disabled={busy || !label.trim() || !file}
-          style={{ flex: 1, background: "#E87722", border: "none", borderRadius: 2, color: "#1a1a1a", fontFamily: "Oswald, sans-serif", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, padding: "6px 0", cursor: busy ? "default" : "pointer", opacity: busy ? 0.6 : 1 }}>
+          style={{ flex: 1, background: "var(--board-secondary)", border: "none", borderRadius: 2, color: "var(--board-primary)", fontFamily: "Oswald, sans-serif", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, padding: "6px 0", cursor: busy ? "default" : "pointer", opacity: busy ? 0.6 : 1 }}>
           {busy ? "Uploading…" : "Save"}
         </button>
         <button type="button" onClick={onCancel} disabled={busy}
@@ -1192,7 +1194,7 @@ function VideoThumb({ title, id, onPlay }) {
     <button
       onClick={() => onPlay(id)}
       style={{ background: "#000", borderRadius: 3, overflow: "hidden", cursor: "pointer", position: "relative", border: "2px solid transparent", transition: "all 0.15s", aspectRatio: "16/9", display: "block", padding: 0, textAlign: "left", width: "100%" }}
-      onMouseEnter={e => { e.currentTarget.style.borderColor = "#E87722"; e.currentTarget.style.transform = "translateY(-2px)"; }}
+      onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--board-secondary)"; e.currentTarget.style.transform = "translateY(-2px)"; }}
       onMouseLeave={e => { e.currentTarget.style.borderColor = "transparent"; e.currentTarget.style.transform = "translateY(0)"; }}
     >
       <img src={youtubeThumb(id)} alt={title} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
@@ -1213,8 +1215,8 @@ function VideoLibrary({ videos, playingVideoId, setPlayingVideoId }) {
   const playing = videos.find(v => extractYouTubeId(v.id) === playingVideoId);
   return (
     <div style={{ padding: `0 ${SPACE.lg}px ${SPACE.lg}px`, maxWidth: 1700, width: "100%", margin: "0 auto", boxSizing: "border-box" }}>
-      <div style={{ background: "#1a1a1a", border: "3px solid #E87722", borderRadius: 4, overflow: "hidden", boxShadow: "0 3px 12px rgba(0,0,0,0.25)" }}>
-        <div style={{ background: "#E87722", padding: `${SPACE.xs}px ${SPACE.md}px`, fontFamily: "Oswald, sans-serif", fontSize: 14, color: "#1a1a1a", letterSpacing: 1, textTransform: "uppercase", fontWeight: 600 }}>
+      <div style={{ background: "var(--board-primary)", border: "3px solid var(--board-secondary)", borderRadius: 4, overflow: "hidden", boxShadow: "0 3px 12px rgba(0,0,0,0.25)" }}>
+        <div style={{ background: "var(--board-secondary)", padding: `${SPACE.xs}px ${SPACE.md}px`, fontFamily: "Oswald, sans-serif", fontSize: 14, color: "var(--board-primary)", letterSpacing: 1, textTransform: "uppercase", fontWeight: 600 }}>
           Video Library
         </div>
         <div style={{ padding: SPACE.sm }}>
@@ -1248,15 +1250,15 @@ function VideoLibrary({ videos, playingVideoId, setPlayingVideoId }) {
   );
 }
 
-function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropdown, setOpenDropdown, handleUnitOverview, handleLessonClick, goHome }) {
+function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropdown, setOpenDropdown, handleUnitOverview, handleLessonClick, goHome, titleMain, titleAccent }) {
   return (
-    <div style={{ background: "#1a1a1a", borderBottom: "4px solid #E87722", flexShrink: 0, position: "relative" }}>
+    <div style={{ background: "var(--board-primary)", borderBottom: "4px solid var(--board-secondary)", flexShrink: 0, position: "relative" }}>
       <div style={{ padding: `${SPACE.md}px ${SPACE.lg}px ${SPACE.sm}px`, textAlign: "center", position: "relative" }}>
         <div
           onClick={goHome}
           style={{ fontFamily: "Oswald, sans-serif", color: "#fff", fontSize: 26, fontWeight: 600, letterSpacing: 2, cursor: "pointer", display: "inline-block" }}
         >
-          Webster Groves <span style={{ color: "#E87722" }}>Chemistry</span>
+          {titleMain ?? "Webster Groves"} <span style={{ color: "var(--board-secondary)" }}>{titleAccent ?? "Chemistry"}</span>
         </div>
 
         {/* Opens the Build page — where units/lessons/assignments/calendar
@@ -1277,7 +1279,7 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
           title="Build — add or edit content, and change how the board looks"
           aria-label="Open Build page"
           style={{ position: "absolute", right: SPACE.lg, top: "50%", transform: "translateY(-50%)", width: 34, height: 34, borderRadius: "50%", border: "1px solid rgba(255,255,255,0.25)", background: "transparent", color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, transition: "all 0.15s" }}
-          onMouseEnter={e => { e.currentTarget.style.background = "#E87722"; e.currentTarget.style.color = "#1a1a1a"; }}
+          onMouseEnter={e => { e.currentTarget.style.background = "var(--board-secondary)"; e.currentTarget.style.color = "var(--board-primary)"; }}
           onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#fff"; }}
         >
           🛠
@@ -1293,22 +1295,22 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
           >
             <button
               onClick={() => handleUnitOverview(ui)}
-              style={{ background: activeUnitIdx === ui && isOverview ? "#fff" : "#E87722", color: activeUnitIdx === ui && isOverview ? "#E87722" : "#1a1a1a", border: "none", borderRight: "1px solid rgba(0,0,0,0.2)", padding: `${SPACE.sm}px ${SPACE.xs}px`, fontSize: 13, fontFamily: "Oswald, sans-serif", cursor: "pointer", letterSpacing: 0.5, width: "100%", fontWeight: 600, transition: "all 0.15s" }}
-              onMouseEnter={e => { if (!(activeUnitIdx === ui && isOverview)) { e.currentTarget.style.background = "#fff"; e.currentTarget.style.color = "#1a1a1a"; }}}
-              onMouseLeave={e => { if (!(activeUnitIdx === ui && isOverview)) { e.currentTarget.style.background = "#E87722"; e.currentTarget.style.color = "#1a1a1a"; }}}
+              style={{ background: activeUnitIdx === ui && isOverview ? "#fff" : "var(--board-secondary)", color: activeUnitIdx === ui && isOverview ? "var(--board-secondary)" : "var(--board-primary)", border: "none", borderRight: "1px solid rgba(0,0,0,0.2)", padding: `${SPACE.sm}px ${SPACE.xs}px`, fontSize: 13, fontFamily: "Oswald, sans-serif", cursor: "pointer", letterSpacing: 0.5, width: "100%", fontWeight: 600, transition: "all 0.15s" }}
+              onMouseEnter={e => { if (!(activeUnitIdx === ui && isOverview)) { e.currentTarget.style.background = "#fff"; e.currentTarget.style.color = "var(--board-primary)"; }}}
+              onMouseLeave={e => { if (!(activeUnitIdx === ui && isOverview)) { e.currentTarget.style.background = "var(--board-secondary)"; e.currentTarget.style.color = "var(--board-primary)"; }}}
             >
               {u.unit}
             </button>
 
             {/* Dropdown */}
             {openDropdown === ui && u.lessons.length > 0 && (
-              <div style={{ position: "absolute", top: "100%", left: 0, minWidth: 210, background: "#1a1a1a", border: "1px solid #E87722", borderTop: "none", borderRadius: "0 0 4px 4px", zIndex: 5000, overflow: "hidden" }}>
+              <div style={{ position: "absolute", top: "100%", left: 0, minWidth: 210, background: "var(--board-primary)", border: "1px solid var(--board-secondary)", borderTop: "none", borderRadius: "0 0 4px 4px", zIndex: 5000, overflow: "hidden" }}>
                 {u.lessons.map((lesson, li) => (
                   <div key={li}
                     onClick={() => handleLessonClick(ui, lesson)}
-                    style={{ padding: `${SPACE.sm}px ${SPACE.md}px`, fontSize: 13, fontFamily: "Lato, sans-serif", fontWeight: 700, color: activeLesson?.title === lesson.title ? "#E87722" : "#ccc", cursor: "pointer", borderBottom: "1px solid #2a2a2a", transition: "all 0.12s", whiteSpace: "nowrap", borderLeft: activeLesson?.title === lesson.title ? "3px solid #E87722" : "3px solid transparent", paddingLeft: activeLesson?.title === lesson.title ? SPACE.md - 3 : SPACE.md }}
-                    onMouseEnter={e => { e.currentTarget.style.background = "#E87722"; e.currentTarget.style.color = "#fff"; }}
-                    onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = activeLesson?.title === lesson.title ? "#E87722" : "#ccc"; }}
+                    style={{ padding: `${SPACE.sm}px ${SPACE.md}px`, fontSize: 13, fontFamily: "Lato, sans-serif", fontWeight: 700, color: activeLesson?.title === lesson.title ? "var(--board-secondary)" : "#ccc", cursor: "pointer", borderBottom: "1px solid #2a2a2a", transition: "all 0.12s", whiteSpace: "nowrap", borderLeft: activeLesson?.title === lesson.title ? "3px solid var(--board-secondary)" : "3px solid transparent", paddingLeft: activeLesson?.title === lesson.title ? SPACE.md - 3 : SPACE.md }}
+                    onMouseEnter={e => { e.currentTarget.style.background = "var(--board-secondary)"; e.currentTarget.style.color = "#fff"; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = activeLesson?.title === lesson.title ? "var(--board-secondary)" : "#ccc"; }}
                   >
                     {lesson.title}
                   </div>
@@ -1363,6 +1365,28 @@ export default function App() {
   const activeTeacherId = getActiveTeacherId();
   const isBlankTeacher = activeTeacherId !== DEFAULT_TEACHER_ID;
   const activeCurriculum = isBlankTeacher ? BLANK_CURRICULUM : curriculum;
+
+  // Blank-shell teachers only: the school/subject + colors they picked
+  // during onboarding (ProfileOnboarding.jsx) become this board's title
+  // and theme — replacing the "Webster Groves"/"Chemistry" title and the
+  // black/orange literals everywhere in this file (now var(--board-
+  // primary)/var(--board-secondary), see boardThemeVars in boardConfig.js).
+  // The real Webster Groves site (DEFAULT_TEACHER_ID) never fetches or
+  // reads this — it keeps its own fixed branding regardless.
+  const [teacherProfile, setTeacherProfile] = useState(null);
+  useEffect(() => {
+    if (!isBlankTeacher) return;
+    let cancelled = false;
+    fetchProfile(activeTeacherId)
+      .then(p => { if (!cancelled) setTeacherProfile(p); })
+      .catch(() => {}); // no profile yet, or a transient error — falls back to defaults below
+    return () => { cancelled = true; };
+  }, [isBlankTeacher, activeTeacherId]);
+  const themeVars = isBlankTeacher
+    ? boardThemeVars(teacherProfile?.primaryColor, teacherProfile?.secondaryColor)
+    : boardThemeVars(); // Webster Groves gets the same defaults either way — no-op
+  const boardTitleMain = isBlankTeacher ? (teacherProfile?.school || "Your School") : undefined;
+  const boardTitleAccent = isBlankTeacher ? (teacherProfile?.subject || "Your Subject") : undefined;
 
   // A real board tab starts at the homepage by default, same as always —
   // UNLESS it's a deep link with explicit ?unit=&lesson= params (see
@@ -1516,7 +1540,7 @@ export default function App() {
   // board layout grid) instead of a mockup's stand-in pieces.
   const highlightStyle = (region) =>
     (isPreviewMode || isBuildMode) && highlightRegion === region
-      ? { boxShadow: "0 0 0 3px #E87722, 0 0 22px rgba(232,119,34,0.55)" }
+      ? { boxShadow: "0 0 0 3px var(--board-secondary), 0 0 22px rgba(232,119,34,0.55)" }
       : {};
 
   // Close any open video player when navigating to a different lesson,
@@ -1758,6 +1782,7 @@ export default function App() {
   const goHome = () => { setActiveUnitIdx(null); setActiveLesson(null); setOpenDropdown(null); };
   const topBarProps = {
     curriculum: activeCurriculum, activeUnitIdx, isOverview, activeLesson, openDropdown, setOpenDropdown, handleUnitOverview, handleLessonClick, goHome,
+    titleMain: boardTitleMain, titleAccent: boardTitleAccent,
   };
 
   // On a real board tab, "one screen" legitimately means the teacher's
@@ -1778,8 +1803,8 @@ export default function App() {
   return (
     <div onClick={() => setOpenDropdown(null)}
       style={isHome
-        ? { background: "#1a1a1a", height: oneScreenHeight, fontFamily: "Lato, sans-serif", display: "flex", flexDirection: "column", overflow: "hidden" }
-        : { ...wallStyle, minHeight: oneScreenHeight, fontFamily: "Lato, sans-serif", display: "flex", flexDirection: "column", ...highlightStyle("background") }
+        ? { ...themeVars, background: "var(--board-primary)", height: oneScreenHeight, fontFamily: "Lato, sans-serif", display: "flex", flexDirection: "column", overflow: "hidden" }
+        : { ...themeVars, ...wallStyle, minHeight: oneScreenHeight, fontFamily: "Lato, sans-serif", display: "flex", flexDirection: "column", ...highlightStyle("background") }
       }>
 
       {isBlankTeacher && (
@@ -1795,7 +1820,7 @@ export default function App() {
       {isHome ? (
         <>
           <TopBar {...topBarProps} />
-          <div style={{ flex: 1, minHeight: 0, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", background: "#1a1a1a" }}>
+          <div style={{ flex: 1, minHeight: 0, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--board-primary)" }}>
             {isBlankTeacher ? (
               <div style={{ color: "rgba(255,255,255,0.4)", fontFamily: "Oswald, sans-serif", fontSize: 14, letterSpacing: 1, textTransform: "uppercase" }}>
                 No content yet — pick a unit above to start adding assignments
@@ -2052,7 +2077,7 @@ export default function App() {
 
             {/* Chalk ledge / marker tray — styled per the Board Surface preset. */}
             <div style={{ height: 8, background: surface.ledgeBg, borderTop: `2px solid ${surface.ledgeBorder}`, display: "flex", alignItems: "center", padding: `0 ${SPACE.sm}px`, gap: SPACE.xs }}>
-              {[["#f0f0f0", 18], ["#E87722", 18], ["#f0f0f0", 12]].map(([c, w], i) => (
+              {[["#f0f0f0", 18], ["var(--board-secondary)", 18], ["#f0f0f0", 12]].map(([c, w], i) => (
                 <div key={i} style={{ width: w, height: 4, borderRadius: 1, background: c }} />
               ))}
             </div>
@@ -2062,8 +2087,8 @@ export default function App() {
 
       {/* ── Assignments — below the fold, scroll to reveal ── */}
       <div style={{ padding: `0 ${SPACE.lg}px ${SPACE.lg}px`, maxWidth: 1700, width: "100%", margin: "0 auto", boxSizing: "border-box" }}>
-        <div style={{ background: "#1a1a1a", border: "3px solid #E87722", borderRadius: 4, overflow: "hidden", boxShadow: "0 3px 12px rgba(0,0,0,0.25)" }}>
-          <div style={{ background: "#E87722", padding: `${SPACE.xs}px ${SPACE.md}px`, fontFamily: "Oswald, sans-serif", fontSize: 14, color: "#1a1a1a", letterSpacing: 1, textTransform: "uppercase", fontWeight: 600, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ background: "var(--board-primary)", border: "3px solid var(--board-secondary)", borderRadius: 4, overflow: "hidden", boxShadow: "0 3px 12px rgba(0,0,0,0.25)" }}>
+          <div style={{ background: "var(--board-secondary)", padding: `${SPACE.xs}px ${SPACE.md}px`, fontFamily: "Oswald, sans-serif", fontSize: 14, color: "var(--board-primary)", letterSpacing: 1, textTransform: "uppercase", fontWeight: 600, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <span>{isOverview ? `${activeUnit.unit} — All Assignments` : "Assignments & Classwork"}</span>
             {isOverview && <span style={{ fontSize: 11, fontFamily: "Lato, sans-serif", fontWeight: 400, opacity: 0.7, letterSpacing: 0 }}>in curriculum order</span>}
           </div>
@@ -2074,7 +2099,7 @@ export default function App() {
               ) : (
                 activeUnit.lessons.map((lesson, li) => (
                   <div key={li}>
-                    <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 12, color: "#E87722", letterSpacing: 1, textTransform: "uppercase", padding: li === 0 ? `0 0 ${SPACE.xs}px` : `${SPACE.sm}px 0 ${SPACE.xs}px`, borderTop: li === 0 ? "none" : "1px solid #333" }}>
+                    <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 12, color: "var(--board-secondary)", letterSpacing: 1, textTransform: "uppercase", padding: li === 0 ? `0 0 ${SPACE.xs}px` : `${SPACE.sm}px 0 ${SPACE.xs}px`, borderTop: li === 0 ? "none" : "1px solid #333" }}>
                       {lesson.title}
                     </div>
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: SPACE.md }}>

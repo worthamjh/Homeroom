@@ -71,7 +71,7 @@ function loadContent(storageKey) {
   }
 }
 
-const DEFAULT_SURFACE = { accent: "#E87722", headerText: "#E87722", bodyText: "rgba(255,255,255,0.88)", bodyTextChecked: "rgba(255,255,255,0.3)", placeholderText: "rgba(255,255,255,0.4)", dividerBorder: "rgba(255,255,255,0.2)", textShadow: "1px 1px 2px rgba(0,0,0,0.5)", checkboxBorder: "rgba(255,255,255,0.4)" };
+const DEFAULT_SURFACE = { accent: "var(--board-secondary)", headerText: "var(--board-secondary)", bodyText: "rgba(255,255,255,0.88)", bodyTextChecked: "rgba(255,255,255,0.3)", placeholderText: "rgba(255,255,255,0.4)", dividerBorder: "rgba(255,255,255,0.2)", textShadow: "1px 1px 2px rgba(0,0,0,0.5)", checkboxBorder: "rgba(255,255,255,0.4)" };
 
 // Single source of truth for Full Agenda's freeform field content. Call
 // this ONCE per active lesson (in WebsterGrovesChemistry.jsx's App()),
@@ -174,7 +174,7 @@ function Section({ label, value, placeholder, editing, onStartEdit, onSave, rows
             if (e.key === "Escape") { setDraft(value); onSave(value); }
           }}
           style={{
-            fontFamily: "Caveat, cursive", fontSize: 17, lineHeight: 1.4, color: "#1a1a1a",
+            fontFamily: "Caveat, cursive", fontSize: 17, lineHeight: 1.4, color: "var(--board-primary)",
             background: "rgba(255,255,255,0.92)", border: `2px solid ${surface.accent}`, borderRadius: 4,
             padding: 8, resize: "vertical", width: "100%", boxSizing: "border-box",
           }}

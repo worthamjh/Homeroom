@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/clerk-react";
-import { getActiveTeacherId, DEFAULT_TEACHER_ID, CLERK_CONFIGURED } from "./boardConfig";
+import { getActiveTeacherId, DEFAULT_TEACHER_ID, CLERK_CONFIGURED, boardThemeVars } from "./boardConfig";
+import { fetchProfile } from "./lib/profileApi";
 import BoardSettingsPanel from "./BoardSettingsPanel";
 
 /**
@@ -134,7 +135,7 @@ function LiveBuildBoard({ teacherId, highlightRegion, onPanelCountInfo, onViewCh
         height: contentHeight * scale,
         overflow: "hidden", borderRadius: 10,
         boxShadow: "0 8px 28px rgba(0,0,0,0.45)",
-        background: "#1a1a1a",
+        background: "var(--board-primary)",
       }}
     >
       <iframe
@@ -162,7 +163,7 @@ function LiveBuildBoard({ teacherId, highlightRegion, onPanelCountInfo, onViewCh
 // conditional on Clerk being set up at all, not just on being signed in.
 function SignInPrompt() {
   return (
-    <div style={{ background: "#1a1a1a", border: "1px dashed rgba(255,255,255,0.25)", borderRadius: 10, padding: "48px 24px", textAlign: "center" }}>
+    <div style={{ background: "var(--board-primary)", border: "1px dashed rgba(255,255,255,0.25)", borderRadius: 10, padding: "48px 24px", textAlign: "center" }}>
       <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 18, color: "#fff", marginBottom: 8 }}>
         Sign in to build your board
       </div>
@@ -170,7 +171,7 @@ function SignInPrompt() {
         Signing in gives you your own Homeroom — your calendar, slides, and assignments, saved under your account instead of a shared browser.
       </div>
       <SignInButton mode="modal">
-        <button style={{ background: "#E87722", color: "#1a1a1a", border: "none", borderRadius: 6, padding: "10px 22px", fontFamily: "Oswald, sans-serif", fontSize: 14, fontWeight: 600, letterSpacing: 0.5, cursor: "pointer" }}>
+        <button style={{ background: "var(--board-secondary)", color: "var(--board-primary)", border: "none", borderRadius: 6, padding: "10px 22px", fontFamily: "Oswald, sans-serif", fontSize: 14, fontWeight: 600, letterSpacing: 0.5, cursor: "pointer" }}>
           Sign in
         </button>
       </SignInButton>
@@ -181,6 +182,22 @@ function SignInPrompt() {
 export default function BuildPage() {
   const activeTeacherId = getActiveTeacherId();
   const isBlankTeacher = activeTeacherId !== DEFAULT_TEACHER_ID;
+
+  // Same theming as the real board (see WebsterGrovesChemistry.jsx) — Build
+  // renders outside the iframe, so it needs its own profile fetch rather
+  // than inheriting the embedded board's CSS vars.
+  const [teacherProfile, setTeacherProfile] = useState(null);
+  useEffect(() => {
+    if (!isBlankTeacher) return;
+    let cancelled = false;
+    fetchProfile(activeTeacherId)
+      .then(p => { if (!cancelled) setTeacherProfile(p); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [isBlankTeacher, activeTeacherId]);
+  const themeVars = isBlankTeacher
+    ? boardThemeVars(teacherProfile?.primaryColor, teacherProfile?.secondaryColor)
+    : boardThemeVars();
 
   const iframeRef = useRef(null);
   const [selected, setSelected] = useState(null);
@@ -231,11 +248,11 @@ export default function BuildPage() {
   );
 
   return (
-    <div style={{ minHeight: "100vh", background: "#141414", fontFamily: "Lato, sans-serif" }}>
-      <div style={{ background: "#1a1a1a", borderBottom: "3px solid #E87722", padding: "14px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+    <div style={{ ...themeVars, minHeight: "100vh", background: "#141414", fontFamily: "Lato, sans-serif" }}>
+      <div style={{ background: "var(--board-primary)", borderBottom: "3px solid var(--board-secondary)", padding: "14px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
         <div>
           <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 20, color: "#fff", letterSpacing: 1 }}>
-            🛠 Build {isBlankTeacher && <span style={{ color: "#E87722" }}>— teacher: "{activeTeacherId}"</span>}
+            🛠 Build {isBlankTeacher && <span style={{ color: "var(--board-secondary)" }}>— teacher: "{activeTeacherId}"</span>}
           </div>
           <div style={{ fontSize: 12, color: "rgba(255,255,255,0.45)", marginTop: 2, maxWidth: 640 }}>
             This is your actual board — click a "+" to add a calendar, slides, or an assignment right where it will show up, or use the panel on the right to change how the board looks. Changes save immediately and show up next time the real board tab loads. This page itself is never meant to be projected in class.
@@ -255,14 +272,14 @@ export default function BuildPage() {
               </SignedIn>
               <SignedOut>
                 <SignInButton mode="modal">
-                  <button style={{ background: "transparent", color: "#E87722", border: "1px solid #E87722", borderRadius: 6, padding: "6px 14px", fontFamily: "Oswald, sans-serif", fontSize: 12, textTransform: "uppercase", letterSpacing: 0.5, cursor: "pointer" }}>
+                  <button style={{ background: "transparent", color: "var(--board-secondary)", border: "1px solid var(--board-secondary)", borderRadius: 6, padding: "6px 14px", fontFamily: "Oswald, sans-serif", fontSize: 12, textTransform: "uppercase", letterSpacing: 0.5, cursor: "pointer" }}>
                     Sign in
                   </button>
                 </SignInButton>
               </SignedOut>
             </>
           )}
-          <a href={backHref} style={{ color: "#E87722", fontFamily: "Oswald, sans-serif", fontSize: 13, textTransform: "uppercase", letterSpacing: 0.5, textDecoration: "none", flexShrink: 0 }}>
+          <a href={backHref} style={{ color: "var(--board-secondary)", fontFamily: "Oswald, sans-serif", fontSize: 13, textTransform: "uppercase", letterSpacing: 0.5, textDecoration: "none", flexShrink: 0 }}>
             ← Back to board
           </a>
         </div>
