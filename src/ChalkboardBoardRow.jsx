@@ -106,6 +106,13 @@ export default function ChalkboardBoardRow({
   // Goals off while keeping Sliding Boards + the other Full Agenda fields
   // on, in which case each panel should show only extraContent.
   showGoals = true,
+  // When true, Learning Goals is being authored by the teacher as a
+  // freeform itemized field (see useEditableLearningGoals in
+  // WebsterGrovesChemistry.jsx) rather than rendered from real
+  // curriculum goals -- in that case it's handled entirely by the
+  // caller's `extraContent` (same as the four Full Agenda fields),
+  // not this component's own goals-checklist rendering below.
+  learningGoalsEditable = false,
   // Which order the Learning Goals checklist and the four Full Agenda
   // fields render in on each panel face — the same
   // BOARD_CONTENT_ORDER_STORAGE_KEY/useBoardContentOrder value the flat
@@ -469,13 +476,15 @@ export default function ChalkboardBoardRow({
                     return contentOrder.map((key) => {
                     const dividerStyle = renderedCount > 0 ? { marginTop: 4, paddingTop: 8, borderTop: "1px solid rgba(255,255,255,0.12)" } : undefined;
 
-                    if (key === "learningGoals") {
+                    if (key === "learningGoals" && !learningGoalsEditable) {
                       // A board can legitimately have zero goals now that
                       // the board count is fixed rather than goal-driven
                       // (see buildSlidingPanels in boardConfig.js) — skip
                       // the header entirely rather than showing "Learning
                       // Goals" over an empty list, so a blank board reads
-                      // as blank, not broken.
+                      // as blank, not broken. When learningGoalsEditable is
+                      // true this branch is skipped entirely and the key
+                      // falls through to extraContent below instead.
                       if (!showGoals || panel.goals.length === 0) return null;
                       renderedCount++;
                       return (

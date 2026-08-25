@@ -8,8 +8,9 @@
 // `storage` event (see useScopedSetting below) — no backend needed for
 // two tabs to stay in sync.
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useUser } from "@clerk/clerk-react";
+import { fetchBoardSettings, saveBoardSetting } from "./lib/boardSettingsApi";
 
 // Real identity now exists (Clerk — see main.jsx's <ClerkProvider> and
 // useSyncAuthIdentity below), but the placeholder scheme this replaces
@@ -493,7 +494,11 @@ export const SLIDING_BOARDS_ENABLED_KEY = "slidingBoardsEnabled";
 export const DEFAULT_SLIDING_BOARDS_ENABLED = "false";
 export const SLIDING_BOARDS_COUNT_KEY = "slidingBoardsCount";
 export const DEFAULT_SLIDING_BOARDS_COUNT = "3";
-export const SLIDING_BOARDS_COUNT_OPTIONS = ["2", "3", "4", "5"];
+// "1" is the unified stand-in for "off" (a single flat board, no
+// sliding) in the Board Content settings UI (see BoardSettingsPanel
+// .jsx) -- there is no separate on/off toggle anymore, just a single
+// Number of Boards control; picking 1 board IS off.
+export const SLIDING_BOARDS_COUNT_OPTIONS = ["1", "2", "3", "4", "5"];
 
 // Splits a flat goalItems list (each { text, panelKey, idx }, see the
 // goalItems derivation in WebsterGrovesChemistry.jsx's App()) into N
@@ -576,8 +581,18 @@ export function surfaceColors(boardSurfaceKey) {
 // browser's `storage` event fires in every other same-origin tab
 // whenever localStorage is written (never in the tab that wrote it),
 // so each tab just listens for the one key it cares about.
+//
+// Also mirrors to Mongo (api/boardSettings.js) now, same dual-write shape
+// as useFullAgendaFields/checkedGoals: localStorage stays the first,
+// synchronous write (and the only one a fresh page load reads from before
+// the remote fetch below resolves), Mongo is purely additive on top so a
+// teacher's board still looks right on a different device or after a
+// cleared cache. One shared per-teacher fetch (see
+// getRemoteBoardSettingsOnce below) backs every useScopedSetting call on
+// the page, so ~10 settings don't turn into ~10 GET requests.
 export function useScopedSetting(storageKeyName, defaultValue, isValid) {
   const key = scopedKey(storageKeyName);
+  const teacherId = getActiveTeacherId();
 
   const read = useCallback(() => {
     if (typeof window === "undefined") return defaultValue;
@@ -586,11 +601,20 @@ export function useScopedSetting(storageKeyName, defaultValue, isValid) {
   }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [value, setValue] = useState(read);
+  // Gates the Mongo write-through below until the one-time remote fetch
+  // has had a chance to run — otherwise a fresh mount's first render
+  // (local default or stale localStorage) would immediately overwrite
+  // whatever a different device already saved, before remote data ever
+  // gets a chance to merge in.
+  const hasLoadedRemote = useRef(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     try { window.localStorage.setItem(key, value); } catch { /* ignore */ }
-  }, [key, value]);
+    if (hasLoadedRemote.current) {
+      saveBoardSetting(teacherId, storageKeyName, value).catch(() => {});
+    }
+  }, [key, value]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const handler = (e) => {
@@ -601,5 +625,35 @@ export function useScopedSetting(storageKeyName, defaultValue, isValid) {
     return () => window.removeEventListener("storage", handler);
   }, [key, isValid]);
 
+  useEffect(() => {
+    let cancelled = false;
+    getRemoteBoardSettingsOnce(teacherId)
+      .then((remote) => {
+        if (cancelled) return;
+        const remoteValue = remote ? remote[storageKeyName] : null;
+        if (typeof remoteValue === "string" && (!isValid || isValid(remoteValue))) {
+          setValue(remoteValue);
+        }
+      })
+      .finally(() => { if (!cancelled) hasLoadedRemote.current = true; });
+    return () => { cancelled = true; };
+  }, [teacherId, storageKeyName]); // eslint-disable-line react-hooks/exhaustive-deps
+
   return [value, setValue];
+}
+
+// One in-flight/resolved fetch per teacherId, shared across every
+// useScopedSetting instance mounted at the same time (a page can easily
+// have 10+ of them) — without this, each would fire its own identical GET
+// to /api/boardSettings on mount. Deliberately module-level (not a React
+// cache) since this data isn't component-scoped; cleared implicitly on a
+// full page reload, which is fine — a stale in-memory copy only matters
+// within one page's lifetime, and localStorage/the `storage` event still
+// handle same-session cross-tab sync same as before.
+const boardSettingsFetchCache = new Map();
+function getRemoteBoardSettingsOnce(teacherId) {
+  if (!boardSettingsFetchCache.has(teacherId)) {
+    boardSettingsFetchCache.set(teacherId, fetchBoardSettings(teacherId).catch(() => null));
+  }
+  return boardSettingsFetchCache.get(teacherId);
 }

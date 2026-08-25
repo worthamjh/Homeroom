@@ -57,6 +57,7 @@ export function defaultFullAgendaContent() {
     agenda: "Per. 1 - \nPer. 2 - \nPer. 3 - \nPer. 4 - ",
     bellRinger: "",
     homeLearning: "",
+    learningGoals: "",
   };
 }
 
@@ -88,6 +89,20 @@ function loadAgendaChecked(storageKey) {
   }
 }
 
+// Same idea as agendaCheckedKey/loadAgendaChecked above, but for the
+// editable Learning Goals field (see FULL_AGENDA_FIELD_META below) -- a
+// teacher-authored goals list gets the same per-line checkbox treatment
+// Agenda already has, tracked independently of the goals text itself.
+function learningGoalsCheckedKey(storageKey) { return `${storageKey}:learningGoalsChecked`; }
+function loadLearningGoalsChecked(storageKey) {
+  if (typeof window === "undefined") return {};
+  try {
+    return JSON.parse(window.localStorage.getItem(learningGoalsCheckedKey(storageKey))) || {};
+  } catch {
+    return {};
+  }
+}
+
 const DEFAULT_SURFACE = { accent: "var(--board-secondary-accent)", headerText: "var(--board-secondary-accent)", bodyText: "rgba(255,255,255,0.88)", bodyTextChecked: "rgba(255,255,255,0.3)", placeholderText: "rgba(255,255,255,0.4)", dividerBorder: "rgba(255,255,255,0.2)", textShadow: "1px 1px 2px rgba(0,0,0,0.5)", checkboxBorder: "rgba(255,255,255,0.4)" };
 
 // Single source of truth for Full Agenda's freeform field content. Call
@@ -110,6 +125,7 @@ export function useFullAgendaFields(storageKey, mongoKey) {
   const [content, setContent] = useState(() => loadContent(storageKey));
   const [editingKey, setEditingKey] = useState(null);
   const [checkedAgendaLines, setCheckedAgendaLines] = useState(() => loadAgendaChecked(storageKey));
+  const [checkedLearningGoalsLines, setCheckedLearningGoalsLines] = useState(() => loadLearningGoalsChecked(storageKey));
 
   // Reload (keeping any prior edits for *this* lesson) whenever the
   // storage key changes — i.e. the teacher navigated to a different lesson.
@@ -117,6 +133,7 @@ export function useFullAgendaFields(storageKey, mongoKey) {
     setContent(loadContent(storageKey));
     setEditingKey(null);
     setCheckedAgendaLines(loadAgendaChecked(storageKey));
+    setCheckedLearningGoalsLines(loadLearningGoalsChecked(storageKey));
   }, [storageKey]);
 
   useEffect(() => {
@@ -125,9 +142,10 @@ export function useFullAgendaFields(storageKey, mongoKey) {
     fetchBoardContent(mongoKey.teacherId, mongoKey.unitIdx, mongoKey.lessonTitle)
       .then(remote => {
         if (cancelled || !remote) return;
-        const { checkedAgendaLines: remoteChecked, ...remoteText } = remote;
+        const { checkedAgendaLines: remoteChecked, checkedLearningGoalsLines: remoteGoalsChecked, ...remoteText } = remote;
         if (Object.keys(remoteText).length) setContent(prev => ({ ...prev, ...remoteText }));
         if (remoteChecked && Object.keys(remoteChecked).length) setCheckedAgendaLines(prev => ({ ...prev, ...remoteChecked }));
+        if (remoteGoalsChecked && Object.keys(remoteGoalsChecked).length) setCheckedLearningGoalsLines(prev => ({ ...prev, ...remoteGoalsChecked }));
       })
       .catch(() => {}); // no saved data yet, or a transient error — this browser's own cache stands
     return () => { cancelled = true; };
@@ -160,22 +178,36 @@ export function useFullAgendaFields(storageKey, mongoKey) {
     });
   };
 
+  // Same as toggleAgendaLine, for the editable Learning Goals field.
+  const toggleLearningGoalsLine = (lineIdx) => {
+    setCheckedLearningGoalsLines(prev => {
+      const next = { ...prev, [lineIdx]: !prev[lineIdx] };
+      if (typeof window !== "undefined") {
+        try { window.localStorage.setItem(learningGoalsCheckedKey(storageKey), JSON.stringify(next)); } catch { /* ignore */ }
+      }
+      if (mongoKey) saveBoardContent(mongoKey.teacherId, mongoKey.unitIdx, mongoKey.lessonTitle, { checkedLearningGoalsLines: next }).catch(() => {});
+      return next;
+    });
+  };
+
   const resetToDefaults = () => {
     if (typeof window !== "undefined" && !window.confirm("Reset this board back to the default template for this lesson? Your edits will be lost.")) return;
     const fresh = defaultFullAgendaContent();
     setContent(fresh);
     setEditingKey(null);
     setCheckedAgendaLines({});
+    setCheckedLearningGoalsLines({});
     if (typeof window !== "undefined") {
       try {
         window.localStorage.removeItem(storageKey);
         window.localStorage.removeItem(agendaCheckedKey(storageKey));
+        window.localStorage.removeItem(learningGoalsCheckedKey(storageKey));
       } catch { /* ignore */ }
     }
     if (mongoKey) deleteBoardContent(mongoKey.teacherId, mongoKey.unitIdx, mongoKey.lessonTitle).catch(() => {});
   };
 
-  return { content, editingKey, setEditingKey, save, resetToDefaults, checkedAgendaLines, toggleAgendaLine };
+  return { content, editingKey, setEditingKey, save, resetToDefaults, checkedAgendaLines, toggleAgendaLine, checkedLearningGoalsLines, toggleLearningGoalsLine };
 }
 
 // The one header style shared by EVERY board content section — Essential
@@ -206,6 +238,12 @@ export const FULL_AGENDA_FIELD_META = {
   agenda: { label: "Agenda", placeholder: "Click to add the agenda by period...", rows: 5, itemized: true },
   bellRinger: { label: "Bell Ringer", placeholder: "Click to add a bell ringer / warm-up...", rows: 2 },
   homeLearning: { label: "Home Learning", placeholder: "Click to add homework / home learning...", rows: 2 },
+  // Editable Learning Goals -- for lessons with no curriculum-authored
+  // goals at all (see useEditableLearningGoals in WebsterGrovesChemistry
+  // .jsx), a teacher can type their own goals list here instead of the
+  // read-only ObjectivesChecklist, one goal per line, itemized the same
+  // way Agenda is so each line gets its own checkbox.
+  learningGoals: { label: "Learning Goals", placeholder: "Click to add learning goals -- one per line...", rows: 4, itemized: true },
 };
 
 // One section = a header + a body that's either rendered text (bulleted,

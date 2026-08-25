@@ -173,6 +173,20 @@ export default function BoardSettingsPanel({ selected, onSelect, panelCountInfo 
   const [slidingBoardsCount, setSlidingBoardsCount] = useScopedSetting(SLIDING_BOARDS_COUNT_KEY, DEFAULT_SLIDING_BOARDS_COUNT, k => /^[2-9]$/.test(k));
 
   const slidingOn = slidingBoardsEnabled === "true";
+  // Number of Boards is a single 1-5 control now, not a separate
+  // on/off toggle plus a 2-5 count -- 1 board IS "off" (see
+  // SLIDING_BOARDS_COUNT_OPTIONS in boardConfig.js). Internally this
+  // still writes to the same two scoped settings for backward
+  // compatibility with anything already stored.
+  const displayedBoardCount = slidingOn ? slidingBoardsCount : "1";
+  const setBoardCount = (n) => {
+    if (n === "1") {
+      setSlidingBoardsEnabled("false");
+    } else {
+      setSlidingBoardsCount(n);
+      setSlidingBoardsEnabled("true");
+    }
+  };
 
   const selectWallType = (typeId) => {
     setWallTypeKey(typeId);
@@ -283,35 +297,28 @@ export default function BoardSettingsPanel({ selected, onSelect, panelCountInfo 
                     <RadioRow key={s.id} selected={boardSurfaceKey === s.id} onClick={() => setBoardSurfaceKey(s.id)} label={s.label} />
                   ))}
 
-                  <SectionHeading>Sliding Boards</SectionHeading>
-                  <RadioRow selected={!slidingOn} onClick={() => setSlidingBoardsEnabled("false")} label="Off (single flat board)" />
-                  <RadioRow selected={slidingOn} onClick={() => setSlidingBoardsEnabled("true")} label="On (multiple sliding panels)" />
-
-                  {slidingOn && (
-                    <>
-                      <SectionHeading>Number of Boards</SectionHeading>
-                      <div style={{ display: "flex", gap: 8, padding: "4px 14px 10px", flexWrap: "wrap" }}>
-                        {SLIDING_BOARDS_COUNT_OPTIONS.map(n => (
-                          <button
-                            key={n}
-                            onClick={() => setSlidingBoardsCount(n)}
-                            style={{
-                              width: 34, height: 34, borderRadius: "50%",
-                              border: `2px solid ${slidingBoardsCount === n ? "var(--board-secondary)" : "rgba(255,255,255,0.3)"}`,
-                              background: slidingBoardsCount === n ? "var(--board-secondary)" : "transparent",
-                              color: slidingBoardsCount === n ? "var(--board-secondary-fg)" : "#ccc",
-                              fontFamily: "Oswald, sans-serif", fontWeight: 700, fontSize: 14, cursor: "pointer",
-                            }}
-                          >
-                            {n}
-                          </button>
-                        ))}
-                      </div>
-                      <div style={{ padding: "0 14px 4px", fontFamily: "Lato, sans-serif", fontSize: 11, color: "rgba(255,255,255,0.4)", lineHeight: 1.4 }}>
-                        Applies to lessons that don't already define their own boards (Unit 10's Testing lessons keep their own board count). This is a fixed count — you'll always get exactly this many boards, even if a lesson has fewer learning goals than that (the extra boards are simply blank, or carry only whatever else is turned on in Board Content) or Learning Goals is toggled off entirely.
-                      </div>
-                    </>
-                  )}
+                  <SectionHeading>Number of Boards</SectionHeading>
+                  <div style={{ display: "flex", gap: 8, padding: "4px 14px 10px", flexWrap: "wrap" }}>
+                    {SLIDING_BOARDS_COUNT_OPTIONS.map(n => (
+                      <button
+                        key={n}
+                        onClick={() => setBoardCount(n)}
+                        title={n === "1" ? "1 board (a single flat board, no sliding)" : `${n} sliding boards`}
+                        style={{
+                          width: 34, height: 34, borderRadius: "50%",
+                          border: `2px solid ${displayedBoardCount === n ? "var(--board-secondary)" : "rgba(255,255,255,0.3)"}`,
+                          background: displayedBoardCount === n ? "var(--board-secondary)" : "transparent",
+                          color: displayedBoardCount === n ? "var(--board-secondary-fg)" : "#ccc",
+                          fontFamily: "Oswald, sans-serif", fontWeight: 700, fontSize: 14, cursor: "pointer",
+                        }}
+                      >
+                        {n}
+                      </button>
+                    ))}
+                  </div>
+                  <div style={{ padding: "0 14px 4px", fontFamily: "Lato, sans-serif", fontSize: 11, color: "rgba(255,255,255,0.4)", lineHeight: 1.4 }}>
+                    1 board is a single flat board — no sliding. 2-5 boards slide, one at a time, on the classic rail-and-handle mechanic. Applies to lessons that don't already define their own boards (Unit 10's Testing lessons keep their own board count). This is a fixed count — you'll always get exactly this many boards, even if a lesson has fewer learning goals than that (the extra boards are simply blank, or carry only whatever else is turned on in Board Content) or Learning Goals is toggled off entirely.
+                  </div>
                 </>
               )}
             </div>

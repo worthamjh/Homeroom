@@ -1884,28 +1884,41 @@ export default function App() {
         : (activeLesson.goals || []).map((text, idx) => ({ text, panelKey: activeLesson.title, idx })))
     : [];
 
+  // True when this lesson has no curriculum-authored Learning Goals at
+  // all (no goalPanels, no goals array) — i.e. every blank-shell lesson
+  // a non-DEFAULT_TEACHER_ID teacher sees, plus any real lesson nobody
+  // has filled in goals for yet. For these, Learning Goals switches from
+  // the read-only ObjectivesChecklist to the same click-to-edit,
+  // itemized-checkbox field Agenda already has (see EditableField /
+  // FULL_AGENDA_FIELD_META in FullAgendaBoard.jsx) — a teacher can type
+  // their own goals instead of the section just sitting empty forever.
+  // Lessons with real curriculum goals keep the checklist unchanged.
+  const useEditableLearningGoals = !isOverview && !!activeLesson && !activeLesson.goalPanels && (!activeLesson.goals || activeLesson.goals.length === 0);
+
+  // Whether ChalkboardBoardRow needs an extraContent/renderReset callback
+  // at all — either one of the four Full Agenda freeform fields is on,
+  // or Learning Goals itself is going through the editable-field path
+  // (in which case it also needs to render via extraContent rather than
+  // ChalkboardBoardRow's built-in goals-checklist rendering).
+  const anyExtraContentOn = anyFullAgendaFieldOn || (useEditableLearningGoals && learningGoalsIsOn);
+
   // The actual set of boards ChalkboardBoardRow will render for the
   // current lesson — computed once here (rather than inline at the call
   // site below) so preview mode can also report its *length* back to
-  // Settings. That length can legitimately be smaller than the Sliding
-  // Boards Count setting: buildSlidingPanels round-robins goals into that
-  // many buckets and then drops any that end up empty, so a lesson with
-  // only 3 goals produces at most 3 boards no matter how high the count
-  // is set — asking for 5 boards to share 3 goals doesn't invent 2 blank
-  // ones. Without surfacing that, picking 4 or 5 on a lesson like that
-  // looks like the setting silently stopped working.
-  // When Learning Goals is toggled off, auto-splitting into N panels no
-  // longer means anything for a lesson that doesn't author its own
-  // goalPanels — buildSlidingPanels exists purely to divide up the goals
-  // list, and with the checklist hidden there's nothing left to divide.
-  // Force a single panel in that case so the board doesn't show N empty
-  // sliding boards; Unit 10's curriculum-authored goalPanels lessons keep
-  // their real multi-panel layout regardless, since those panels aren't
-  // goals-driven splitting in the first place.
+  // Settings. Always exactly the Number of Boards setting
+  // (buildSlidingPanels in boardConfig.js always returns exactly that
+  // many panels now, goals or no goals — see its own comment) and
+  // deliberately does NOT depend on whether Learning Goals itself is
+  // toggled on: the board count is its own independent setting (Board
+  // Content > Number of Boards), and a teacher may well want several
+  // sliding boards to hold Agenda/Bell Ringer/Home Learning content even
+  // with Learning Goals switched off. The one exception is a lesson that
+  // authors its own explicit goalPanels (Unit 10's Testing lessons),
+  // which keeps its real multi-panel layout regardless of the setting.
   const slidingPanelsForLesson = (!isOverview && activeLesson)
     ? (activeLesson.goalPanels
         ? toGoalPanels(activeLesson)
-        : (learningGoalsIsOn ? buildSlidingPanels(goalItems, slidingCount) : buildSlidingPanels(goalItems, 1)))
+        : buildSlidingPanels(goalItems, slidingCount))
     : [];
 
   // Preview- and Build-mode: tell Settings (or Build's own merged
@@ -2052,7 +2065,8 @@ export default function App() {
                   SmartBoard={SmartBoard}
                   arrangement={arrangement}
                   surface={surface}
-                  showGoals={learningGoalsIsOn}
+                  showGoals={learningGoalsIsOn && !useEditableLearningGoals}
+                  learningGoalsEditable={useEditableLearningGoals}
                   goalsLabel={anyFullAgendaFieldOn ? "Objectives & Benchmarks" : "Learning Goals"}
                   goalsHeaderColor={anyFullAgendaFieldOn ? surface.accent : surface.headerText}
                   // Same boardContentOrder the flat (non-sliding) column
@@ -2063,10 +2077,27 @@ export default function App() {
                   // Ringer/Home Learning always rendering in one fixed
                   // sequence regardless of what's been dragged where.
                   contentOrder={boardContentOrder}
-                  renderReset={anyFullAgendaFieldOn ? (isFront) => (
+                  renderReset={anyExtraContentOn ? (isFront) => (
                     <ResetBoardButton onReset={fullAgendaFields.resetToDefaults} surface={surface} interactive={isFront} />
                   ) : null}
-                  extraContent={anyFullAgendaFieldOn ? (key, isFront) => {
+                  extraContent={anyExtraContentOn ? (key, isFront) => {
+                    if (key === "learningGoals") {
+                      if (!useEditableLearningGoals || !learningGoalsIsOn) return null;
+                      return (
+                        <EditableField
+                          key={key}
+                          fieldKey="learningGoals"
+                          content={fullAgendaFields.content}
+                          editingKey={fullAgendaFields.editingKey}
+                          onStartEdit={fullAgendaFields.setEditingKey}
+                          onSave={fullAgendaFields.save}
+                          surface={surface}
+                          interactive={isFront}
+                          checkedLines={fullAgendaFields.checkedLearningGoalsLines}
+                          onToggleLine={fullAgendaFields.toggleLearningGoalsLine}
+                        />
+                      );
+                    }
                     const isOnByKey = { essentialQuestion: essentialQuestionIsOn, agenda: agendaIsOn, bellRinger: bellRingerIsOn, homeLearning: homeLearningIsOn };
                     if (!isOnByKey[key]) return null;
                     return (
@@ -2192,12 +2223,28 @@ export default function App() {
                       // front, rather than tied to wherever the first
                       // freeform field happens to land in the order.
                       <>
-                        {anyFullAgendaFieldOn && (
+                        {anyExtraContentOn && (
                           <ResetBoardButton onReset={fullAgendaFields.resetToDefaults} surface={surface} />
                         )}
                         {boardContentOrder.map(key => {
                           if (key === "learningGoals") {
-                            return learningGoalsIsOn ? (
+                            if (!learningGoalsIsOn) return null;
+                            if (useEditableLearningGoals) {
+                              return (
+                                <EditableField
+                                  key={key}
+                                  fieldKey="learningGoals"
+                                  content={fullAgendaFields.content}
+                                  editingKey={fullAgendaFields.editingKey}
+                                  onStartEdit={fullAgendaFields.setEditingKey}
+                                  onSave={fullAgendaFields.save}
+                                  surface={surface}
+                                  checkedLines={fullAgendaFields.checkedLearningGoalsLines}
+                                  onToggleLine={fullAgendaFields.toggleLearningGoalsLine}
+                                />
+                              );
+                            }
+                            return (
                               <ObjectivesChecklist
                                 key={key}
                                 goalItems={goalItems}
@@ -2206,7 +2253,7 @@ export default function App() {
                                 surface={surface}
                                 label={anyFullAgendaFieldOn ? "Objectives & Benchmarks" : "Learning Goals"}
                               />
-                            ) : null;
+                            );
                           }
                           const isOnByKey = { essentialQuestion: essentialQuestionIsOn, agenda: agendaIsOn, bellRinger: bellRingerIsOn, homeLearning: homeLearningIsOn };
                           if (!isOnByKey[key]) return null;
