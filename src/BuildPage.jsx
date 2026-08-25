@@ -26,7 +26,7 @@ import BoardSettingsPanel from "./BoardSettingsPanel";
  * The fix borrows Settings' own trick: rather than reimplementing the
  * board a second time as a form, this embeds the REAL board (the same
  * WebsterGrovesChemistry component tree Settings previews) live in an
- * iframe on "/?build=1" — bigger here than Settings' preview, since this
+ * iframe on "/board?build=1" — bigger here than Settings' preview, since this
  * is the whole page rather than half of it, but the same scaled-to-fit
  * technique. The one real difference from Settings' preview: this iframe
  * is fully interactive. Every empty content spot (calendar, a lesson's
@@ -124,7 +124,7 @@ function LiveBuildBoard({ teacherId, highlightRegion, onPanelCountInfo, onViewCh
   // directly always lands on the right identity even in a fresh tab that
   // hasn't inherited localStorage yet (shouldn't happen same-origin, but
   // costs nothing to be explicit).
-  const src = `/?build=1&teacher=${encodeURIComponent(teacherId)}`;
+  const src = `/board?build=1&teacher=${encodeURIComponent(teacherId)}`;
 
   return (
     <div
@@ -202,7 +202,7 @@ export default function BuildPage() {
       if (currentView.lessonTitle) params.set("lesson", currentView.lessonTitle);
     }
     const qs = params.toString();
-    return qs ? `/?${qs}` : "/";
+    return qs ? `/board?${qs}` : "/board";
   })();
 
   // The board + its own "not built yet" footnote, as one unit — reused

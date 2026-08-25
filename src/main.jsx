@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { ClerkProvider } from '@clerk/clerk-react'
 import './index.css'
 import App from './App.jsx'
+import LandingPage from './LandingPage.jsx'
 import SettingsPage from './SettingsPage.jsx'
 import BuildPage from './BuildPage.jsx'
 import { useSyncAuthIdentity, CLERK_CONFIGURED } from './boardConfig.js'
@@ -30,7 +31,20 @@ const routedApp = (
         conditional hook call. */}
     {CLERK_CONFIGURED && <AuthIdentitySync />}
     <Routes>
-      <Route path="/" element={<App />} />
+      {/* The real front door — was <App /> (the board) directly until the
+          2026-08-25 login pass gave Homeroom actual accounts worth a real
+          landing page for. See LandingPage.jsx: signed-out visitors get a
+          hero + Sign In/Up (or a link to the public demo below); a
+          freshly-signed-in teacher with no profile yet gets a short
+          onboarding form; everyone else gets redirected straight to
+          /board. */}
+      <Route path="/" element={<LandingPage />} />
+      {/* The actual teaching board — Webster Groves' real content when
+          signed out (the public, link-shareable pitch-demo path, exactly
+          what "/" used to show directly), or a signed-in teacher's own
+          blank-shell board once they're past onboarding. Also embedded
+          live via iframe by BuildPage.jsx (?build=1) — see the src there. */}
+      <Route path="/board" element={<App />} />
       {/* Opened in its own browser tab from the board's gear icon (see
           TopBar in WebsterGrovesChemistry.jsx) — a real, bookmarkable
           /settings URL rather than an in-app modal, so a teacher can
