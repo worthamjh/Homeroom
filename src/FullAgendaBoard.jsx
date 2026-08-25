@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { fetchBoardContent, saveBoardContent, deleteBoardContent } from "./lib/boardContentApi";
 
 /**
@@ -235,7 +235,7 @@ export const FULL_AGENDA_FIELD_META = {
   // Section below) instead of rendering as a single block of text — Jay's
   // ask: agenda items should be individually clickable to check off, and
   // the text itself shouldn't be selectable the way a plain paragraph is.
-  agenda: { label: "Agenda", placeholder: "Click to add the agenda by period...", rows: 5, itemized: true },
+  agenda: { label: "Agenda", placeholder: "Add an agenda item...", rows: 5, itemized: true },
   bellRinger: { label: "Bell Ringer", placeholder: "Click to add a bell ringer / warm-up...", rows: 2 },
   homeLearning: { label: "Home Learning", placeholder: "Click to add homework / home learning...", rows: 2 },
   // Editable Learning Goals -- for lessons with no curriculum-authored
@@ -243,7 +243,7 @@ export const FULL_AGENDA_FIELD_META = {
   // .jsx), a teacher can type their own goals list here instead of the
   // read-only ObjectivesChecklist, one goal per line, itemized the same
   // way Agenda is so each line gets its own checkbox.
-  learningGoals: { label: "Learning Goals", placeholder: "Click to add learning goals -- one per line...", rows: 4, itemized: true },
+  learningGoals: { label: "Learning Goals", placeholder: "Add a learning goal...", rows: 4, itemized: true },
 };
 
 // One section = a header + a body that's either rendered text (bulleted,
@@ -259,6 +259,10 @@ export const FULL_AGENDA_FIELD_META = {
 // itself. Each row uses userSelect: "none" so clicking to check something
 // off doesn't drag-select the text the way clicking plain paragraph text
 // would.
+function splitGoalLines(raw) {
+  return (raw || "").split("\n").filter(l => l.trim().length > 0);
+}
+
 function Section({ label, value, placeholder, editing, onStartEdit, onSave, rows = 3, minHeight, surface, itemized, checkedLines, onToggleLine }) {
   const ref = useRef(null);
   const [draft, setDraft] = useState(value);
@@ -274,12 +278,192 @@ function Section({ label, value, placeholder, editing, onStartEdit, onSave, rows
     }
   }, [editing]);
 
+  // --- Itemized (Google-Keep-style checklist) editing --------------------
+  // Agenda and Learning Goals no longer share the single big textarea at
+  // all -- each line is its own row with its own checkbox and its own
+  // auto-growing text box, so a goal that runs long just wraps under its
+  // own text (the checkbox never repeats down the wrapped lines), Enter
+  // splits off a new item at the cursor, and Backspace at the start of a
+  // line merges it back into the one above -- the same feel as Google
+  // Keep's checklist editor, which is what Jay asked to match.
+  // `onToggleLine` is only ever handed to the one
+  // interactive/front copy of a field (see EditableField and
+  // FullAgendaFields above) -- every other copy renders the plain
+  // read-only checklist below instead.
+  const editable = itemized && typeof onToggleLine === "function";
+  const [items, setItems] = useState(() => splitGoalLines(value));
+  const lastSavedRef = useRef(value);
+  const itemRefs = useRef([]);
+  const pendingFocusRef = useRef(null);
+
+  // Re-sync from an externally-changed value (Reset Board, a Mongo-synced
+  // update from another device, or a fresh lesson loading in) -- but never
+  // when the change is just this component's own last save echoing back
+  // through props, or every keystroke would fight the local item list.
+  useEffect(() => {
+    if (!itemized) return;
+    if (value === lastSavedRef.current) return;
+    lastSavedRef.current = value;
+    setItems(splitGoalLines(value));
+  }, [itemized, value]);
+
+  const persistItems = (nextItems) => {
+    const joined = nextItems.filter(t => t.trim().length > 0).join("\n");
+    lastSavedRef.current = joined;
+    onSave(joined);
+  };
+
+  const updateItems = (nextItems, focus) => {
+    setItems(nextItems);
+    persistItems(nextItems);
+    if (focus) pendingFocusRef.current = focus;
+  };
+
+  // Auto-grow every row to fit its content (including on mount, when a
+  // lesson loads with an already-long goal in it) and restore focus/caret
+  // after an Enter-split or Backspace-merge, since the row list re-renders
+  // from scratch each time.
+  useLayoutEffect(() => {
+    if (!editable) return;
+    itemRefs.current.forEach(el => {
+      if (!el) return;
+      el.style.height = "auto";
+      el.style.height = `${el.scrollHeight}px`;
+    });
+    const pending = pendingFocusRef.current;
+    if (pending) {
+      pendingFocusRef.current = null;
+      const el = itemRefs.current[pending.index];
+      if (el) {
+        el.focus();
+        const pos = pending.caret ?? el.value.length;
+        el.setSelectionRange(pos, pos);
+      }
+    }
+  }, [items, editable]);
+
+  const handleItemChange = (idx, text) => {
+    const next = items.slice();
+    next[idx] = text;
+    setItems(next);
+    persistItems(next);
+  };
+
+  const handleItemKeyDown = (idx, e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const el = e.target;
+      const before = items[idx].slice(0, el.selectionStart);
+      const after = items[idx].slice(el.selectionStart);
+      const next = items.slice();
+      next.splice(idx, 1, before, after);
+      updateItems(next, { index: idx + 1, caret: 0 });
+    } else if (e.key === "Backspace" && e.target.selectionStart === 0 && e.target.selectionEnd === 0) {
+      if (idx === 0) return; // nothing above this to merge into
+      e.preventDefault();
+      const prevText = items[idx - 1];
+      const merged = prevText + items[idx];
+      const next = items.slice();
+      next.splice(idx - 1, 2, merged);
+      updateItems(next, { index: idx - 1, caret: prevText.length });
+    }
+  };
+
+  const addItem = () => {
+    const next = [...items, ""];
+    updateItems(next, { index: next.length - 1, caret: 0 });
+  };
+
+  const removeItem = (idx) => {
+    const next = items.slice();
+    next.splice(idx, 1);
+    const focusIdx = Math.max(0, idx - 1);
+    updateItems(next, next.length ? { index: focusIdx, caret: next[focusIdx]?.length ?? 0 } : null);
+  };
+  // ------------------------------------------------------------------------
+
   const lines = (value || "").split("\n").filter(l => l.trim().length > 0);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
       <SectionHeader label={label} surface={surface} />
-      {editing ? (
+      {itemized ? (
+        editable ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            {items.map((text, idx) => {
+              const checked = !!(checkedLines && checkedLines[idx]);
+              return (
+                <div key={idx} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "3px 2px" }}>
+                  <span
+                    onClick={() => onToggleLine(idx)}
+                    style={{ width: 14, height: 14, marginTop: 5, borderRadius: 3, border: `2px solid ${checked ? surface.accent : surface.checkboxBorder}`, background: checked ? surface.accent : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: "pointer", transition: "all 0.15s" }}
+                  >
+                    {checked && <span style={{ color: "white", fontSize: 9, lineHeight: 1 }}>✓</span>}
+                  </span>
+                  <textarea
+                    ref={el => { itemRefs.current[idx] = el; }}
+                    value={text}
+                    rows={1}
+                    onChange={e => handleItemChange(idx, e.target.value)}
+                    onKeyDown={e => handleItemKeyDown(idx, e)}
+                    placeholder={idx === 0 ? placeholder : ""}
+                    style={{
+                      flex: 1, minWidth: 0, resize: "none", overflow: "hidden", border: "none", outline: "none",
+                      background: "transparent", fontFamily: "Caveat, cursive", fontSize: 17, lineHeight: 1.4,
+                      color: checked ? surface.bodyTextChecked : surface.bodyText, textShadow: surface.textShadow,
+                      textDecoration: checked ? "line-through" : "none", padding: 0, margin: 0,
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeItem(idx)}
+                    title="Remove"
+                    style={{ background: "transparent", border: "none", color: surface.placeholderText, cursor: "pointer", fontSize: 14, lineHeight: 1, padding: "2px 2px", flexShrink: 0, opacity: 0.6 }}
+                    onMouseEnter={e => { e.currentTarget.style.opacity = 1; }}
+                    onMouseLeave={e => { e.currentTarget.style.opacity = 0.6; }}
+                  >
+                    ×
+                  </button>
+                </div>
+              );
+            })}
+            <div
+              onClick={addItem}
+              style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 2px", cursor: "text", color: surface.placeholderText, fontFamily: "Caveat, cursive", fontSize: 16, fontStyle: items.length ? "normal" : "italic" }}
+              onMouseEnter={e => { e.currentTarget.style.color = surface.accent; }}
+              onMouseLeave={e => { e.currentTarget.style.color = surface.placeholderText; }}
+            >
+              <span style={{ width: 14, height: 14, borderRadius: 3, border: `2px dashed ${surface.checkboxBorder}`, flexShrink: 0 }} />
+              {items.length ? "Add item" : placeholder}
+            </div>
+          </div>
+        ) : (
+          // Read-only itemized display -- the non-front copies of a
+          // sliding-panel field, or anywhere this content shows without
+          // edit rights.
+          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            {lines.length === 0 ? (
+              <div style={{ fontFamily: "Caveat, cursive", fontSize: 17, color: surface.placeholderText, fontStyle: "italic", padding: "2px 4px" }}>
+                {placeholder}
+              </div>
+            ) : (
+              lines.map((line, li) => {
+                const checked = !!(checkedLines && checkedLines[li]);
+                return (
+                  <div key={li} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "3px 2px" }}>
+                    <span style={{ width: 14, height: 14, marginTop: 3, borderRadius: 3, border: `2px solid ${checked ? surface.accent : surface.checkboxBorder}`, background: checked ? surface.accent : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      {checked && <span style={{ color: "white", fontSize: 9, lineHeight: 1 }}>✓</span>}
+                    </span>
+                    <span style={{ fontFamily: "Caveat, cursive", fontSize: 17, lineHeight: 1.4, minWidth: 0, wordBreak: "break-word", color: checked ? surface.bodyTextChecked : surface.bodyText, textShadow: surface.textShadow, textDecoration: checked ? "line-through" : "none" }}>
+                      {line}
+                    </span>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        )
+      ) : editing ? (
         <textarea
           ref={ref}
           value={draft}
@@ -301,45 +485,6 @@ function Section({ label, value, placeholder, editing, onStartEdit, onSave, rows
             padding: 8, resize: "vertical", width: "100%", boxSizing: "border-box",
           }}
         />
-      ) : itemized && lines.length > 0 ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          {lines.map((line, li) => {
-            const checked = !!(checkedLines && checkedLines[li]);
-            return (
-              <div
-                key={li}
-                onClick={(e) => { e.stopPropagation(); onToggleLine?.(li); }}
-                style={{ display: "flex", alignItems: "flex-start", gap: 8, cursor: "pointer", padding: "3px 2px", userSelect: "none", WebkitUserSelect: "none" }}
-              >
-                <span style={{ width: 14, height: 14, marginTop: 3, borderRadius: 3, border: `2px solid ${checked ? surface.accent : surface.checkboxBorder}`, background: checked ? surface.accent : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "all 0.15s" }}>
-                  {checked && <span style={{ color: "white", fontSize: 9, lineHeight: 1 }}>✓</span>}
-                </span>
-                <span style={{
-                  fontFamily: "Caveat, cursive", fontSize: 17, lineHeight: 1.4, minWidth: 0, wordBreak: "break-word",
-                  color: checked ? surface.bodyTextChecked : surface.bodyText, textShadow: surface.textShadow,
-                  textDecoration: checked ? "line-through" : "none",
-                }}>
-                  {line}
-                </span>
-              </div>
-            );
-          })}
-          {/* A small, deliberately low-key affordance to re-open the
-              textarea — the checkbox rows above swallow clicks (via
-              stopPropagation) so checking an item off never accidentally
-              starts editing, which means the itemized view needs its own
-              explicit way back into edit mode instead of "click anywhere"
-              like the plain-text sections still use. */}
-          <div
-            onClick={onStartEdit}
-            title="Click to edit"
-            style={{ fontFamily: "Lato, sans-serif", fontSize: 10, letterSpacing: 0.5, textTransform: "uppercase", color: surface.placeholderText, cursor: "pointer", padding: "4px 2px 0" }}
-            onMouseEnter={e => { e.currentTarget.style.color = surface.accent; }}
-            onMouseLeave={e => { e.currentTarget.style.color = surface.placeholderText; }}
-          >
-            Edit
-          </div>
-        </div>
       ) : (
         <div
           onClick={onStartEdit}
