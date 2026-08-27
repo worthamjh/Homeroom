@@ -1601,6 +1601,23 @@ export default function App() {
     : resolveView(readViewFromUrlParams(), activeCurriculum);
   const [activeUnitIdx, setActiveUnitIdx] = useState(initialView.unitIdx);
   const [activeLesson, setActiveLesson] = useState(initialView.lesson);
+
+  // Blank-shell teachers fetch their curriculum async — blankUnits starts
+  // empty so the initialView above resolves against an empty curriculum and
+  // falls back to home. Once the real units load, re-resolve the saved view
+  // and jump there if we're still sitting at home (unitIdx === null).
+  useEffect(() => {
+    if (!isBlankTeacher || !(isPreviewMode || isBuildMode)) return;
+    if (blankUnits.length === 0) return; // still loading or truly empty
+    if (activeUnitIdx !== null) return;  // already navigated somewhere
+    const saved = readCurrentView();
+    if (!saved) return;
+    const view = resolveView(saved, blankUnits);
+    if (view.unitIdx !== null) {
+      setActiveUnitIdx(view.unitIdx);
+      setActiveLesson(view.lesson);
+    }
+  }, [blankUnits]); // eslint-disable-line react-hooks/exhaustive-deps
   // Only meaningful in preview mode — which category Settings currently
   // has expanded, so the matching region of the board can get the same
   // orange highlight glow the old mockup preview used to draw itself.

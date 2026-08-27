@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/clerk-react";
-import { getActiveTeacherId, DEFAULT_TEACHER_ID, CLERK_CONFIGURED, boardThemeVars, useScopedSetting, BUILD_TOUR_DONE_KEY, DEFAULT_BUILD_TOUR_DONE } from "./boardConfig";
+import { getActiveTeacherId, DEFAULT_TEACHER_ID, CLERK_CONFIGURED, boardThemeVars, useScopedSetting, BUILD_TOUR_DONE_KEY, DEFAULT_BUILD_TOUR_DONE, readCurrentView } from "./boardConfig";
 import { fetchProfile } from "./lib/profileApi";
 import BoardSettingsPanel from "./BoardSettingsPanel";
 import GuidedTour from "./GuidedTour";
@@ -229,9 +229,12 @@ export default function BuildPage() {
   const backHref = (() => {
     const params = new URLSearchParams();
     if (isBlankTeacher) params.set("teacher", activeTeacherId);
-    if (currentView && currentView.unitIdx != null) {
-      params.set("unit", String(currentView.unitIdx));
-      if (currentView.lessonTitle) params.set("lesson", currentView.lessonTitle);
+    // Fall back to localStorage if the iframe postMessage hasn't fired yet
+    // (e.g. teacher clicks Back before the iframe finishes loading).
+    const view = currentView ?? readCurrentView();
+    if (view && view.unitIdx != null) {
+      params.set("unit", String(view.unitIdx));
+      if (view.lessonTitle) params.set("lesson", view.lessonTitle);
     }
     const qs = params.toString();
     return qs ? `/board?${qs}` : "/board";
