@@ -263,7 +263,7 @@ function splitGoalLines(raw) {
   return (raw || "").split("\n").filter(l => l.trim().length > 0);
 }
 
-function Section({ label, value, placeholder, editing, onStartEdit, onSave, rows = 3, minHeight, surface, itemized, checkedLines, onToggleLine }) {
+function Section({ label, value, placeholder, editing, onStartEdit, onSave, rows = 3, minHeight, surface, itemized, checkedLines, onToggleLine, quickAddOptions }) {
   const ref = useRef(null);
   const [draft, setDraft] = useState(value);
 
@@ -369,9 +369,17 @@ function Section({ label, value, placeholder, editing, onStartEdit, onSave, rows
     }
   };
 
-  const addItem = () => {
-    const next = [...items, ""];
-    updateItems(next, { index: next.length - 1, caret: 0 });
+  // Optional `presetText` is what the Agenda's "+ Bell Ringer" / "+ Home
+  // Learning" quick-add chips below pass in — a Bell Ringer or Home
+  // Learning line, pre-filled from that field's own current content (or
+  // just its label, if that field is still empty), so a teacher who wants
+  // Bell Ringer to live as one more Agenda checklist line (Jay: "bellringer
+  // is part of the agenda... but some teachers may not use the agenda
+  // feature at all but they do use bell ringers") doesn't have to retype
+  // it. The plain "Add item" row below still calls this with no argument.
+  const addItem = (presetText = "") => {
+    const next = [...items, presetText];
+    updateItems(next, { index: next.length - 1, caret: presetText.length });
   };
 
   const removeItem = (idx) => {
@@ -428,7 +436,7 @@ function Section({ label, value, placeholder, editing, onStartEdit, onSave, rows
               );
             })}
             <div
-              onClick={addItem}
+              onClick={() => addItem()}
               // "Add item," not "type text here" — cursor: pointer (was
               // "text", copy-pasted from the freeform click-to-edit field
               // below, but that one turns into a textarea on click while
@@ -442,6 +450,32 @@ function Section({ label, value, placeholder, editing, onStartEdit, onSave, rows
               <span style={{ width: 14, height: 14, borderRadius: 3, border: `2px dashed ${surface.checkboxBorder}`, flexShrink: 0 }} />
               {items.length ? "Add item" : placeholder}
             </div>
+            {/* Agenda-only: quick-add chips that drop Bell Ringer/Home
+                Learning in as one more line of this same checklist, pulling
+                in whatever's already typed in that standalone field (or
+                just its label, to edit, if it's empty) — for teachers who
+                want Bell Ringer folded into one flat Agenda list (matching
+                Jay's Google Keep reference) instead of, or alongside, its
+                own separate board section. The standalone Bell Ringer/Home
+                Learning sections aren't removed by this — some teachers
+                skip Agenda entirely and just use those on their own. */}
+            {quickAddOptions && quickAddOptions.length > 0 && (
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", padding: "2px 2px 0" }}>
+                {quickAddOptions.map(opt => (
+                  <button
+                    key={opt.label}
+                    type="button"
+                    onClick={() => addItem(opt.value)}
+                    title={`Add ${opt.label} as an agenda item`}
+                    style={{ fontFamily: "Lato, sans-serif", fontSize: 11, letterSpacing: 0.3, color: surface.placeholderText, background: "transparent", border: `1px dashed ${surface.dividerBorder}`, borderRadius: 12, padding: "2px 10px", cursor: "pointer" }}
+                    onMouseEnter={e => { e.currentTarget.style.color = surface.accent; e.currentTarget.style.borderColor = surface.accent; }}
+                    onMouseLeave={e => { e.currentTarget.style.color = surface.placeholderText; e.currentTarget.style.borderColor = surface.dividerBorder; }}
+                  >
+                    + {opt.label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         ) : (
           // Read-only itemized display -- the non-front copies of a
@@ -586,6 +620,15 @@ export function FullAgendaFields({
   showEssentialQuestion = true, showAgenda = true, showBellRinger = true, showHomeLearning = true,
   checkedAgendaLines, onToggleAgendaLine,
 }) {
+  // Agenda's quick-add chips ("+ Bell Ringer" / "+ Home Learning") — see
+  // the comment above them in Section. Computed here (not in Section
+  // itself) since it needs the other three fields' current content, not
+  // just Agenda's own.
+  const agendaQuickAddOptions = [
+    { label: FULL_AGENDA_FIELD_META.bellRinger.label, value: (content.bellRinger || "").trim() || FULL_AGENDA_FIELD_META.bellRinger.label },
+    { label: FULL_AGENDA_FIELD_META.homeLearning.label, value: (content.homeLearning || "").trim() || FULL_AGENDA_FIELD_META.homeLearning.label },
+  ];
+
   const section = (key, label, opts = {}) => (
     <Section
       label={label}
@@ -600,6 +643,7 @@ export function FullAgendaFields({
       itemized={opts.itemized}
       checkedLines={key === "agenda" ? checkedAgendaLines : undefined}
       onToggleLine={interactive && key === "agenda" ? onToggleAgendaLine : undefined}
+      quickAddOptions={key === "agenda" ? agendaQuickAddOptions : undefined}
     />
   );
 
@@ -634,6 +678,14 @@ export function FullAgendaFields({
 export function EditableField({ fieldKey, content, editingKey, onStartEdit, onSave, surface = DEFAULT_SURFACE, interactive = true, checkedLines, onToggleLine }) {
   const meta = FULL_AGENDA_FIELD_META[fieldKey];
   if (!meta) return null;
+  // Same Agenda-only quick-add chips as FullAgendaFields' section() helper
+  // — see the comment on them in Section. This is the path the flat,
+  // reorderable board-content column (and Sliding Boards' per-panel
+  // copies) render through, so it needs its own copy of that logic.
+  const quickAddOptions = fieldKey === "agenda" ? [
+    { label: FULL_AGENDA_FIELD_META.bellRinger.label, value: (content.bellRinger || "").trim() || FULL_AGENDA_FIELD_META.bellRinger.label },
+    { label: FULL_AGENDA_FIELD_META.homeLearning.label, value: (content.homeLearning || "").trim() || FULL_AGENDA_FIELD_META.homeLearning.label },
+  ] : undefined;
   return (
     <Section
       label={meta.label}
@@ -647,6 +699,7 @@ export function EditableField({ fieldKey, content, editingKey, onStartEdit, onSa
       itemized={meta.itemized}
       checkedLines={checkedLines}
       onToggleLine={interactive ? onToggleLine : undefined}
+      quickAddOptions={quickAddOptions}
     />
   );
 }
