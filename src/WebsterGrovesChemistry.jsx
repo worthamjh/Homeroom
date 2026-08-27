@@ -1130,33 +1130,38 @@ export function AddSlidesCard(props) {
 }
 
 // Wraps an already-filled Build-mode slot (calendar, slides) with a
-// hover-revealed "Change" / "Remove" toolbar — never rendered outside
-// isBuildMode, so the real board tab never shows it. Sits on top of
-// whatever's already there (SmartBoard, an image, etc.) without changing
-// its layout.
+// "Change" / "Remove" toolbar — never rendered outside isBuildMode, so the
+// real board tab never shows it. Sits on top of whatever's already there
+// (SmartBoard, an image, etc.) without changing its layout.
+//
+// Always fully visible now, not hover-revealed — it used to fade to 55%
+// opacity outside hover, which over a dark/black slide (the common case)
+// was easy to miss entirely, reading as "there's no way to change or
+// remove this slide" (Jay: "there should be a change slides or
+// presentation button or a delete presentation"). It's Build-mode-only
+// chrome to begin with, so there's no real cost to just always showing it;
+// the pointer-events "auto" + a solid-enough background keeps it legible
+// and clickable over any slide content, and the still-present hover
+// border-highlight gives it just enough interactivity feedback.
 function BuildEditableSlot({ children, onChange, onRemove, label }) {
-  const [hovering, setHovering] = useState(false);
   const btnStyle = {
-    background: "rgba(20,20,20,0.85)", border: "1px solid rgba(255,255,255,0.3)", borderRadius: 3,
+    background: "rgba(20,20,20,0.9)", border: "1px solid rgba(255,255,255,0.4)", borderRadius: 3,
     color: "white", fontFamily: "Oswald, sans-serif", fontSize: 11, textTransform: "uppercase",
-    letterSpacing: 0.5, padding: "6px 10px", cursor: "pointer", transition: "border-color 0.15s, opacity 0.15s",
+    letterSpacing: 0.5, padding: "6px 10px", cursor: "pointer", transition: "border-color 0.15s",
+    boxShadow: "0 1px 4px rgba(0,0,0,0.5)",
   };
   return (
-    <div
-      style={{ position: "relative", width: "100%", height: "100%" }}
-      onMouseEnter={() => setHovering(true)}
-      onMouseLeave={() => setHovering(false)}
-    >
+    <div style={{ position: "relative", width: "100%", height: "100%" }}>
       {children}
-      <div style={{ position: "absolute", top: 8, right: 8, display: "flex", gap: 6, zIndex: 5, opacity: hovering ? 1 : 0.55, transition: "opacity 0.2s" }}>
+      <div style={{ position: "absolute", top: 8, right: 8, display: "flex", gap: 6, zIndex: 5, pointerEvents: "auto" }}>
         <button style={btnStyle} onClick={onChange}
           onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--board-secondary)"; }}
-          onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.3)"; }}>
+          onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.4)"; }}>
           Change
         </button>
         <button style={{ ...btnStyle, color: "#ff8a65" }} onClick={onRemove}
           onMouseEnter={e => { e.currentTarget.style.borderColor = "#ff8a65"; }}
-          onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.3)"; }}>
+          onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.4)"; }}>
           Remove
         </button>
       </div>
