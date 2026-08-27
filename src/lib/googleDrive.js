@@ -98,15 +98,12 @@ function requestAccessToken() {
   });
 }
 
-// Opens the actual Drive file browser. Two tabs, not one — a flat
-// "recent" tab (Picker's default recent/search list, scoped by
-// `viewId`/`mimeTypes`) as the tab that's actually showing when the
-// dialog opens, plus a "Browse Folders" tab for a file that isn't recent
-// and needs digging out of a unit/lesson subfolder. A single
-// folders-included view makes Picker default straight into
-// folder-drilling instead of showing anything useful first — confusing
-// for a first pick, since "browse every folder in my Drive" isn't
-// actually what most teachers want most of the time.
+// Opens the actual Drive file browser. Two tabs — a flat "recent" tab
+// (Picker's default recent/search list) as the default shown on open,
+// plus a "Browse Folders" tab that starts at the My Drive root so the
+// teacher can click through the same folder hierarchy they see in
+// Google Drive itself (Work → Webster Groves → Conceptual Chemistry, etc.)
+// rather than a flat grid of every folder across their whole Drive.
 //
 // `viewId` picks one of Picker's built-in filtered views (e.g.
 // ViewId.PRESENTATIONS); `mimeTypes`, when given, narrows a plain
@@ -122,7 +119,10 @@ function openPicker(accessToken, { viewId, mimeTypes } = {}) {
       return view;
     };
     const recentView = makeView();
-    const browseView = makeView().setIncludeFolders(true).setLabel("Browse Folders");
+    const browseView = makeView()
+      .setIncludeFolders(true)
+      .setParent("root")   // start at My Drive root so navigation is hierarchical
+      .setLabel("Browse Folders");
     const picker = new window.google.picker.PickerBuilder()
       .addView(recentView)
       .addView(browseView)
