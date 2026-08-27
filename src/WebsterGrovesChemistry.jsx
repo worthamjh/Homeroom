@@ -3,7 +3,7 @@ import ChalkboardBoardRow, { toGoalPanels } from "./ChalkboardBoardRow";
 import { useFullAgendaFields, ObjectivesChecklist, EditableField, ResetBoardButton } from "./FullAgendaBoard";
 import { fetchExtraAssignments, createExtraAssignment, deleteExtraAssignment } from "./lib/extraAssignments";
 import { uploadAssignmentPdf } from "./lib/cloudinary";
-import { googleDriveConfigured, ensureGoogleScriptsLoaded, pickGoogleSlidesEmbed } from "./lib/googleDrive";
+import { googleDriveConfigured, ensureGoogleScriptsLoaded, pickGoogleSlidesEmbed, pickGoogleDriveAssignmentFile } from "./lib/googleDrive";
 import { fetchProfile } from "./lib/profileApi";
 import { fetchCurriculum, saveCurriculum } from "./lib/curriculumApi";
 import { fetchCheckedGoals, saveCheckedGoals } from "./lib/checkedGoalsApi";
@@ -1210,6 +1210,39 @@ export function AssignmentThumb({ label, url, thumb, onRemove }) {
 export function AddAssignmentCard({ open, busy, error, onOpen, onCancel, onSubmit }) {
   const [label, setLabel] = useState("");
   const [file, setFile] = useState(null);
+  const [fileFromDrive, setFileFromDrive] = useState(false);
+  const [driveBusy, setDriveBusy] = useState(false);
+  const [driveError, setDriveError] = useState(null);
+
+  // Same reasoning as AddSlidesCard's identical effect — preload the
+  // Google scripts as soon as this card exists (not on click) so the
+  // OAuth popup a teacher triggers by clicking "Browse Google Drive"
+  // below can open synchronously within that click.
+  const driveReady = googleDriveConfigured();
+  useEffect(() => {
+    if (driveReady) ensureGoogleScriptsLoaded().catch(() => {});
+  }, [driveReady]);
+
+  const handleBrowseDrive = async () => {
+    setDriveError(null);
+    setDriveBusy(true);
+    try {
+      const result = await pickGoogleDriveAssignmentFile();
+      // null means the teacher opened the Google picker and cancelled —
+      // not an error, just nothing to do.
+      if (result) {
+        setFile(result.file);
+        setFileFromDrive(true);
+        // Only fills the name in if the teacher hasn't already typed
+        // one — never overwrites something they've already decided on.
+        setLabel(prev => prev.trim() ? prev : result.name);
+      }
+    } catch (err) {
+      setDriveError(err.message || "Something went wrong opening Google Drive.");
+    } finally {
+      setDriveBusy(false);
+    }
+  };
 
   if (!open) {
     return (
@@ -1244,11 +1277,36 @@ export function AddAssignmentCard({ open, busy, error, onOpen, onCancel, onSubmi
         disabled={busy} autoFocus
         style={{ background: "var(--board-primary)", border: "1px solid #444", borderRadius: 2, color: "var(--board-primary-fg)", fontSize: 12, padding: "6px 8px", fontFamily: "Lato, sans-serif" }}
       />
+      {driveReady && (
+        <>
+          <button
+            type="button"
+            onClick={handleBrowseDrive}
+            disabled={busy || driveBusy}
+            style={{ background: "transparent", border: "1px solid var(--board-secondary)", borderRadius: 2, color: "var(--board-secondary-accent)", fontFamily: "Oswald, sans-serif", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, padding: "8px 12px", cursor: driveBusy ? "default" : "pointer", opacity: driveBusy ? 0.6 : 1 }}
+          >
+            {driveBusy ? "Connecting to Google Drive…" : "Browse Google Drive"}
+          </button>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, color: "rgba(255,255,255,0.3)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>
+            <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.15)" }} />
+            or upload a file
+            <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.15)" }} />
+          </div>
+        </>
+      )}
       <input
         type="file" accept="application/pdf" disabled={busy}
-        onChange={e => setFile(e.target.files?.[0] || null)}
+        onChange={e => { setFile(e.target.files?.[0] || null); setFileFromDrive(false); }}
         style={{ fontSize: 11, color: "rgba(255,255,255,0.7)" }}
       />
+      {file && fileFromDrive && (
+        // Only shown for a Drive pick, not a plain file input (which
+        // already shows its own chosen filename right next to "Choose
+        // File") — confirms the download/export actually finished, since
+        // that step has no other visible feedback once driveBusy clears.
+        <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", fontStyle: "italic" }}>{file.name}</div>
+      )}
+      {driveError && <div style={{ fontSize: 11, color: "#e8a722", lineHeight: 1.4 }}>{driveError}</div>}
       {error && <div style={{ fontSize: 11, color: "#ff8a65", fontStyle: "italic" }}>{error}</div>}
       <div style={{ marginTop: "auto", display: "flex", gap: 6 }}>
         <button type="submit" disabled={busy || !label.trim() || !file}

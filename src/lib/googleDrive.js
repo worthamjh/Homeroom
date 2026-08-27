@@ -1,7 +1,8 @@
-// Google Drive Picker integration for AddSlidesCard (see
-// WebsterGrovesChemistry.jsx) — lets a teacher browse and pick a real
-// Google Slides deck from their own Drive instead of hunting down
-// File → Share → Publish to web and pasting the resulting URL by hand.
+// Google Drive Picker integration for AddSlidesCard and AddAssignmentCard
+// (see WebsterGrovesChemistry.jsx) — lets a teacher browse and pick a
+// real file from their own Drive (a Slides deck, or a PDF/Doc for an
+// assignment) instead of hunting down a share link or a local download
+// first.
 // See .env.example for the two-step Google Cloud Console setup this
 // needs (OAuth Client ID + API key) — this file is a no-op with a clear
 // error until both are set, same pattern as cloudinary.js.
@@ -97,26 +98,31 @@ function requestAccessToken() {
   });
 }
 
-// Opens the actual Drive file browser, filtered to Slides presentations
-// (both native Google Slides and, since Drive can store them too,
-// PowerPoint files) so a teacher isn't hunting through every doc/sheet in
-// their Drive to find a deck. Two tabs, not one: a flat "Presentations"
-// tab (Picker's default recent/search list, scoped to Slides) as the
-// tab that's actually showing when the dialog opens, plus a "Browse
-// Folders" tab for a deck that isn't recent and needs digging out of a
-// unit/lesson subfolder. Giving it only the folders-included view (the
-// original version of this function) makes Picker default straight into
+// Opens the actual Drive file browser. Two tabs, not one — a flat
+// "recent" tab (Picker's default recent/search list, scoped by
+// `viewId`/`mimeTypes`) as the tab that's actually showing when the
+// dialog opens, plus a "Browse Folders" tab for a file that isn't recent
+// and needs digging out of a unit/lesson subfolder. A single
+// folders-included view makes Picker default straight into
 // folder-drilling instead of showing anything useful first — confusing
 // for a first pick, since "browse every folder in my Drive" isn't
 // actually what most teachers want most of the time.
-function openPicker(accessToken) {
+//
+// `viewId` picks one of Picker's built-in filtered views (e.g.
+// ViewId.PRESENTATIONS); `mimeTypes`, when given, narrows a plain
+// ViewId.DOCS view to specific MIME types instead (used by the
+// assignment picker, which needs "PDF or Google Doc" rather than any one
+// built-in category).
+function openPicker(accessToken, { viewId, mimeTypes } = {}) {
   return new Promise((resolve) => {
-    const recentView = new window.google.picker.DocsView(window.google.picker.ViewId.PRESENTATIONS)
-      .setSelectFolderEnabled(false);
-    const browseView = new window.google.picker.DocsView(window.google.picker.ViewId.PRESENTATIONS)
-      .setIncludeFolders(true)
-      .setSelectFolderEnabled(false)
-      .setLabel("Browse Folders");
+    const makeView = () => {
+      const view = new window.google.picker.DocsView(viewId || window.google.picker.ViewId.DOCS)
+        .setSelectFolderEnabled(false);
+      if (mimeTypes) view.setMimeTypes(mimeTypes);
+      return view;
+    };
+    const recentView = makeView();
+    const browseView = makeView().setIncludeFolders(true).setLabel("Browse Folders");
     const picker = new window.google.picker.PickerBuilder()
       .addView(recentView)
       .addView(browseView)
@@ -203,7 +209,7 @@ async function publishToWeb(fileId, accessToken) {
 export async function pickGoogleSlidesEmbed() {
   await ensureGoogleScriptsLoaded();
   const accessToken = await requestAccessToken();
-  const doc = await openPicker(accessToken);
+  const doc = await openPicker(accessToken, { viewId: window.google.picker.ViewId.PRESENTATIONS });
   if (!doc) return null;
 
   let shareWarning = null;
@@ -219,4 +225,57 @@ export async function pickGoogleSlidesEmbed() {
     name: doc.name,
     shareWarning,
   };
+}
+
+// AddAssignmentCard needs actual bytes to hand to Cloudinary
+// (uploadAssignmentPdf in cloudinary.js — see its own comment on why a
+// real PDF, not a link, is what makes the page-render thumbnail work),
+// not a URL — so unlike Slides, picking a Drive file here means
+// downloading it. A real PDF already sitting in Drive downloads as-is
+// (files.get?alt=media); a native Google Doc has no raw bytes at all, so
+// it's exported to PDF instead (files.export). Deliberately scoped to
+// just those two MIME types — a raw .docx/.pptx uploaded to Drive as-is
+// has bytes but isn't something Cloudinary's page-render can reliably
+// turn into the assignment thumbnail this app expects, so rather than
+// silently hand it over and produce a broken thumbnail, the picker
+// itself never offers one to begin with.
+const ASSIGNMENT_MIME_TYPES = "application/pdf,application/vnd.google-apps.document";
+
+async function downloadAsPdfFile(doc, accessToken) {
+  const isGoogleDoc = doc.mimeType === "application/vnd.google-apps.document";
+  const url = isGoogleDoc
+    ? `https://www.googleapis.com/drive/v3/files/${doc.id}/export?mimeType=application/pdf`
+    : `https://www.googleapis.com/drive/v3/files/${doc.id}?alt=media`;
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    throw new Error(`Couldn't download "${doc.name}" from Drive (${res.status}): ${detail}`);
+  }
+  const blob = await res.blob();
+  const fileName = /\.pdf$/i.test(doc.name) ? doc.name : `${doc.name}.pdf`;
+  return new File([blob], fileName, { type: "application/pdf" });
+}
+
+/**
+ * Same shape of flow as pickGoogleSlidesEmbed, but for AddAssignmentCard:
+ * open the picker (scoped to PDFs and Google Docs — see
+ * ASSIGNMENT_MIME_TYPES), and on a real pick, download/export it into an
+ * actual `File` — the exact same type `<input type="file">` hands
+ * AddAssignmentCard already, so its existing onSubmit → uploadAssignmentPdf
+ * path needs no changes at all to accept either source.
+ *
+ * @returns {Promise<{ file: File, name: string } | null>}
+ *   null means the teacher opened the picker and cancelled/closed it —
+ *   not an error, just nothing to save. `name` is the file's Drive title
+ *   with any .pdf/.doc extension stripped, a reasonable default for the
+ *   assignment's own label field.
+ */
+export async function pickGoogleDriveAssignmentFile() {
+  await ensureGoogleScriptsLoaded();
+  const accessToken = await requestAccessToken();
+  const doc = await openPicker(accessToken, { mimeTypes: ASSIGNMENT_MIME_TYPES });
+  if (!doc) return null;
+
+  const file = await downloadAsPdfFile(doc, accessToken);
+  return { file, name: doc.name.replace(/\.(pdf|docx?|gdoc)$/i, "") };
 }

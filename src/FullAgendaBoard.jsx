@@ -54,7 +54,7 @@ import { fetchBoardContent, saveBoardContent, deleteBoardContent } from "./lib/b
 export function defaultFullAgendaContent() {
   return {
     essentialQuestion: "",
-    agenda: "Per. 1 - \nPer. 2 - \nPer. 3 - \nPer. 4 - ",
+    agenda: "",
     bellRinger: "",
     homeLearning: "",
     learningGoals: "",
