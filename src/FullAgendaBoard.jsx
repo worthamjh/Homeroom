@@ -429,7 +429,13 @@ function Section({ label, value, placeholder, editing, onStartEdit, onSave, rows
             })}
             <div
               onClick={addItem}
-              style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 2px", cursor: "text", color: surface.placeholderText, fontFamily: "Caveat, cursive", fontSize: 16, fontStyle: items.length ? "normal" : "italic" }}
+              // "Add item," not "type text here" — cursor: pointer (was
+              // "text", copy-pasted from the freeform click-to-edit field
+              // below, but that one turns into a textarea on click while
+              // this one just appends a new item and focuses it, so a
+              // hand cursor communicates it correctly instead of implying
+              // this row itself is typeable).
+              style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 2px", cursor: "pointer", color: surface.placeholderText, fontFamily: "Caveat, cursive", fontSize: 16, fontStyle: items.length ? "normal" : "italic" }}
               onMouseEnter={e => { e.currentTarget.style.color = surface.accent; }}
               onMouseLeave={e => { e.currentTarget.style.color = surface.placeholderText; }}
             >
