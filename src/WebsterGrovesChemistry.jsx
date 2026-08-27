@@ -1134,12 +1134,12 @@ export function AddSlidesCard(props) {
 // isBuildMode, so the real board tab never shows it. Sits on top of
 // whatever's already there (SmartBoard, an image, etc.) without changing
 // its layout.
-function BuildEditableSlot({ children, onChange, onRemove }) {
+function BuildEditableSlot({ children, onChange, onRemove, label }) {
   const [hovering, setHovering] = useState(false);
   const btnStyle = {
     background: "rgba(20,20,20,0.85)", border: "1px solid rgba(255,255,255,0.3)", borderRadius: 3,
     color: "white", fontFamily: "Oswald, sans-serif", fontSize: 11, textTransform: "uppercase",
-    letterSpacing: 0.5, padding: "6px 10px", cursor: "pointer",
+    letterSpacing: 0.5, padding: "6px 10px", cursor: "pointer", transition: "border-color 0.15s, opacity 0.15s",
   };
   return (
     <div
@@ -1148,20 +1148,18 @@ function BuildEditableSlot({ children, onChange, onRemove }) {
       onMouseLeave={() => setHovering(false)}
     >
       {children}
-      {hovering && (
-        <div style={{ position: "absolute", top: 8, right: 8, display: "flex", gap: 6, zIndex: 5 }}>
-          <button style={btnStyle} onClick={onChange}
-            onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--board-secondary)"; }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.3)"; }}>
-            Change
-          </button>
-          <button style={{ ...btnStyle, color: "#ff8a65" }} onClick={onRemove}
-            onMouseEnter={e => { e.currentTarget.style.borderColor = "#ff8a65"; }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.3)"; }}>
-            Remove
-          </button>
-        </div>
-      )}
+      <div style={{ position: "absolute", top: 8, right: 8, display: "flex", gap: 6, zIndex: 5, opacity: hovering ? 1 : 0.55, transition: "opacity 0.2s" }}>
+        <button style={btnStyle} onClick={onChange}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--board-secondary)"; }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.3)"; }}>
+          Change
+        </button>
+        <button style={{ ...btnStyle, color: "#ff8a65" }} onClick={onRemove}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = "#ff8a65"; }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.3)"; }}>
+          Remove
+        </button>
+      </div>
     </div>
   );
 }
