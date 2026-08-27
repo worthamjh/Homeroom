@@ -2044,6 +2044,43 @@ export default function App() {
   const boardSlides = isHome ? null : (isOverview ? (isBlankTeacher ? (calendarUrl || null) : CALENDAR_SRC) : (lessonSlidesUrl || activeLesson?.slides));
   const boardTitle = isHome ? null : (isOverview ? activeUnit.title : activeLesson?.title);
 
+  // A lesson's own slides slot (Add tile when empty, its editing form, or
+  // the filled slot with Build mode's Change/Remove toolbar) — shared by
+  // BOTH the flat (non-sliding) column's slidesNode below AND
+  // ChalkboardBoardRow's SmartBoard slot (via its renderSlidesArea prop),
+  // rather than each having its own copy. Has to live up here, not inside
+  // either render branch, so both can call it. Without sharing this, a
+  // lesson with Sliding Boards on had no way to ever add, change, or
+  // remove its slides — the sliding rail always rendered a bare SmartBoard
+  // with whatever boardSlides happened to be (null included), which is
+  // what silently produced an empty slide frame with no add button (Jay:
+  // "There is not add presentation button").
+  const renderLessonSlides = () => (
+    !isOverview && isBuildMode && !boardSlides ? (
+      <AddSlidesCard
+        open={slidesEditing}
+        onOpen={() => setSlidesEditing(true)}
+        onCancel={() => setSlidesEditing(false)}
+        onSave={handleSaveSlides}
+        dataTour="tour-add-slides"
+      />
+    ) : !isOverview && isBuildMode && slidesEditing ? (
+      <AddSlidesCard
+        open={true}
+        initialUrl={lessonSlidesUrl}
+        onOpen={() => {}}
+        onCancel={() => setSlidesEditing(false)}
+        onSave={handleSaveSlides}
+      />
+    ) : !isOverview && isBuildMode ? (
+      <BuildEditableSlot onChange={() => setSlidesEditing(true)} onRemove={handleRemoveSlides}>
+        <SmartBoard src={boardSlides} />
+      </BuildEditableSlot>
+    ) : (
+      <SmartBoard src={boardSlides} />
+    )
+  );
+
   // The active lesson's goals, flattened to one flat list of
   // { text, panelKey, idx } — same shape/keys the Learning Goals checklist
   // and the sliding chalkboard (ChalkboardBoardRow) already use for
@@ -2260,6 +2297,7 @@ export default function App() {
                 // Learning Goals always has.
                 <ChalkboardBoardRow
                   smartBoardSrc={boardSlides}
+                  renderSlidesArea={renderLessonSlides}
                   isOverview={false}
                   overviewItems={[]}
                   onOverviewItemClick={() => {}}
@@ -2363,28 +2401,8 @@ export default function App() {
                         <BuildEditableSlot onChange={() => setCalendarEditing(true)} onRemove={handleRemoveCalendar}>
                           <SmartBoard src={boardSlides} />
                         </BuildEditableSlot>
-                      ) : !isOverview && isBuildMode && !boardSlides ? (
-                        <AddSlidesCard
-                          open={slidesEditing}
-                          onOpen={() => setSlidesEditing(true)}
-                          onCancel={() => setSlidesEditing(false)}
-                          onSave={handleSaveSlides}
-                          dataTour="tour-add-slides"
-                        />
-                      ) : !isOverview && isBuildMode && slidesEditing ? (
-                        <AddSlidesCard
-                          open={true}
-                          initialUrl={lessonSlidesUrl}
-                          onOpen={() => {}}
-                          onCancel={() => setSlidesEditing(false)}
-                          onSave={handleSaveSlides}
-                        />
-                      ) : !isOverview && isBuildMode ? (
-                        <BuildEditableSlot onChange={() => setSlidesEditing(true)} onRemove={handleRemoveSlides}>
-                          <SmartBoard src={boardSlides} />
-                        </BuildEditableSlot>
                       ) : (
-                        <SmartBoard src={boardSlides} />
+                        renderLessonSlides()
                       )}
                     </div>
                   </div>

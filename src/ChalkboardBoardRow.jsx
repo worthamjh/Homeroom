@@ -152,6 +152,19 @@ export default function ChalkboardBoardRow({
   // Called whenever the visible panel index changes, so callers can load
   // per-panel content keyed to that index.
   onPanelChange = null,
+  // Optional `() => ReactNode` that replaces the plain `<SmartBoard
+  // src={smartBoardSrc}/>` below with Build mode's Add/Change/Remove UI for
+  // a lesson's own slides — the same render function WebsterGrovesChemistry
+  // .jsx's flat (non-sliding) layout already builds for its own slides
+  // slot, just handed down here too. Without this, a lesson with Sliding
+  // Boards on and no slides yet had no way to ever add one (or to change/
+  // remove an existing one) — the slot only ever rendered a bare SmartBoard
+  // with whatever `smartBoardSrc` happened to be, `null` included, which
+  // is what silently produced a plain empty slide frame with no add button.
+  // Falls back to the old plain SmartBoard when not provided (Unit 10's
+  // goalPanels lessons, and the real Webster Groves site, never pass it,
+  // since their slides always come pre-filled from curriculum data).
+  renderSlidesArea = null,
 }) {
   const [rawCurrent, setCurrent] = useState(0);
 
@@ -252,7 +265,20 @@ export default function ChalkboardBoardRow({
           board and its buttons stay clickable, but the genuinely empty
           margin around it doesn't. */}
       <div style={{ position: "absolute", left: `${smartboardLeftPct}%`, top: 0, width: `${smartboardWidthPct}%`, height: "100%", zIndex: 1000, boxSizing: "border-box", padding: 16, display: "flex", justifyContent: "center", pointerEvents: "none" }}>
-        <SmartBoard src={smartBoardSrc} />
+        {renderSlidesArea ? (
+          // Build mode's Add/Change/Remove UI, same as SmartBoard's other
+          // pieces, needs pointerEvents restored to "auto" — the wrapping
+          // div above turns it off so the SmartBoard column's empty margin
+          // doesn't swallow clicks meant for a docked board's handle (see
+          // the big comment on this div) — this wraps whatever
+          // renderSlidesArea returns so that same click-swallowing doesn't
+          // also hide its Add/Change/Remove buttons.
+          <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", pointerEvents: "auto" }}>
+            {renderSlidesArea()}
+          </div>
+        ) : (
+          <SmartBoard src={smartBoardSrc} />
+        )}
       </div>
 
       {isOverview ? (
