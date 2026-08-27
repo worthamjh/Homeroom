@@ -115,7 +115,7 @@ const STEPS = [
     selector: '[data-tour="tour-learning-goals"]',
     gate: "ack",
     title: "Learning Goals",
-    body: "Type your goals for the lesson here, one per line — students can check them off as you go through class. Come back and edit this any time.",
+    body: "Type your goals for the lesson here — each goal gets its own checkbox that students can check off as you go through class. Press Enter to add another goal. Come back and edit any time.",
     ackLabel: "Got it",
   },
   {
