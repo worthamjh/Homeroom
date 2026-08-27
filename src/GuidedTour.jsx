@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useScopedSetting, BUILD_TOUR_DONE_KEY, DEFAULT_BUILD_TOUR_DONE } from "./boardConfig";
 
 /**
@@ -27,20 +27,25 @@ import { useScopedSetting, BUILD_TOUR_DONE_KEY, DEFAULT_BUILD_TOUR_DONE } from "
  * BoardSettingsPanel.jsx) — this file is the only place that needs to
  * know what those strings mean.
  *
- * Steps gate on the SAME real state a teacher's own actions produce
- * (a lesson actually getting added, a sidebar category actually getting
- * opened) rather than a separate "did they click my overlay" tracker, via
- * `isStepComplete` below — polled on an interval while the tour is
- * running (cheap: a couple of querySelectors) plus recomputed immediately
- * whenever `selected` changes, since that one *is* already lifted state
- * in the parent. This is deliberately real gating, not just "click Next
- * whenever" — the whole point of a spotlight tour, per Jay's choice, is
- * that a teacher can't wander past a step without actually doing it.
- * Steps that point at genuinely optional/creative work (typing real
- * learning goals, pasting a real slides link) are the one exception —
- * gating those on real content would strand a teacher who doesn't have
- * that content handy yet, so those advance on an explicit "Got it" click
- * instead (see `gate: "ack"` below).
+ * Steps gate on the SAME real state a teacher's own actions produce (a
+ * unit actually getting created, a lesson actually getting added, a
+ * sidebar category actually getting opened) rather than a separate "did
+ * they click my overlay" tracker — polled on an interval while the tour
+ * is running (cheap: a couple of querySelectors) plus recomputed
+ * immediately whenever `selected` changes, since that one *is* already
+ * lifted state in the parent. This is deliberately real gating, not just
+ * "click Next whenever" — the whole point of a spotlight tour, per Jay's
+ * choice, is that a teacher can't wander past a step without actually
+ * doing it. There's no pre-made starter content to click through
+ * (BLANK_CURRICULUM in WebsterGrovesChemistry.jsx is empty) — the tour
+ * itself walks a brand-new teacher through creating their real first
+ * unit and lesson via the actual "+ Add Unit"/"+ Add Lesson" controls,
+ * pre-filled with a generic name ("Unit 1", "Lesson 1") they can accept
+ * or rename on the spot. Steps that point at genuinely optional/creative
+ * work (typing real learning goals, pasting a real slides link) are the
+ * one exception — gating those on real content would strand a teacher
+ * who doesn't have that content handy yet, so those advance on an
+ * explicit "Got it" click instead (see `gate: "ack"` below).
  */
 
 // Intrinsic width the embedded board document renders at — same constant
@@ -55,33 +60,46 @@ const STEPS = [
     frame: "none",
     gate: "ack",
     title: "Let's set up your board",
-    body: "This will only take a couple of minutes — we'll walk through adding your first unit, your first lesson, and a bit of content, one step at a time. You can skip this any time.",
+    body: "This will only take a couple of minutes — we'll walk through creating your first unit, your first lesson, and a bit of content, one step at a time. You can skip this any time.",
     ackLabel: "Let's go",
+  },
+  {
+    // Real gate, not "ack" — a brand-new blank-shell teacher starts with
+    // zero units (see BLANK_CURRICULUM in WebsterGrovesChemistry.jsx), so
+    // this is genuinely the teacher's first required action rather than
+    // something already done for them. The "+ Add Unit" control isn't
+    // inside any hover-only dropdown (it always renders in TopBar), so
+    // unlike the two steps below it needs no self-heal for a closing
+    // dropdown.
+    id: "add-unit",
+    frame: "board",
+    selector: '[data-tour="tour-add-unit"]',
+    gate: "auto",
+    title: "Create your first unit",
+    body: "Click “+ Add Unit” below. A name is already filled in (“Unit 1”) — you can keep it or type your own, then press Enter.",
   },
   {
     id: "open-unit",
     frame: "board",
     selector: '[data-tour="tour-unit-tab"]',
     gate: "auto",
-    title: "This is Unit 1",
-    body: "We created a starter unit for you already. Click it to open it.",
+    title: "There's your unit",
+    body: "Click it to open it.",
   },
   {
-    // Deliberately "ack" rather than "auto": a starter Lesson 1 already
-    // exists inside Unit 1 (same idea as Unit 1 itself — see
-    // BLANK_CURRICULUM in WebsterGrovesChemistry.jsx), so the "a lesson
-    // exists" condition an "auto" gate would poll for is already true the
-    // moment Unit 1's dropdown opens. Forcing a real click here would
-    // just create a redundant, unwanted second lesson — this step is
-    // purely "here's where you'll add lesson 2, 3, and beyond," not a
-    // required action right now.
+    // Also a real gate now, not "ack" — the unit was just created empty,
+    // so unlike the old pre-seeded starter curriculum, adding a lesson
+    // here is a genuinely required action, not a redundant second lesson.
+    // The dropdown this button lives in is hover-only (see TopBar) and
+    // closes the instant the teacher's cursor leaves it to click into the
+    // tooltip or type into the input — the self-heal below re-opens it on
+    // every poll tick while this step needs it.
     id: "add-lesson",
     frame: "board",
     selector: '[data-tour="tour-add-lesson"]',
-    gate: "ack",
-    title: "Adding more lessons",
-    body: "A lesson is one day (or one class period) of content — slides, learning goals, assignments. This is where you'll add lesson 2, 3, and beyond whenever you're ready. You've already got a first lesson below, ready to go.",
-    ackLabel: "Got it",
+    gate: "auto",
+    title: "Add your first lesson",
+    body: "A lesson is one day (or one class period) of content — slides, learning goals, assignments. Click “+ Add Lesson” below. A name is already filled in (“Lesson 1”) — keep it or type your own, then press Enter.",
   },
   {
     id: "open-lesson",
@@ -228,26 +246,24 @@ export default function GuidedTour({ active, onDone, iframeRef, selected, boardW
   // button, closing the dropdown before the next step ever gets a chance
   // to spotlight anything inside it. Self-heals that by re-clicking the
   // Unit 1 tab (which both opens its overview AND its dropdown — see the
-  // same TopBar change) once per step activation whenever this step's own
-  // target has gone missing, rather than requiring the teacher to
-  // manually re-hover Unit 1 themselves just to get the tour unstuck.
-  const healedForStepRef = useRef(null);
-  useEffect(() => {
-    healedForStepRef.current = null;
-  }, [step]);
-
-  // Recompute the spotlight rect: on an interval while the tour is
-  // running (cheap — one or two querySelectors), plus immediately on
-  // scroll/resize so the highlight box doesn't lag a moving page, and
-  // immediately whenever the step or the sidebar's `selected` category
-  // changes.
+  // same TopBar change) whenever this step's own target has gone missing.
+  //
+  // Deliberately re-heals on EVERY poll tick rather than once per step
+  // activation: a teacher's cursor can leave the dropdown's hover zone
+  // more than once while they're on this step (glancing at the tooltip,
+  // moving toward "Got it", moving back) and a one-shot heal only fixes
+  // the first closure — every closure after that left the spotlight
+  // pointing at nothing with no target to click, which is exactly the
+  // "click it" tooltip with nothing highlighted that a teacher would see.
+  // Re-clicking the already-open tab is a no-op in the board's own state,
+  // so polling this every 300ms doesn't fight the teacher for control —
+  // it only ever fires when the dropdown has actually gone missing.
   useEffect(() => {
     if (!active || !step) return;
     const compute = () => {
       if (step.frame === "board") {
         let r = rectFromBoardTarget(iframeRef.current, step.selector, boardWidth);
-        if (!r && (step.id === "add-lesson" || step.id === "open-lesson") && healedForStepRef.current !== step.id) {
-          healedForStepRef.current = step.id;
+        if (!r && (step.id === "add-lesson" || step.id === "open-lesson")) {
           let doc;
           try { doc = iframeRef.current?.contentDocument; } catch { doc = null; }
           doc?.querySelector('[data-tour="tour-unit-tab"]')?.click();
@@ -272,15 +288,17 @@ export default function GuidedTour({ active, onDone, iframeRef, selected, boardW
   }, [active, step, iframeRef, boardWidth, selected]);
 
   // Auto-advancing ("gate: auto") steps: poll the real board's own DOM
-  // for the thing this step is actually asking the teacher to do (open
-  // Unit 1, add a lesson, open that lesson) and move on the moment it's
-  // true — same real state a teacher's own click already produces, not a
-  // separate "did they click my overlay" tracker.
+  // for the thing this step is actually asking the teacher to do (create
+  // a unit, open it, add a lesson, open that lesson) and move on the
+  // moment it's true — same real state a teacher's own click already
+  // produces, not a separate "did they click my overlay" tracker.
   useEffect(() => {
     if (!active || !step || step.gate !== "auto") return;
     const check = () => {
       let done = false;
-      if (step.id === "open-unit") {
+      if (step.id === "add-unit") {
+        done = boardTargetExists(iframeRef.current, '[data-tour="tour-unit-tab"]');
+      } else if (step.id === "open-unit") {
         // Deliberately NOT "does tour-add-lesson exist" -- the unit tab's
         // dropdown (which is what actually renders that button) opens on
         // mouse *hover*, not just click (see TopBar), so a cursor merely

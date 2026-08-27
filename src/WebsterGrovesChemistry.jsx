@@ -1412,7 +1412,7 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
         ))}
 
         {isBuildMode && isBlankTeacher && (
-          <div style={{ flex: "0 0 auto", display: "flex", alignItems: "center", padding: `0 ${SPACE.sm}px` }}>
+          <div data-tour="tour-add-unit" style={{ flex: "0 0 auto", display: "flex", alignItems: "center", padding: `0 ${SPACE.sm}px` }}>
             <InlineAddButton
               label="Add Unit"
               placeholder={`Unit ${curriculum.length + 1}`}
@@ -1448,18 +1448,16 @@ function resolveView(view, curriculumData) {
 // DEFAULT_TEACHER_ID (Webster Groves' real site), so Jay can freely
 // experiment with the open-platform "bring your own content" flow
 // (uploading assignments now, slides/other resource types later) without
-// any risk of touching the real curriculum data above. One starter
-// unit/lesson so there's an actual page to land on and add content to —
-// adding more units/lessons through the UI itself isn't built yet.
-export const BLANK_CURRICULUM = [
-  {
-    unit: "Unit 1",
-    overview: [],
-    lessons: [
-      { title: "Lesson 1", slides: null, goals: [], assignments: [], videos: [] },
-    ],
-  },
-];
+// any risk of touching the real curriculum data above.
+//
+// Deliberately empty — no starter unit or lesson. A brand-new teacher
+// lands on a genuinely blank board and the GuidedTour (see GuidedTour.jsx)
+// walks them through creating their own Unit 1 and Lesson 1 via the real
+// "+ Add Unit"/"+ Add Lesson" controls in TopBar, rather than being handed
+// pre-made ones to just click through. This used to ship one starter
+// unit/lesson so there was always something to land on; that's no longer
+// needed since the tour itself now creates the first real content.
+export const BLANK_CURRICULUM = [];
 
 export default function App() {
   // Which "teacher" is active — DEFAULT_TEACHER_ID is the real Webster
@@ -1472,12 +1470,14 @@ export default function App() {
   // Blank-shell teachers only: their own saved units/lessons list, added
   // to via the "+ Add Unit"/"+ Add Lesson" controls in TopBar (Build mode
   // only — see handleAddUnit/handleAddLesson below). Starts as
-  // BLANK_CURRICULUM's one starter unit — same as before this existed —
-  // and gets replaced once a saved document actually loads, so a teacher
-  // who's never added anything still lands on a real page instead of an
-  // empty one. The real Webster Groves site (DEFAULT_TEACHER_ID) never
-  // fetches or writes this at all; its curriculum stays the hardcoded
-  // `curriculum` export below, unrelated to any of this.
+  // BLANK_CURRICULUM (empty — see its own comment) and gets replaced once
+  // a saved document actually loads, so a teacher who's already added
+  // content sees it again on return instead of a fresh empty board. A
+  // brand-new teacher's first unit and lesson get created for real
+  // through GuidedTour.jsx's walkthrough, not pre-seeded here. The real
+  // Webster Groves site (DEFAULT_TEACHER_ID) never fetches or writes this
+  // at all; its curriculum stays the hardcoded `curriculum` export below,
+  // unrelated to any of this.
   const [blankUnits, setBlankUnits] = useState(BLANK_CURRICULUM);
   useEffect(() => {
     if (!isBlankTeacher) return;
@@ -2012,7 +2012,9 @@ export default function App() {
           <div style={{ flex: 1, minHeight: 0, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--board-primary)" }}>
             {isBlankTeacher ? (
               <div style={{ color: "rgba(255,255,255,0.4)", fontFamily: "Oswald, sans-serif", fontSize: 14, letterSpacing: 1, textTransform: "uppercase" }}>
-                No content yet — pick a unit above to start adding assignments
+                {activeCurriculum.length === 0
+                  ? "No units yet — add your first one above to get started"
+                  : "No content yet — pick a unit above to start adding assignments"}
               </div>
             ) : (
               <div style={{ height: "100%", aspectRatio: "2.1", overflow: "hidden" }}>
