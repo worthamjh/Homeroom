@@ -100,14 +100,26 @@ function requestAccessToken() {
 // Opens the actual Drive file browser, filtered to Slides presentations
 // (both native Google Slides and, since Drive can store them too,
 // PowerPoint files) so a teacher isn't hunting through every doc/sheet in
-// their Drive to find a deck.
+// their Drive to find a deck. Two tabs, not one: a flat "Presentations"
+// tab (Picker's default recent/search list, scoped to Slides) as the
+// tab that's actually showing when the dialog opens, plus a "Browse
+// Folders" tab for a deck that isn't recent and needs digging out of a
+// unit/lesson subfolder. Giving it only the folders-included view (the
+// original version of this function) makes Picker default straight into
+// folder-drilling instead of showing anything useful first — confusing
+// for a first pick, since "browse every folder in my Drive" isn't
+// actually what most teachers want most of the time.
 function openPicker(accessToken) {
   return new Promise((resolve) => {
-    const view = new window.google.picker.DocsView(window.google.picker.ViewId.PRESENTATIONS)
-      .setIncludeFolders(true)
+    const recentView = new window.google.picker.DocsView(window.google.picker.ViewId.PRESENTATIONS)
       .setSelectFolderEnabled(false);
+    const browseView = new window.google.picker.DocsView(window.google.picker.ViewId.PRESENTATIONS)
+      .setIncludeFolders(true)
+      .setSelectFolderEnabled(false)
+      .setLabel("Browse Folders");
     const picker = new window.google.picker.PickerBuilder()
-      .addView(view)
+      .addView(recentView)
+      .addView(browseView)
       .setOAuthToken(accessToken)
       .setDeveloperKey(API_KEY)
       .setCallback((data) => {
@@ -122,13 +134,14 @@ function openPicker(accessToken) {
   });
 }
 
-// Best-effort: makes the picked file viewable via "anyone with the link,"
-// which is what the plain-iframe embed below needs to actually render
-// for students on a projector (not signed into the teacher's Google
-// account). Not fatal if it fails — a school Workspace domain can have an
-// admin policy blocking external sharing entirely, in which case the
-// teacher needs to share it manually and the caller surfaces that as a
-// warning rather than losing the picked file.
+// Best-effort: makes the picked file viewable via "anyone with the link."
+// Not fatal if it fails — a school Workspace domain can have an admin
+// policy blocking external sharing entirely, in which case the teacher
+// needs to share it manually and the caller surfaces that as a warning
+// rather than losing the picked file.
+//
+// On its own this is NOT enough to make the iframe embed below actually
+// render, though — see publishToWeb, called alongside this.
 async function ensurePubliclyViewable(fileId, accessToken) {
   const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}/permissions`, {
     method: "POST",
@@ -141,13 +154,47 @@ async function ensurePubliclyViewable(fileId, accessToken) {
   }
 }
 
+// The step that actually matters for the iframe embed to render: Google
+// refuses to frame a Slides file's normal view/edit route AT ALL,
+// regardless of sharing permissions — "anyone with the link" makes a file
+// openable, but not embeddable. The only thing that unlocks the embeddable
+// route is the file having gone through "Publish to the web" (File →
+// Share → Publish to web in the Slides UI — the same thing this app's own
+// paste-a-link flow has always required teachers to do by hand). That
+// toggle isn't exposed on the modern Drive v3 API at all; it's only ever
+// lived on the older v2 API's `revisions` resource, so this reaches back
+// to v2 just for this one call.
+async function publishToWeb(fileId, accessToken) {
+  const revRes = await fetch(`https://www.googleapis.com/drive/v2/files/${fileId}/revisions?fields=items(id)`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!revRes.ok) {
+    const detail = await revRes.text().catch(() => "");
+    throw new Error(`Couldn't read the file's revisions (${revRes.status}): ${detail}`);
+  }
+  const { items } = await revRes.json();
+  const latest = items && items[items.length - 1];
+  if (!latest) throw new Error("No revision to publish yet — try again in a moment");
+
+  const pubRes = await fetch(`https://www.googleapis.com/drive/v2/files/${fileId}/revisions/${latest.id}`, {
+    method: "PUT",
+    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ published: true, publishAuto: true, publishedOutsideDomain: true }),
+  });
+  if (!pubRes.ok) {
+    const detail = await pubRes.text().catch(() => "");
+    throw new Error(`Couldn't publish to the web (${pubRes.status}): ${detail}`);
+  }
+}
+
 /**
  * The whole flow, start to finish: make sure the scripts are ready, get
  * an access token (may prompt a Google consent popup), open the picker,
- * and — if a file was actually picked, as opposed to cancelled — try to
- * make it publicly viewable and hand back the same kind of embed URL a
- * pasted "Publish to web" link would have produced (so nothing downstream
- * of AddSlidesCard's onSave needs to know which path a teacher took).
+ * and — if a file was actually picked, as opposed to cancelled — share it
+ * and publish it to the web (both required — see the two functions
+ * above), then hand back the same kind of embed URL a pasted "Publish to
+ * web" link would have produced (so nothing downstream of AddSlidesCard's
+ * onSave needs to know which path a teacher took).
  *
  * @returns {Promise<{ embedUrl: string, name: string, shareWarning: string|null } | null>}
  *   null means the teacher opened the picker and cancelled/closed it —
@@ -162,8 +209,9 @@ export async function pickGoogleSlidesEmbed() {
   let shareWarning = null;
   try {
     await ensurePubliclyViewable(doc.id, accessToken);
+    await publishToWeb(doc.id, accessToken);
   } catch (err) {
-    shareWarning = `Picked "${doc.name}", but couldn't automatically make it viewable to students (${err.message}). Open it in Google Slides and set sharing to "Anyone with the link" yourself, or the board will show an access-denied screen instead of the slides.`;
+    shareWarning = `Picked "${doc.name}", but couldn't automatically publish it to the web (${err.message}). Open it in Google Slides and go File → Share → Publish to web yourself, or the board will show a blank frame instead of the slides.`;
   }
 
   return {
