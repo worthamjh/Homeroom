@@ -1665,13 +1665,22 @@ export default function App() {
 
   // Blank-shell teachers fetch their curriculum async — blankUnits starts
   // empty so the initialView above resolves against an empty curriculum and
-  // falls back to home. Once the real units load, re-resolve the saved view
-  // and jump there if we're still sitting at home (unitIdx === null).
+  // falls back to home. Once the real units load, re-resolve the saved/
+  // requested view and jump there if we're still sitting at home
+  // (unitIdx === null). This has to cover the plain real board tab too
+  // (readViewFromUrlParams), not just Preview/Build (readCurrentView) —
+  // Build's "← Back to board" link sends a blank-shell teacher's real tab
+  // straight to a deep-linked ?unit=&lesson= URL, and without this branch
+  // that param was silently dropped: the very first render resolves it
+  // against an empty blankUnits and falls back to home, then nothing ever
+  // re-checked it once the real units arrived a beat later (the bug
+  // report: "back to board" briefly flashes the right lesson, then lands
+  // on the homepage instead).
   useEffect(() => {
-    if (!isBlankTeacher || !(isPreviewMode || isBuildMode)) return;
+    if (!isBlankTeacher) return;
     if (blankUnits.length === 0) return; // still loading or truly empty
     if (activeUnitIdx !== null) return;  // already navigated somewhere
-    const saved = readCurrentView();
+    const saved = (isPreviewMode || isBuildMode) ? readCurrentView() : readViewFromUrlParams();
     if (!saved) return;
     const view = resolveView(saved, blankUnits);
     if (view.unitIdx !== null) {
@@ -2300,7 +2309,7 @@ export default function App() {
                         onStartEdit={fullAgendaFields.setEditingKey}
                         onSave={fullAgendaFields.save}
                         surface={surface}
-                        interactive={isFront}
+                        interactive={isFront && isBuildMode}
                         checkedLines={fullAgendaFields.checkedAgendaLines}
                         onToggleLine={fullAgendaFields.toggleAgendaLine}
                       />
@@ -2446,6 +2455,7 @@ export default function App() {
                                   toggleGoal={toggleGoal}
                                   surface={surface}
                                   label={anyFullAgendaFieldOn ? "Objectives & Benchmarks" : "Learning Goals"}
+                                  interactive={isBuildMode}
                                 />
                               </div>
                             );

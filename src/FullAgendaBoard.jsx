@@ -263,7 +263,7 @@ function splitGoalLines(raw) {
   return (raw || "").split("\n").filter(l => l.trim().length > 0);
 }
 
-function Section({ label, value, placeholder, editing, onStartEdit, onSave, rows = 3, minHeight, surface, itemized, checkedLines, onToggleLine, quickAddOptions }) {
+function Section({ label, value, placeholder, editing, onStartEdit, onSave, rows = 3, minHeight, surface, itemized, checkedLines, onToggleLine, quickAddOptions, interactive = true }) {
   const ref = useRef(null);
   const [draft, setDraft] = useState(value);
 
@@ -391,6 +391,22 @@ function Section({ label, value, placeholder, editing, onStartEdit, onSave, rows
   // ------------------------------------------------------------------------
 
   const lines = (value || "").split("\n").filter(l => l.trim().length > 0);
+
+  // On the live (non-build) board, hide the body entirely when there's no
+  // content — nothing to show, no placeholder prompting the teacher to add
+  // something (that belongs in Build mode only).
+  if (!interactive) {
+    const isEmpty = itemized
+      ? items.filter(t => t.trim().length > 0).length === 0
+      : lines.length === 0;
+    if (isEmpty) {
+      return (
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <SectionHeader label={label} surface={surface} />
+        </div>
+      );
+    }
+  }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
@@ -697,6 +713,7 @@ export function EditableField({ fieldKey, content, editingKey, onStartEdit, onSa
       rows={meta.rows}
       surface={surface}
       itemized={meta.itemized}
+      interactive={interactive}
       checkedLines={checkedLines}
       onToggleLine={interactive ? onToggleLine : undefined}
       quickAddOptions={quickAddOptions}
@@ -710,14 +727,16 @@ export function EditableField({ fieldKey, content, editingKey, onStartEdit, onSa
 // Used for the non-sliding Full Agenda case; when Sliding Boards is on,
 // ChalkboardBoardRow renders the checklist itself (per docked panel)
 // instead, with `goalsLabel="Objectives & Benchmarks"`.
-export function ObjectivesChecklist({ goalItems, checkedGoals, toggleGoal, surface = DEFAULT_SURFACE, label = "Objectives & Benchmarks" }) {
+export function ObjectivesChecklist({ goalItems, checkedGoals, toggleGoal, surface = DEFAULT_SURFACE, label = "Objectives & Benchmarks", interactive = true }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
       <SectionHeader label={label} surface={surface} />
       {goalItems.length === 0 ? (
+        interactive ? (
         <div style={{ fontFamily: "Caveat, cursive", fontSize: 17, color: surface.placeholderText, fontStyle: "italic", padding: "2px 4px" }}>
           No learning goals set for this lesson yet.
         </div>
+        ) : null
       ) : (
         goalItems.map(({ text, panelKey, idx }) => {
           const key = `${panelKey}-${idx}`;
