@@ -3,6 +3,7 @@ import ChalkboardBoardRow, { toGoalPanels } from "./ChalkboardBoardRow";
 import { useFullAgendaFields, ObjectivesChecklist, EditableField, ResetBoardButton } from "./FullAgendaBoard";
 import { fetchExtraAssignments, createExtraAssignment, deleteExtraAssignment } from "./lib/extraAssignments";
 import { uploadAssignmentPdf } from "./lib/cloudinary";
+import { googleDriveConfigured, ensureGoogleScriptsLoaded, pickGoogleSlidesEmbed } from "./lib/googleDrive";
 import { fetchProfile } from "./lib/profileApi";
 import { fetchCurriculum, saveCurriculum } from "./lib/curriculumApi";
 import { fetchCheckedGoals, saveCheckedGoals } from "./lib/checkedGoalsApi";
@@ -973,12 +974,49 @@ function SmartBoard({ src }) {
 // instead of two near-duplicate components. `initialUrl`, when set,
 // pre-fills the input — used when "Change" reopens the form on an
 // already-filled slot rather than starting from a blank field.
-function AddEmbedCard({ open, label, promptText, placeholder, initialUrl, onOpen, onCancel, onSave, dataTour }) {
+// `onBrowseDrive`, when passed (only ever by AddSlidesCard — AddCalendarCard
+// leaves it undefined), renders a second, real Google-Drive-file-picker
+// path alongside the always-available "paste a link" one, in both the
+// collapsed empty tile and the expanded paste form. See googleDrive.js for
+// the actual OAuth+Picker flow this triggers; this component only owns
+// the loading/error UI around calling it.
+function AddEmbedCard({ open, label, promptText, placeholder, initialUrl, onOpen, onCancel, onSave, dataTour, onBrowseDrive }) {
   const [url, setUrl] = useState(initialUrl || "");
+  const [driveBusy, setDriveBusy] = useState(false);
+  const [driveError, setDriveError] = useState(null);
+
+  const handleBrowseDrive = async () => {
+    setDriveError(null);
+    setDriveBusy(true);
+    try {
+      const result = await onBrowseDrive();
+      // null means the teacher opened the Google picker and cancelled —
+      // not an error, just nothing to do.
+      if (result) {
+        if (result.shareWarning) setDriveError(result.shareWarning);
+        onSave(result.embedUrl);
+      }
+    } catch (err) {
+      setDriveError(err.message || "Something went wrong opening Google Drive.");
+    } finally {
+      setDriveBusy(false);
+    }
+  };
+
+  const driveButton = onBrowseDrive && (
+    <button
+      type="button"
+      onClick={handleBrowseDrive}
+      disabled={driveBusy}
+      style={{ background: "transparent", border: "1px solid var(--board-secondary)", borderRadius: 2, color: "var(--board-secondary-accent)", fontFamily: "Oswald, sans-serif", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, padding: "8px 12px", cursor: driveBusy ? "default" : "pointer", opacity: driveBusy ? 0.6 : 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
+    >
+      {driveBusy ? "Connecting to Google Drive…" : "Browse Google Drive"}
+    </button>
+  );
 
   if (!open) {
     return (
-      <div data-tour={dataTour} style={{ width: "100%", maxWidth: "100%", aspectRatio: "16/9", boxSizing: "border-box", border: "2px dashed rgba(255,255,255,0.25)", borderRadius: 8, color: "rgba(255,255,255,0.4)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6 }}>
+      <div data-tour={dataTour} style={{ width: "100%", maxWidth: "100%", aspectRatio: "16/9", boxSizing: "border-box", border: "2px dashed rgba(255,255,255,0.25)", borderRadius: 8, color: "rgba(255,255,255,0.4)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, padding: 16 }}>
         <button
           onClick={onOpen}
           style={{ background: "transparent", border: "none", color: "inherit", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 6, fontFamily: "Oswald, sans-serif", fontSize: 13, letterSpacing: 0.5, textTransform: "uppercase" }}
@@ -988,6 +1026,15 @@ function AddEmbedCard({ open, label, promptText, placeholder, initialUrl, onOpen
           <span style={{ fontSize: 30, lineHeight: 1 }}>+</span>
           {label}
         </button>
+        {driveButton && (
+          <>
+            <div style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", textTransform: "uppercase", letterSpacing: 0.5 }}>or</div>
+            {driveButton}
+          </>
+        )}
+        {driveError && (
+          <div style={{ fontSize: 11, color: "#e8a722", textAlign: "center", maxWidth: 320, lineHeight: 1.4 }}>{driveError}</div>
+        )}
       </div>
     );
   }
@@ -997,6 +1044,16 @@ function AddEmbedCard({ open, label, promptText, placeholder, initialUrl, onOpen
       onSubmit={e => { e.preventDefault(); if (url.trim()) onSave(url.trim()); }}
       style={{ width: "100%", maxWidth: 480, boxSizing: "border-box", border: "2px solid var(--board-secondary)", borderRadius: 8, background: "#242424", padding: 16, display: "flex", flexDirection: "column", gap: 10 }}
     >
+      {driveButton && (
+        <>
+          {driveButton}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, color: "rgba(255,255,255,0.3)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>
+            <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.15)" }} />
+            or paste a link
+            <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.15)" }} />
+          </div>
+        </>
+      )}
       <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 12, color: "rgba(255,255,255,0.6)", textTransform: "uppercase", letterSpacing: 0.5 }}>
         {promptText}
       </div>
@@ -1005,6 +1062,9 @@ function AddEmbedCard({ open, label, promptText, placeholder, initialUrl, onOpen
         autoFocus
         style={{ background: "var(--board-primary)", border: "1px solid #444", borderRadius: 2, color: "var(--board-primary-fg)", fontSize: 12, padding: "8px 10px", fontFamily: "Lato, sans-serif" }}
       />
+      {driveError && (
+        <div style={{ fontSize: 11, color: "#e8a722", lineHeight: 1.4 }}>{driveError}</div>
+      )}
       <div style={{ display: "flex", gap: 6 }}>
         <button type="submit" disabled={!url.trim()}
           style={{ flex: 1, background: "var(--board-secondary)", border: "none", borderRadius: 2, color: "var(--board-secondary-fg)", fontFamily: "Oswald, sans-serif", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, padding: "8px 0", cursor: "pointer" }}>
@@ -1040,16 +1100,31 @@ export function AddCalendarCard(props) {
 // AddCalendarCard, one slot lower (per-lesson rather than per-unit). A
 // "publish to web" Google Slides URL keeps working exactly like a normal
 // embed: edits made later in the source Slides file show up here with no
-// extra integration needed. A real Google Drive picker (browse-and-select
-// instead of paste-a-URL) is the longer-term goal but a bigger, separate
-// piece of work (real OAuth client + consent screen + Picker API).
+// extra integration needed. Also offers a real Google Drive picker
+// (browse-and-select instead of paste-a-URL) whenever VITE_GOOGLE_CLIENT_ID
+// / VITE_GOOGLE_API_KEY are configured (see googleDrive.js + .env.example)
+// — silently falls back to paste-only otherwise, so this is a no-op until
+// those are set up.
 export function AddSlidesCard(props) {
+  const driveReady = googleDriveConfigured();
+  // Kicks off loading the Google scripts as soon as this tile mounts
+  // (not on click) so the OAuth popup a teacher triggers by clicking
+  // "Browse Google Drive" can open synchronously within that click — see
+  // the comment on ensureGoogleScriptsLoaded in googleDrive.js. Errors
+  // here are swallowed on purpose: a transient failure just means the
+  // eventual click-triggered attempt retries the load itself and surfaces
+  // any real error there, where a teacher can actually see it.
+  useEffect(() => {
+    if (driveReady) ensureGoogleScriptsLoaded().catch(() => {});
+  }, [driveReady]);
+
   return (
     <AddEmbedCard
       {...props}
       label="Add Slides / Presentation"
       promptText="Paste a Google Slides embed URL (File → Share → Publish to web)"
       placeholder="https://docs.google.com/presentation/d/.../embed"
+      onBrowseDrive={driveReady ? pickGoogleSlidesEmbed : undefined}
     />
   );
 }

@@ -1,0 +1,174 @@
+// Google Drive Picker integration for AddSlidesCard (see
+// WebsterGrovesChemistry.jsx) — lets a teacher browse and pick a real
+// Google Slides deck from their own Drive instead of hunting down
+// File → Share → Publish to web and pasting the resulting URL by hand.
+// See .env.example for the two-step Google Cloud Console setup this
+// needs (OAuth Client ID + API key) — this file is a no-op with a clear
+// error until both are set, same pattern as cloudinary.js.
+//
+// Deliberately the narrowest possible OAuth scope: `drive.file` only
+// grants access to files the teacher explicitly opens through this
+// picker (never their whole Drive), which is what keeps this usable in
+// Google's OAuth consent screen "Testing" mode without needing Google's
+// (slow, multi-week) app-verification review — that review is only
+// required for broader/sensitive scopes like drive.readonly.
+//
+// No new npm dependency — Google Identity Services and the Picker API
+// are both loaded as plain <script> tags at runtime (Google's own
+// recommended integration path for both), same "fetch straight from the
+// vendor, no SDK" spirit as cloudinary.js.
+
+const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+const API_KEY = import.meta.env.VITE_GOOGLE_API_KEY;
+const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.file";
+
+export function googleDriveConfigured() {
+  return Boolean(CLIENT_ID && API_KEY);
+}
+
+// Both scripts are loaded once and cached on the module (not per-card),
+// so re-opening AddSlidesCard on a different lesson doesn't re-fetch or
+// re-init anything. Kicked off eagerly on AddSlidesCard mount (see its
+// own effect) rather than only on click, so that by the time a teacher
+// actually clicks "Browse Google Drive" the OAuth popup below can open
+// synchronously within that same click — most browsers only allow
+// window.open from a real, uninterrupted user-gesture call stack, and an
+// await for a script fetch in between would break that.
+let scriptsPromise = null;
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    const el = document.createElement("script");
+    el.src = src;
+    el.async = true;
+    el.defer = true;
+    el.onload = () => resolve();
+    el.onerror = () => reject(new Error(`Failed to load ${src}`));
+    document.head.appendChild(el);
+  });
+}
+export function ensureGoogleScriptsLoaded() {
+  if (!googleDriveConfigured()) {
+    return Promise.reject(new Error(
+      "Google Drive isn't configured — set VITE_GOOGLE_CLIENT_ID and VITE_GOOGLE_API_KEY (see .env.example)."
+    ));
+  }
+  if (!scriptsPromise) {
+    scriptsPromise = Promise.all([
+      loadScript("https://accounts.google.com/gsi/client"),
+      loadScript("https://apis.google.com/js/api.js").then(
+        () => new Promise((resolve) => window.gapi.load("picker", resolve))
+      ),
+    ]).catch(err => {
+      // Let a later attempt retry from scratch instead of staying
+      // permanently broken because of one transient network blip.
+      scriptsPromise = null;
+      throw err;
+    });
+  }
+  return scriptsPromise;
+}
+
+// Cached in memory only (never persisted) — GIS access tokens are
+// short-lived (~1hr) and it's fine, even a little expected, to ask again
+// after that. Getting a fresh one is still just a silent popup+consent
+// check for an already-authorized teacher, not a full re-login.
+let cachedToken = null;
+function requestAccessToken() {
+  return new Promise((resolve, reject) => {
+    if (cachedToken) { resolve(cachedToken); return; }
+    // This MUST run synchronously inside the caller's click handler (no
+    // preceding await) — see the comment on ensureGoogleScriptsLoaded
+    // above for why.
+    const tokenClient = window.google.accounts.oauth2.initTokenClient({
+      client_id: CLIENT_ID,
+      scope: DRIVE_SCOPE,
+      callback: (resp) => {
+        if (resp.error) { reject(new Error(resp.error)); return; }
+        cachedToken = resp.access_token;
+        // Drop the cache a little before GIS's own expiry so a
+        // near-the-hour-mark pick doesn't try to use a token that
+        // expires mid-request.
+        setTimeout(() => { cachedToken = null; }, ((resp.expires_in || 3600) - 60) * 1000);
+        resolve(resp.access_token);
+      },
+      error_callback: (err) => reject(new Error(err?.type || "Google sign-in was cancelled or failed")),
+    });
+    tokenClient.requestAccessToken();
+  });
+}
+
+// Opens the actual Drive file browser, filtered to Slides presentations
+// (both native Google Slides and, since Drive can store them too,
+// PowerPoint files) so a teacher isn't hunting through every doc/sheet in
+// their Drive to find a deck.
+function openPicker(accessToken) {
+  return new Promise((resolve) => {
+    const view = new window.google.picker.DocsView(window.google.picker.ViewId.PRESENTATIONS)
+      .setIncludeFolders(true)
+      .setSelectFolderEnabled(false);
+    const picker = new window.google.picker.PickerBuilder()
+      .addView(view)
+      .setOAuthToken(accessToken)
+      .setDeveloperKey(API_KEY)
+      .setCallback((data) => {
+        if (data.action === window.google.picker.Action.PICKED) {
+          resolve(data.docs[0]);
+        } else if (data.action === window.google.picker.Action.CANCEL) {
+          resolve(null);
+        }
+      })
+      .build();
+    picker.setVisible(true);
+  });
+}
+
+// Best-effort: makes the picked file viewable via "anyone with the link,"
+// which is what the plain-iframe embed below needs to actually render
+// for students on a projector (not signed into the teacher's Google
+// account). Not fatal if it fails — a school Workspace domain can have an
+// admin policy blocking external sharing entirely, in which case the
+// teacher needs to share it manually and the caller surfaces that as a
+// warning rather than losing the picked file.
+async function ensurePubliclyViewable(fileId, accessToken) {
+  const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}/permissions`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ role: "reader", type: "anyone" }),
+  });
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    throw new Error(`Couldn't auto-share the file (${res.status}): ${detail}`);
+  }
+}
+
+/**
+ * The whole flow, start to finish: make sure the scripts are ready, get
+ * an access token (may prompt a Google consent popup), open the picker,
+ * and — if a file was actually picked, as opposed to cancelled — try to
+ * make it publicly viewable and hand back the same kind of embed URL a
+ * pasted "Publish to web" link would have produced (so nothing downstream
+ * of AddSlidesCard's onSave needs to know which path a teacher took).
+ *
+ * @returns {Promise<{ embedUrl: string, name: string, shareWarning: string|null } | null>}
+ *   null means the teacher opened the picker and cancelled/closed it —
+ *   not an error, just nothing to save.
+ */
+export async function pickGoogleSlidesEmbed() {
+  await ensureGoogleScriptsLoaded();
+  const accessToken = await requestAccessToken();
+  const doc = await openPicker(accessToken);
+  if (!doc) return null;
+
+  let shareWarning = null;
+  try {
+    await ensurePubliclyViewable(doc.id, accessToken);
+  } catch (err) {
+    shareWarning = `Picked "${doc.name}", but couldn't automatically make it viewable to students (${err.message}). Open it in Google Slides and set sharing to "Anyone with the link" yourself, or the board will show an access-denied screen instead of the slides.`;
+  }
+
+  return {
+    embedUrl: `https://docs.google.com/presentation/d/${doc.id}/embed?start=false&loop=false&delayms=3000`,
+    name: doc.name,
+    shareWarning,
+  };
+}
