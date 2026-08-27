@@ -19,7 +19,7 @@
 // vendor, no SDK" spirit as cloudinary.js.
 
 const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-const API_KEY = import.meta.env.VITE_GOOGLE_API_KEY;
+const API_KEY = import.meta.env.VITE_GOOGLE_PICKER_API_KEY;
 const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.file";
 
 export function googleDriveConfigured() {
@@ -49,7 +49,7 @@ function loadScript(src) {
 export function ensureGoogleScriptsLoaded() {
   if (!googleDriveConfigured()) {
     return Promise.reject(new Error(
-      "Google Drive isn't configured — set VITE_GOOGLE_CLIENT_ID and VITE_GOOGLE_API_KEY (see .env.example)."
+      "Google Drive isn't configured — set VITE_GOOGLE_CLIENT_ID and VITE_GOOGLE_PICKER_API_KEY (see .env.example)."
     ));
   }
   if (!scriptsPromise) {
