@@ -149,6 +149,9 @@ export default function ChalkboardBoardRow({
   // part of the reorderable list. Pass a FUNCTION `(isFront) => ReactNode`
   // — same per-panel-baked, interactive-gating rationale as extraContent.
   renderReset = null,
+  // Called whenever the visible panel index changes, so callers can load
+  // per-panel content keyed to that index.
+  onPanelChange = null,
 }) {
   const [rawCurrent, setCurrent] = useState(0);
 
@@ -176,6 +179,11 @@ export default function ChalkboardBoardRow({
   useEffect(() => {
     setCurrent(0);
   }, [panelSetId]);
+  // Notify caller whenever the visible panel index changes, including the
+  // initial mount and any lesson-change reset above.
+  useEffect(() => {
+    onPanelChange?.(current);
+  }, [current, onPanelChange]);
 
   // Derive the same left/right split the static layout uses from the shared
   // arrangement config, so "Inverse" flips this sliding mechanic too instead

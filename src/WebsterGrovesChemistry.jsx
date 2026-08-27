@@ -1659,6 +1659,9 @@ export default function App() {
     : resolveView(readViewFromUrlParams(), activeCurriculum);
   const [activeUnitIdx, setActiveUnitIdx] = useState(initialView.unitIdx);
   const [activeLesson, setActiveLesson] = useState(initialView.lesson);
+  // Tracks which sliding-board panel is currently front-and-center so we
+  // can key per-panel content fields to that index.
+  const [activePanelIdx, setActivePanelIdx] = useState(0);
 
   // Blank-shell teachers fetch their curriculum async — blankUnits starts
   // empty so the initialView above resolves against an empty curriculum and
@@ -2110,10 +2113,35 @@ export default function App() {
   // teacher's Essential Question/Agenda/Bell Ringer/Home Learning text
   // survive a different browser or a cleared cache, instead of living
   // only in this one browser's localStorage.
-  const fullAgendaFields = useFullAgendaFields(
-    scopedKey(`fullAgenda:${activeLesson?.title || "none"}`),
-    activeLesson && activeUnitIdx != null ? { teacherId: activeTeacherId, unitIdx: activeUnitIdx, lessonTitle: activeLesson.title } : null
-  );
+  // Unit-level hook — owns only the Essential Question, which is shared
+  // across every lesson and every sliding panel in the unit.
+  const unitAgendaKey = scopedKey(`unitContent:u${activeUnitIdx ?? "none"}`);
+  const unitFields = useFullAgendaFields(unitAgendaKey, null);
+
+  // Panel-level hook — owns Agenda, Bell Ringer, Home Learning, and
+  // Learning Goals. When Sliding Boards is on the key includes the panel
+  // index so each panel has its own independent copy; when it's off the
+  // key matches the old single-lesson key so existing saved content is
+  // preserved without migration.
+  const panelStorageKey = isSlidingActive
+    ? scopedKey(`fullAgenda:${activeLesson?.title || "none"}:panel:${activePanelIdx}`)
+    : scopedKey(`fullAgenda:${activeLesson?.title || "none"}`);
+  const panelMongoKey = activeLesson && activeUnitIdx != null
+    ? { teacherId: activeTeacherId, unitIdx: activeUnitIdx, lessonTitle: activeLesson.title,
+        ...(isSlidingActive ? { panelIdx: activePanelIdx } : {}) }
+    : null;
+  const panelFields = useFullAgendaFields(panelStorageKey, panelMongoKey);
+
+  // Merge: panel fields are the base; only essentialQuestion is pulled
+  // from unitFields so it reads and writes to the unit-scoped key.
+  const fullAgendaFields = {
+    ...panelFields,
+    content: { ...panelFields.content, essentialQuestion: unitFields.content.essentialQuestion },
+    save: (key, value) =>
+      key === "essentialQuestion" ? unitFields.save(key, value) : panelFields.save(key, value),
+    setEditingKey: (k) => { panelFields.setEditingKey(k); unitFields.setEditingKey(k); },
+    editingKey: panelFields.editingKey || unitFields.editingKey,
+  };
 
   const goHome = () => { setActiveUnitIdx(null); setActiveLesson(null); setOpenDropdown(null); };
   const topBarProps = {
@@ -2239,8 +2267,9 @@ export default function App() {
                   // Ringer/Home Learning always rendering in one fixed
                   // sequence regardless of what's been dragged where.
                   contentOrder={boardContentOrder}
+                  onPanelChange={(idx) => setActivePanelIdx(idx)}
                   renderReset={anyExtraContentOn ? (isFront) => (
-                    <ResetBoardButton onReset={fullAgendaFields.resetToDefaults} surface={surface} interactive={isFront} />
+                    <ResetBoardButton onReset={fullAgendaFields.resetToDefaults} surface={surface} interactive={isFront && isBuildMode} />
                   ) : null}
                   extraContent={anyExtraContentOn ? (key, isFront) => {
                     if (key === "learningGoals") {
@@ -2254,7 +2283,7 @@ export default function App() {
                           onStartEdit={fullAgendaFields.setEditingKey}
                           onSave={fullAgendaFields.save}
                           surface={surface}
-                          interactive={isFront}
+                          interactive={isFront && isBuildMode}
                           checkedLines={fullAgendaFields.checkedLearningGoalsLines}
                           onToggleLine={fullAgendaFields.toggleLearningGoalsLine}
                         />
@@ -2387,7 +2416,7 @@ export default function App() {
                       // freeform field happens to land in the order.
                       <>
                         {anyExtraContentOn && (
-                          <ResetBoardButton onReset={fullAgendaFields.resetToDefaults} surface={surface} />
+                          <ResetBoardButton onReset={fullAgendaFields.resetToDefaults} surface={surface} interactive={isBuildMode} />
                         )}
                         {boardContentOrder.map(key => {
                           if (key === "learningGoals") {
@@ -2402,6 +2431,7 @@ export default function App() {
                                     onStartEdit={fullAgendaFields.setEditingKey}
                                     onSave={fullAgendaFields.save}
                                     surface={surface}
+                                    interactive={isBuildMode}
                                     checkedLines={fullAgendaFields.checkedLearningGoalsLines}
                                     onToggleLine={fullAgendaFields.toggleLearningGoalsLine}
                                   />
@@ -2431,6 +2461,7 @@ export default function App() {
                               onStartEdit={fullAgendaFields.setEditingKey}
                               onSave={fullAgendaFields.save}
                               surface={surface}
+                              interactive={isBuildMode}
                               checkedLines={fullAgendaFields.checkedAgendaLines}
                               onToggleLine={fullAgendaFields.toggleAgendaLine}
                             />
