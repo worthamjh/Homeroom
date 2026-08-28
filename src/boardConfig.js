@@ -142,6 +142,58 @@ export const scopedKey = (key) => `homeroom:${getActiveTeacherId()}:${key}`;
 export const DEFAULT_PRIMARY_COLOR = "#1a1a1a";
 export const DEFAULT_SECONDARY_COLOR = "#E87722";
 
+// ── Per-teacher font customization ──────────────────────────────────────
+// Two font axes: a heading font (Oswald-style display face — used for the
+// board title, unit nav, and other structural labels) and a body font
+// (Lato-style reading face — used for lesson titles, goal text, and
+// descriptive content). Both are persisted in the teacher's Mongo profile
+// alongside colors, and injected as CSS custom properties
+// (--board-heading-font / --board-body-font) on the board's root element
+// via boardThemeVars() so they inherit everywhere without touching every
+// inline-style call site individually. Blank-shell teachers only — the
+// Webster Groves demo always uses Oswald/Lato so the pitch demo is stable.
+export const DEFAULT_HEADING_FONT = "Oswald";
+export const DEFAULT_BODY_FONT    = "Lato";
+
+export const HEADING_FONT_OPTIONS = [
+  { id: "Oswald",     label: "Oswald (Default)" },
+  { id: "Bebas Neue", label: "Bebas Neue" },
+  { id: "Raleway",    label: "Raleway" },
+  { id: "Montserrat", label: "Montserrat" },
+  { id: "Anton",      label: "Anton" },
+  { id: "Fjalla One", label: "Fjalla One" },
+];
+
+export const BODY_FONT_OPTIONS = [
+  { id: "Lato",           label: "Lato (Default)" },
+  { id: "Open Sans",      label: "Open Sans" },
+  { id: "Roboto",         label: "Roboto" },
+  { id: "Nunito",         label: "Nunito" },
+  { id: "Source Sans 3",  label: "Source Sans 3" },
+  { id: "Inter",          label: "Inter" },
+];
+
+// Injects a Google Fonts <link> for any non-default custom font chosen by
+// the teacher — called from boardThemeVars() so the load fires in the same
+// render pass that sets the CSS vars. No-ops if the <link> is already in
+// the document (id-gated), so safe to call on every re-render. The default
+// fonts (Oswald / Lato) are pre-loaded in index.html and excluded here.
+export function ensureFontsLoaded(fontNames) {
+  if (typeof window === "undefined") return;
+  fontNames.filter(Boolean).forEach(name => {
+    const id = "gf-" + name.toLowerCase().replace(/\s+/g, "-");
+    if (document.getElementById(id)) return;
+    const link = document.createElement("link");
+    link.id   = id;
+    link.rel  = "stylesheet";
+    // ital,wght axis covers normal 400/600/700 — enough for the board's
+    // uses without pulling every possible variant.
+    link.href = "https://fonts.googleapis.com/css2?family=" +
+      encodeURIComponent(name) + ":wght@400;600;700&display=swap";
+    document.head.appendChild(link);
+  });
+}
+
 // A teacher can pick literally any two hex colors, which the original
 // hardcoded black/orange never had to account for: black text always
 // worked on the orange fills, white text always worked on the black
@@ -194,9 +246,16 @@ function accentSafe(hex) {
 // board's outermost div, Build page's outermost div, ...) — CSS custom
 // properties inherit down through the DOM like any other inherited
 // property, so nothing further down needs its own copy.
-export function boardThemeVars(primaryColor, secondaryColor) {
-  const primary = primaryColor || DEFAULT_PRIMARY_COLOR;
+export function boardThemeVars(primaryColor, secondaryColor, headingFont, bodyFont) {
+  const primary   = primaryColor   || DEFAULT_PRIMARY_COLOR;
   const secondary = secondaryColor || DEFAULT_SECONDARY_COLOR;
+  const heading   = headingFont    || DEFAULT_HEADING_FONT;
+  const body      = bodyFont       || DEFAULT_BODY_FONT;
+  // Inject Google Fonts for any non-default teacher font choice.
+  ensureFontsLoaded([
+    heading !== DEFAULT_HEADING_FONT ? heading : null,
+    body    !== DEFAULT_BODY_FONT    ? body    : null,
+  ]);
   return {
     "--board-primary": primary,
     "--board-secondary": secondary,
@@ -211,6 +270,8 @@ export function boardThemeVars(primaryColor, secondaryColor) {
     // secondary wherever a teacher's color is a label/indicator rather
     // than a background fill.
     "--board-secondary-accent": accentSafe(secondary),
+    "--board-heading-font": "'" + heading + "', sans-serif",
+    "--board-body-font":    "'" + body    + "', sans-serif",
   };
 }
 

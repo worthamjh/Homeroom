@@ -356,6 +356,15 @@ export default function BuildPage() {
               </SignedOut>
             </>
           )}
+          {isBlankTeacher && CLERK_CONFIGURED && (
+            <a
+              href={`/profile?from=build`}
+              style={{ color: "rgba(255,255,255,0.45)", fontFamily: "Oswald, sans-serif", fontSize: 12, textTransform: "uppercase", letterSpacing: 0.5, textDecoration: "none", flexShrink: 0 }}
+              title="Edit your profile — name, school, colors, fonts"
+            >
+              ✏ Profile
+            </a>
+          )}
           <a href={backHref} onClick={handleBackToBoard} style={{ color: "var(--board-secondary-accent)", fontFamily: "Oswald, sans-serif", fontSize: 13, textTransform: "uppercase", letterSpacing: 0.5, textDecoration: "none", flexShrink: 0 }}>
             ← Back to board
           </a>

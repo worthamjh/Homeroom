@@ -25,6 +25,8 @@ const COLLECTION = "profiles";
 // Webster Groves demo (DEFAULT_TEACHER_ID) never reaches this endpoint's
 // colors at all, since only blank-shell teachers get themed.
 const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/;
+const VALID_HEADING_FONTS = ["Oswald", "Bebas Neue", "Raleway", "Montserrat", "Anton", "Fjalla One"];
+const VALID_BODY_FONTS    = ["Lato", "Open Sans", "Roboto", "Nunito", "Source Sans 3", "Inter"];
 function sanitizeHexColor(value, fallback) {
   return typeof value === "string" && HEX_COLOR_RE.test(value) ? value : fallback;
 }
@@ -68,7 +70,7 @@ export default async function handler(req, res) {
     }
 
     if (req.method === "POST") {
-      const { teacherId, teacherName, school, subject, primaryColor, secondaryColor } = req.body || {};
+      const { teacherId, teacherName, school, subject, primaryColor, secondaryColor, headingFont, bodyFont } = req.body || {};
       if (!teacherId || !teacherName) {
         res.status(400).json({ error: "teacherId and teacherName are required" });
         return;
@@ -85,6 +87,8 @@ export default async function handler(req, res) {
         // stray hex typo shouldn't block saving the rest of the profile.
         primaryColor: sanitizeHexColor(primaryColor, null),
         secondaryColor: sanitizeHexColor(secondaryColor, null),
+        headingFont: VALID_HEADING_FONTS.includes(headingFont) ? headingFont : null,
+        bodyFont:    VALID_BODY_FONTS.includes(bodyFont)    ? bodyFont    : null,
         updatedAt: now,
       };
       // Upsert keyed on teacherId — a teacher only ever has one profile
@@ -117,5 +121,7 @@ function toClientShape(doc) {
     subject: doc.subject || "",
     primaryColor: doc.primaryColor || null,
     secondaryColor: doc.secondaryColor || null,
+    headingFont: doc.headingFont || null,
+    bodyFont: doc.bodyFont || null,
   };
 }

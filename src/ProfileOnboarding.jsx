@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { saveProfile } from "./lib/profileApi";
-import { DEFAULT_PRIMARY_COLOR, DEFAULT_SECONDARY_COLOR } from "./boardConfig";
+import { DEFAULT_PRIMARY_COLOR, DEFAULT_SECONDARY_COLOR, DEFAULT_HEADING_FONT, DEFAULT_BODY_FONT, HEADING_FONT_OPTIONS, BODY_FONT_OPTIONS, ensureFontsLoaded } from "./boardConfig";
 
 /**
  * ProfileOnboarding — the short form a brand-new signed-in teacher fills
@@ -22,8 +22,14 @@ export default function ProfileOnboarding({ teacherId, onComplete }) {
   // boardConfig.js) rather than saving `null`/empty colors.
   const [primaryColor, setPrimaryColor] = useState(DEFAULT_PRIMARY_COLOR);
   const [secondaryColor, setSecondaryColor] = useState(DEFAULT_SECONDARY_COLOR);
+  const [headingFont, setHeadingFont] = useState(DEFAULT_HEADING_FONT);
+  const [bodyFont, setBodyFont] = useState(DEFAULT_BODY_FONT);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  // Pre-load any non-default font so the live preview renders correctly
+  // before the teacher saves — avoids the flash of fallback font on pick.
+  useEffect(() => { ensureFontsLoaded([headingFont, bodyFont]); }, [headingFont, bodyFont]);
 
   const canSave = teacherName.trim().length > 0 && !saving;
 
@@ -40,6 +46,8 @@ export default function ProfileOnboarding({ teacherId, onComplete }) {
         subject: subject.trim(),
         primaryColor,
         secondaryColor,
+        headingFont,
+        bodyFont,
       });
       onComplete(saved);
     } catch (err) {
@@ -157,15 +165,56 @@ export default function ProfileOnboarding({ teacherId, onComplete }) {
           </div>
         </div>
 
-        {/* Live preview of the board's title bar, exactly as it'll render
-            for real (see TopBar in WebsterGrovesChemistry.jsx) — same
-            school/subject split, same primary/secondary usage — so the
-            color choice above isn't a guess. */}
+        {/* Font pickers — heading (Oswald-style display) and body (Lato-style
+            reading) faces. Both default to the Webster Groves originals so
+            a teacher who skips them still gets a coherent look. */}
+        <div style={{ marginBottom: 16 }}>
+          <label style={labelStyle}>Fonts</label>
+          <div style={{ display: "flex", gap: 12 }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", marginBottom: 4, fontFamily: "Lato, sans-serif" }}>Heading</div>
+              <div style={{ position: "relative" }}>
+                <select
+                  value={headingFont}
+                  onChange={e => setHeadingFont(e.target.value)}
+                  style={{ width: "100%", background: "#0f0f0f", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, padding: "8px 28px 8px 10px", color: "#fff", fontSize: 13, fontFamily: "Lato, sans-serif", cursor: "pointer", appearance: "none" }}
+                >
+                  {HEADING_FONT_OPTIONS.map(f => <option key={f.id} value={f.id}>{f.label}</option>)}
+                </select>
+                <span style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", color: "rgba(255,255,255,0.4)", pointerEvents: "none", fontSize: 10 }}>▾</span>
+              </div>
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", marginBottom: 4, fontFamily: "Lato, sans-serif" }}>Body</div>
+              <div style={{ position: "relative" }}>
+                <select
+                  value={bodyFont}
+                  onChange={e => setBodyFont(e.target.value)}
+                  style={{ width: "100%", background: "#0f0f0f", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 6, padding: "8px 28px 8px 10px", color: "#fff", fontSize: 13, fontFamily: "Lato, sans-serif", cursor: "pointer", appearance: "none" }}
+                >
+                  {BODY_FONT_OPTIONS.map(f => <option key={f.id} value={f.id}>{f.label}</option>)}
+                </select>
+                <span style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", color: "rgba(255,255,255,0.4)", pointerEvents: "none", fontSize: 10 }}>▾</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Live preview of the board title bar + unit nav strip + body text,
+            updated live as the teacher tweaks colors and fonts. */}
         <div style={{ marginBottom: 24, borderRadius: 4, overflow: "hidden", border: "1px solid rgba(255,255,255,0.15)" }}>
           <div style={{ background: primaryColor, borderBottom: `4px solid ${secondaryColor}`, padding: "14px 16px", textAlign: "center" }}>
-            <span style={{ fontFamily: "Oswald, sans-serif", color: "#fff", fontSize: 16, letterSpacing: 1 }}>
+            <span style={{ fontFamily: `'${headingFont}', sans-serif`, color: "#fff", fontSize: 16, letterSpacing: 1 }}>
               {school.trim() || "Your School"} <span style={{ color: secondaryColor }}>{subject.trim() || "Your Subject"}</span>
             </span>
+          </div>
+          <div style={{ background: secondaryColor, padding: "5px 12px", display: "flex", gap: 10 }}>
+            {["Unit 1","Unit 2","Unit 3"].map(u => (
+              <span key={u} style={{ fontFamily: `'${headingFont}', sans-serif`, fontSize: 12, fontWeight: 600, color: "#fff", opacity: 0.9 }}>{u}</span>
+            ))}
+          </div>
+          <div style={{ background: "#1e1e1e", padding: "8px 12px" }}>
+            <span style={{ fontFamily: `'${bodyFont}', sans-serif`, fontSize: 12, color: "rgba(255,255,255,0.5)" }}>Lesson titles, goals, and agenda text appear in this font.</span>
           </div>
         </div>
 

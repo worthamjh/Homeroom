@@ -7,6 +7,7 @@ import App from './App.jsx'
 import LandingPage from './LandingPage.jsx'
 import SettingsPage from './SettingsPage.jsx'
 import BuildPage from './BuildPage.jsx'
+import EditProfilePage from './EditProfilePage.jsx'
 import { useSyncAuthIdentity, CLERK_CONFIGURED } from './boardConfig.js'
 
 const CLERK_PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
@@ -56,6 +57,7 @@ const routedApp = (
           inline on the board itself, which can be projected in class
           and should show zero add/edit affordances. See BuildPage.jsx. */}
       <Route path="/build" element={<BuildPage />} />
+      <Route path="/profile" element={<EditProfilePage />} />
     </Routes>
   </BrowserRouter>
 );
