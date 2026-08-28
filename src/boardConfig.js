@@ -355,18 +355,18 @@ export function writeCalendarUrl(url) {
 // URL this way means slide changes made later in Google Slides show up on
 // the board automatically with zero extra integration — the iframe just
 // always loads whatever the source document currently contains.
-export function readLessonSlidesUrl(unitIdx, lessonTitle) {
-  if (typeof window === "undefined" || unitIdx == null || !lessonTitle) return "";
+export function readLessonSlidesUrl(unitTitle, lessonTitle) {
+  if (typeof window === "undefined" || !unitTitle || !lessonTitle) return "";
   try {
-    return window.localStorage.getItem(scopedKey(`lessonSlides:${unitIdx}:${lessonTitle}`)) || "";
+    return window.localStorage.getItem(scopedKey(`lessonSlides:${unitTitle}:${lessonTitle}`)) || "";
   } catch {
     return "";
   }
 }
 
-export function writeLessonSlidesUrl(unitIdx, lessonTitle, url) {
-  if (typeof window === "undefined" || unitIdx == null || !lessonTitle) return;
-  const key = scopedKey(`lessonSlides:${unitIdx}:${lessonTitle}`);
+export function writeLessonSlidesUrl(unitTitle, lessonTitle, url) {
+  if (typeof window === "undefined" || !unitTitle || !lessonTitle) return;
+  const key = scopedKey(`lessonSlides:${unitTitle}:${lessonTitle}`);
   try {
     if (!url) window.localStorage.removeItem(key);
     else window.localStorage.setItem(key, url);

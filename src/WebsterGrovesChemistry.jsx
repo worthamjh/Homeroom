@@ -1449,7 +1449,7 @@ function InlineAddButton({ label, placeholder, defaultValue, onAdd, style, input
   );
 }
 
-function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropdown, setOpenDropdown, handleUnitOverview, handleLessonClick, goHome, titleMain, titleAccent, isBlankTeacher, onAddUnit, onAddLesson, onRenameUnit, onDeleteUnit, onMoveUnit, onRenameLesson, onDeleteLesson, onMoveLesson }) {
+function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropdown, setOpenDropdown, handleUnitOverview, handleLessonClick, goHome, titleMain, titleAccent, isBlankTeacher, onAddUnit, onAddLesson, onRenameUnit, onDeleteUnit, onMoveUnit, onRenameLesson, onDeleteLesson, onMoveLesson, onToggleUnitVisibility }) {
   // Build-mode-only local state for inline rename and two-step delete.
   const [renamingUnit, setRenamingUnit] = useState(null);   // unitIdx being renamed
   const [renameUnitVal, setRenameUnitVal] = useState("");
@@ -1522,8 +1522,10 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
 
       {/* Unit nav */}
       <div style={{ display: "flex", borderTop: "1px solid #333" }} onClick={e => e.stopPropagation()}>
-        {curriculum.map((u, ui) => (
-          <div key={ui} style={{ position: "relative", flex: 1 }}
+        {curriculum.map((u, ui) => {
+          if (!isBuildMode && u.hidden) return null;
+          return (
+          <div key={ui} style={{ position: "relative", flex: 1, opacity: (isBuildMode && u.hidden) ? 0.45 : 1 }}
             onMouseEnter={() => (u.lessons.length > 0 || (isBuildMode && isBlankTeacher)) && setOpenDropdown(ui)}
             onMouseLeave={() => setOpenDropdown(prev => (prev === ui ? null : prev))}
           >
@@ -1566,7 +1568,8 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
                     <button title="Cancel"         onClick={e => { e.stopPropagation(); setDeletingUnit(null); }} style={microBtn()}>cancel</button>
                   </>
                 ) : (
-                  <button title="Delete unit" onClick={e => { e.stopPropagation(); setDeletingUnit(ui); setRenamingUnit(null); }} style={microBtn({ color: "#ff9090" })}>delete</button>
+                  <button title={u.hidden ? "Show unit on live board" : "Hide unit from live board"} onClick={e => { e.stopPropagation(); onToggleUnitVisibility(ui); }} style={microBtn({ color: u.hidden ? "#90e890" : "rgba(255,255,255,0.75)" })}>{u.hidden ? "show" : "hide"}</button>
+                <button title="Delete unit" onClick={e => { e.stopPropagation(); setDeletingUnit(ui); setRenamingUnit(null); }} style={microBtn({ color: "#ff9090" })}>delete</button>
                 )}
               </div>
             )}
@@ -1650,7 +1653,8 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
               </div>
             )}
           </div>
-        ))}
+          );
+        })}
 
         {isBuildMode && isBlankTeacher && (
           <div data-tour="tour-add-unit" style={{ flex: "0 0 auto", display: "flex", alignItems: "center", padding: `0 ${SPACE.sm}px` }}>
@@ -2000,21 +2004,21 @@ export default function App() {
   // "+ Add Slides / Presentation" tile (see boardSlides below). Re-read
   // whenever the lesson being viewed changes, same reasoning as the
   // extraAssignments fetch below.
-  const [lessonSlidesUrl, setLessonSlidesUrl] = useState(() => readLessonSlidesUrl(initialView.unitIdx, initialView.lesson?.title));
+  const [lessonSlidesUrl, setLessonSlidesUrl] = useState(() => readLessonSlidesUrl(activeCurriculum[initialView.unitIdx]?.unit, initialView.lesson?.title));
   const [slidesEditing, setSlidesEditing] = useState(false);
 
   useEffect(() => {
-    setLessonSlidesUrl(readLessonSlidesUrl(activeUnitIdx, activeLesson?.title));
+    setLessonSlidesUrl(readLessonSlidesUrl(activeUnit?.unit, activeLesson?.title));
     setSlidesEditing(false);
   }, [activeUnitIdx, activeLesson]);
 
   const handleSaveSlides = (url) => {
-    writeLessonSlidesUrl(activeUnitIdx, activeLesson?.title, url);
+    writeLessonSlidesUrl(activeUnit?.unit, activeLesson?.title, url);
     setLessonSlidesUrl(url);
     setSlidesEditing(false);
   };
   const handleRemoveSlides = () => {
-    writeLessonSlidesUrl(activeUnitIdx, activeLesson?.title, "");
+    writeLessonSlidesUrl(activeUnit?.unit, activeLesson?.title, "");
     setLessonSlidesUrl("");
   };
 
@@ -2257,6 +2261,12 @@ export default function App() {
     saveCurriculum(activeTeacherId, next).catch(() => {});
   };
 
+  const handleToggleUnitVisibility = (unitIdx) => {
+    const next = blankUnits.map((u, i) => i === unitIdx ? { ...u, hidden: !u.hidden } : u);
+    setBlankUnits(next);
+    saveCurriculum(activeTeacherId, next).catch(() => {});
+  };
+
   // All assignments across the unit in order
   const allAssignments = isHome ? [] : activeUnit.lessons.flatMap(l =>
     l.assignments.map(a => ({ ...a, lessonTitle: l.title }))
@@ -2468,6 +2478,7 @@ export default function App() {
     isBlankTeacher, onAddUnit: handleAddUnit, onAddLesson: handleAddLesson,
     onRenameUnit: handleRenameUnit, onDeleteUnit: handleDeleteUnit, onMoveUnit: handleMoveUnit,
     onRenameLesson: handleRenameLesson, onDeleteLesson: handleDeleteLesson, onMoveLesson: handleMoveLesson,
+    onToggleUnitVisibility: handleToggleUnitVisibility,
   };
 
   // On a real board tab, "one screen" legitimately means the teacher's
