@@ -149,9 +149,6 @@ export default function ChalkboardBoardRow({
   // part of the reorderable list. Pass a FUNCTION `(isFront) => ReactNode`
   // — same per-panel-baked, interactive-gating rationale as extraContent.
   renderReset = null,
-  // Called whenever the visible panel index changes, so callers can load
-  // per-panel content keyed to that index.
-  onPanelChange = null,
   // Optional `() => ReactNode` that replaces the plain `<SmartBoard
   // src={smartBoardSrc}/>` below with Build mode's Add/Change/Remove UI for
   // a lesson's own slides — the same render function WebsterGrovesChemistry
@@ -192,11 +189,7 @@ export default function ChalkboardBoardRow({
   useEffect(() => {
     setCurrent(0);
   }, [panelSetId]);
-  // Notify caller whenever the visible panel index changes, including the
-  // initial mount and any lesson-change reset above.
-  useEffect(() => {
-    onPanelChange?.(current);
-  }, [current, onPanelChange]);
+
 
   // Derive the same left/right split the static layout uses from the shared
   // arrangement config, so "Inverse" flips this sliding mechanic too instead
@@ -492,7 +485,7 @@ export default function ChalkboardBoardRow({
                   {/* Rendered on EVERY panel, ahead of anything in
                       contentOrder — a control, not reorderable board
                       content (see the `renderReset` prop comment above). */}
-                  {renderReset && renderReset(isFront)}
+                  {renderReset && renderReset(isFront, i)}
 
                   {/* Printed on the panel itself now, not a floating overlay —
                       so it slides away with this board and the next panel's
@@ -570,7 +563,7 @@ export default function ChalkboardBoardRow({
                     // interactive — see the `extraContent` prop comment
                     // above for why only one instance may ever be.
                     if (!extraContent) return null;
-                    const node = extraContent(key, isFront);
+                    const node = extraContent(key, isFront, i);
                     if (!node) return null;
                     renderedCount++;
                     return (

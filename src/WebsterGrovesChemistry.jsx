@@ -1664,9 +1664,7 @@ export default function App() {
     : resolveView(readViewFromUrlParams(), activeCurriculum);
   const [activeUnitIdx, setActiveUnitIdx] = useState(initialView.unitIdx);
   const [activeLesson, setActiveLesson] = useState(initialView.lesson);
-  // Tracks which sliding-board panel is currently front-and-center so we
-  // can key per-panel content fields to that index.
-  const [activePanelIdx, setActivePanelIdx] = useState(0);
+
 
   // Blank-shell teachers fetch their curriculum async — blankUnits starts
   // empty so the initialView above resolves against an empty curriculum and
@@ -1922,12 +1920,39 @@ export default function App() {
   // Added/removed only from Build mode (handleAddAssignment/
   // handleRemoveAssignment below); a real board tab just displays them.
   const [extraAssignments, setExtraAssignments] = useState([]);
+  // lessonTitle → assignment[] for the unit overview page
+  const [unitExtraAssignments, setUnitExtraAssignments] = useState({});
   const [addAssignmentOpen, setAddAssignmentOpen] = useState(false);
   const [addAssignmentBusy, setAddAssignmentBusy] = useState(false);
   const [addAssignmentError, setAddAssignmentError] = useState(null);
 
   useEffect(() => {
-    if (isHome || isOverview || !activeLesson) {
+    if (isHome) {
+      setExtraAssignments([]);
+      setUnitExtraAssignments({});
+      return;
+    }
+    if (isOverview && activeUnit) {
+      // Fetch extra assignments for every lesson in this unit in parallel,
+      // then store as a lessonTitle → array map for the overview grid.
+      let cancelled = false;
+      const lessons = activeUnit.lessons || [];
+      Promise.all(
+        lessons.map(l =>
+          fetchExtraAssignments(activeUnitIdx, l.title)
+            .then(list => ({ title: l.title, list }))
+            .catch(() => ({ title: l.title, list: [] }))
+        )
+      ).then(results => {
+        if (cancelled) return;
+        const map = {};
+        results.forEach(({ title, list }) => { map[title] = list; });
+        setUnitExtraAssignments(map);
+      });
+      setExtraAssignments([]);
+      return () => { cancelled = true; };
+    }
+    if (!activeLesson) {
       setExtraAssignments([]);
       return;
     }
@@ -1939,7 +1964,7 @@ export default function App() {
         if (!cancelled) setExtraAssignments([]);
       });
     return () => { cancelled = true; };
-  }, [activeUnitIdx, activeLesson, isHome, isOverview]);
+  }, [activeUnitIdx, activeLesson, activeUnit, isHome, isOverview]);
 
   const handleAddAssignment = async ({ label, file }) => {
     setAddAssignmentBusy(true);
@@ -2164,35 +2189,49 @@ export default function App() {
   // teacher's Essential Question/Agenda/Bell Ringer/Home Learning text
   // survive a different browser or a cleared cache, instead of living
   // only in this one browser's localStorage.
-  // Unit-level hook — owns only the Essential Question, which is shared
-  // across every lesson and every sliding panel in the unit.
+  // Unit-level hook — owns only the Essential Question, shared across
+  // every lesson and every sliding panel in the unit.
   const unitAgendaKey = scopedKey(`unitContent:u${activeUnitIdx ?? "none"}`);
   const unitFields = useFullAgendaFields(unitAgendaKey, null);
 
-  // Panel-level hook — owns Agenda, Bell Ringer, Home Learning, and
-  // Learning Goals. When Sliding Boards is on the key includes the panel
-  // index so each panel has its own independent copy; when it's off the
-  // key matches the old single-lesson key so existing saved content is
-  // preserved without migration.
-  const panelStorageKey = isSlidingActive
-    ? scopedKey(`fullAgenda:${activeLesson?.title || "none"}:panel:${activePanelIdx}`)
-    : scopedKey(`fullAgenda:${activeLesson?.title || "none"}`);
-  const panelMongoKey = activeLesson && activeUnitIdx != null
-    ? { teacherId: activeTeacherId, unitIdx: activeUnitIdx, lessonTitle: activeLesson.title,
-        ...(isSlidingActive ? { panelIdx: activePanelIdx } : {}) }
+  // Flat (non-sliding) board hook — same key as the old single hook so
+  // any content a teacher already entered is preserved without migration.
+  const lessonKey = activeLesson?.title || "none";
+  const flatMongoKey = activeLesson && activeUnitIdx != null
+    ? { teacherId: activeTeacherId, unitIdx: activeUnitIdx, lessonTitle: activeLesson.title }
     : null;
-  const panelFields = useFullAgendaFields(panelStorageKey, panelMongoKey);
+  const flatPanelFields = useFullAgendaFields(
+    scopedKey(`fullAgenda:${lessonKey}`), flatMongoKey
+  );
 
-  // Merge: panel fields are the base; only essentialQuestion is pulled
-  // from unitFields so it reads and writes to the unit-scoped key.
-  const fullAgendaFields = {
-    ...panelFields,
-    content: { ...panelFields.content, essentialQuestion: unitFields.content.essentialQuestion },
-    save: (key, value) =>
-      key === "essentialQuestion" ? unitFields.save(key, value) : panelFields.save(key, value),
-    setEditingKey: (k) => { panelFields.setEditingKey(k); unitFields.setEditingKey(k); },
-    editingKey: panelFields.editingKey || unitFields.editingKey,
-  };
+  // Per-panel hooks — one per possible panel slot (always 4, unconditional,
+  // so hooks are never called conditionally). Each panel's Agenda / Bell
+  // Ringer / Home Learning / Learning Goals is stored under its own key,
+  // so sliding board 1 and board 2 always carry their own independent
+  // content regardless of which panel is currently in front.
+  const MAX_PANELS = 4;
+  const slidingPanelMongoBase = activeLesson && activeUnitIdx != null
+    ? { teacherId: activeTeacherId, unitIdx: activeUnitIdx, lessonTitle: activeLesson.title }
+    : null;
+  const p0Fields = useFullAgendaFields(scopedKey(`fullAgenda:${lessonKey}:panel:0`), slidingPanelMongoBase ? { ...slidingPanelMongoBase, panelIdx: 0 } : null);
+  const p1Fields = useFullAgendaFields(scopedKey(`fullAgenda:${lessonKey}:panel:1`), slidingPanelMongoBase ? { ...slidingPanelMongoBase, panelIdx: 1 } : null);
+  const p2Fields = useFullAgendaFields(scopedKey(`fullAgenda:${lessonKey}:panel:2`), slidingPanelMongoBase ? { ...slidingPanelMongoBase, panelIdx: 2 } : null);
+  const p3Fields = useFullAgendaFields(scopedKey(`fullAgenda:${lessonKey}:panel:3`), slidingPanelMongoBase ? { ...slidingPanelMongoBase, panelIdx: 3 } : null);
+  const allPanelFields = [p0Fields, p1Fields, p2Fields, p3Fields];
+
+  // Merge a panel's fields with the unit-level Essential Question.
+  const mergePanelWithUnit = (pf) => ({
+    ...pf,
+    content: { ...pf.content, essentialQuestion: unitFields.content.essentialQuestion },
+    save: (key, value) => key === "essentialQuestion" ? unitFields.save(key, value) : pf.save(key, value),
+    setEditingKey: (k) => { pf.setEditingKey(k); unitFields.setEditingKey(k); },
+    editingKey: pf.editingKey || unitFields.editingKey,
+  });
+
+  // fullAgendaFields is used by the flat (non-sliding) layout and by the
+  // Reset Board button and Edit fields in the flat content column. It
+  // always refers to the flat per-lesson key so existing content is kept.
+  const fullAgendaFields = mergePanelWithUnit(flatPanelFields);
 
   const goHome = () => { setActiveUnitIdx(null); setActiveLesson(null); setOpenDropdown(null); };
   const topBarProps = {
@@ -2319,25 +2358,29 @@ export default function App() {
                   // Ringer/Home Learning always rendering in one fixed
                   // sequence regardless of what's been dragged where.
                   contentOrder={boardContentOrder}
-                  onPanelChange={(idx) => setActivePanelIdx(idx)}
-                  renderReset={anyExtraContentOn ? (isFront) => (
-                    <ResetBoardButton onReset={fullAgendaFields.resetToDefaults} surface={surface} interactive={isFront && isBuildMode} />
-                  ) : null}
-                  extraContent={anyExtraContentOn ? (key, isFront) => {
+                  renderReset={anyExtraContentOn ? (isFront, panelIdx) => {
+                    const pf = mergePanelWithUnit(allPanelFields[Math.min(panelIdx, MAX_PANELS - 1)]);
+                    return <ResetBoardButton onReset={pf.resetToDefaults} surface={surface} interactive={isFront && isBuildMode} />;
+                  } : null}
+                  extraContent={anyExtraContentOn ? (key, isFront, panelIdx) => {
+                    // Each panel bakes in its OWN content, keyed by panelIdx,
+                    // so board 1's text stays on board 1 while it slides away
+                    // and board 2's own content is revealed underneath.
+                    const pf = mergePanelWithUnit(allPanelFields[Math.min(panelIdx, MAX_PANELS - 1)]);
                     if (key === "learningGoals") {
                       if (!useEditableLearningGoals || !learningGoalsIsOn) return null;
                       return (
                         <EditableField
                           key={key}
                           fieldKey="learningGoals"
-                          content={fullAgendaFields.content}
-                          editingKey={fullAgendaFields.editingKey}
-                          onStartEdit={fullAgendaFields.setEditingKey}
-                          onSave={fullAgendaFields.save}
+                          content={pf.content}
+                          editingKey={pf.editingKey}
+                          onStartEdit={pf.setEditingKey}
+                          onSave={pf.save}
                           surface={surface}
                           interactive={isFront && isBuildMode}
-                          checkedLines={fullAgendaFields.checkedLearningGoalsLines}
-                          onToggleLine={fullAgendaFields.toggleLearningGoalsLine}
+                          checkedLines={pf.checkedLearningGoalsLines}
+                          onToggleLine={pf.toggleLearningGoalsLine}
                         />
                       );
                     }
@@ -2347,14 +2390,14 @@ export default function App() {
                       <EditableField
                         key={key}
                         fieldKey={key}
-                        content={fullAgendaFields.content}
-                        editingKey={fullAgendaFields.editingKey}
-                        onStartEdit={fullAgendaFields.setEditingKey}
-                        onSave={fullAgendaFields.save}
+                        content={pf.content}
+                        editingKey={pf.editingKey}
+                        onStartEdit={pf.setEditingKey}
+                        onSave={pf.save}
                         surface={surface}
                         interactive={isFront && isBuildMode}
-                        checkedLines={fullAgendaFields.checkedAgendaLines}
-                        onToggleLine={fullAgendaFields.toggleAgendaLine}
+                        checkedLines={pf.checkedAgendaLines}
+                        onToggleLine={pf.toggleAgendaLine}
                       />
                     );
                   } : null}
@@ -2549,6 +2592,9 @@ export default function App() {
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: SPACE.md }}>
                       {lesson.assignments.map((a, ai) => (
                         <AssignmentThumb key={ai} {...a} />
+                      ))}
+                      {(unitExtraAssignments[lesson.title] || []).map((a) => (
+                        <AssignmentThumb key={a.id} {...a} />
                       ))}
                     </div>
                   </div>
