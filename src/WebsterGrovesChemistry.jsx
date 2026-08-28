@@ -1533,9 +1533,8 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
 
       {/* Unit nav */}
       <div style={{ display: "flex", borderTop: "1px solid #333" }} onClick={e => e.stopPropagation()}>
-        {curriculum.map((u, ui) => {
-          if (!isBuildMode && u.hidden) return null;
-          return (
+        {curriculum.map((u, ui) => (
+          (!isBuildMode && u.hidden) ? null : (
           <div key={ui} style={{ position: "relative", flex: 1, opacity: (isBuildMode && u.hidden) ? 0.45 : 1 }}
             onMouseEnter={() => (u.lessons.length > 0 || (isBuildMode && isBlankTeacher)) && setOpenDropdown(ui)}
             onMouseLeave={() => setOpenDropdown(prev => (prev === ui ? null : prev))}
@@ -1666,8 +1665,8 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
               </div>
             )}
           </div>
-          );
-        })}
+          )
+          ))}
 
         {isBuildMode && isBlankTeacher && (
           <div data-tour="tour-add-unit" style={{ flex: "0 0 auto", display: "flex", alignItems: "center", padding: `0 ${SPACE.sm}px` }}>
