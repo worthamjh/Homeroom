@@ -227,55 +227,35 @@ export async function pickGoogleSlidesEmbed() {
   };
 }
 
-// AddAssignmentCard needs actual bytes to hand to Cloudinary
-// (uploadAssignmentPdf in cloudinary.js — see its own comment on why a
-// real PDF, not a link, is what makes the page-render thumbnail work),
-// not a URL — so unlike Slides, picking a Drive file here means
-// downloading it. A real PDF already sitting in Drive downloads as-is
-// (files.get?alt=media); a native Google Doc has no raw bytes at all, so
-// it's exported to PDF instead (files.export). Deliberately scoped to
-// just those two MIME types — a raw .docx/.pptx uploaded to Drive as-is
-// has bytes but isn't something Cloudinary's page-render can reliably
-// turn into the assignment thumbnail this app expects, so rather than
-// silently hand it over and produce a broken thumbnail, the picker
-// itself never offers one to begin with.
+// AddAssignmentCard — Drive picker for PDF / Google Doc assignments.
+// Stores the Drive file ID directly rather than downloading and
+// re-uploading to Cloudinary: faster for the teacher (no multi-MB
+// transfer), no duplicate storage, and the link always reflects whatever
+// is currently in their Drive. The Drive thumbnail URL gives Homeroom a
+// usable preview image without needing Cloudinary's page-render feature.
+// Scoped to PDFs and Google Docs only — the picker narrows what the
+// teacher can pick rather than letting them pick something that won't
+// display well.
 const ASSIGNMENT_MIME_TYPES = "application/pdf,application/vnd.google-apps.document";
 
-async function downloadAsPdfFile(doc, accessToken) {
-  const isGoogleDoc = doc.mimeType === "application/vnd.google-apps.document";
-  const url = isGoogleDoc
-    ? `https://www.googleapis.com/drive/v3/files/${doc.id}/export?mimeType=application/pdf`
-    : `https://www.googleapis.com/drive/v3/files/${doc.id}?alt=media`;
-  const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
-  if (!res.ok) {
-    const detail = await res.text().catch(() => "");
-    throw new Error(`Couldn't download "${doc.name}" from Drive (${res.status}): ${detail}`);
-  }
-  const blob = await res.blob();
-  const fileName = /\.pdf$/i.test(doc.name) ? doc.name : `${doc.name}.pdf`;
-  return new File([blob], fileName, { type: "application/pdf" });
-}
-
 /**
- * Same shape of flow as pickGoogleSlidesEmbed, but for AddAssignmentCard:
- * open the picker (scoped to PDFs and Google Docs — see
- * ASSIGNMENT_MIME_TYPES), and on a real pick, download/export it into an
- * actual `File` — the exact same type `<input type="file">` hands
- * AddAssignmentCard already, so its existing onSubmit → uploadAssignmentPdf
- * path needs no changes at all to accept either source.
+ * Opens the Drive picker scoped to PDFs and Google Docs, then returns
+ * just the Drive metadata needed to save the assignment — no download,
+ * no Cloudinary upload. The caller stores fileId + viewUrl + thumbUrl
+ * directly to MongoDB; cloudinaryPublicId is omitted for Drive picks.
  *
- * @returns {Promise<{ file: File, name: string } | null>}
- *   null means the teacher opened the picker and cancelled/closed it —
- *   not an error, just nothing to save. `name` is the file's Drive title
- *   with any .pdf/.doc extension stripped, a reasonable default for the
- *   assignment's own label field.
+ * @returns {Promise<{ fileId: string, name: string, viewUrl: string, thumbUrl: string } | null>}
+ *   null means the teacher cancelled the picker — not an error.
  */
 export async function pickGoogleDriveAssignmentFile() {
   await ensureGoogleScriptsLoaded();
   const accessToken = await requestAccessToken();
   const doc = await openPicker(accessToken, { mimeTypes: ASSIGNMENT_MIME_TYPES });
   if (!doc) return null;
-
-  const file = await downloadAsPdfFile(doc, accessToken);
-  return { file, name: doc.name.replace(/\.(pdf|docx?|gdoc)$/i, "") };
+  return {
+    fileId: doc.id,
+    name: doc.name.replace(/\.(pdf|docx?|gdoc)$/i, ""),
+    viewUrl: `https://drive.google.com/file/d/${doc.id}/view`,
+    thumbUrl: `https://drive.google.com/thumbnail?id=${doc.id}&sz=w400`,
+  };
 }

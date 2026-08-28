@@ -1222,7 +1222,6 @@ export function AssignmentThumb({ label, url, thumb, onRemove }) {
 export function AddAssignmentCard({ open, busy, error, onOpen, onCancel, onSubmit }) {
   const [label, setLabel] = useState("");
   const [file, setFile] = useState(null);
-  const [fileFromDrive, setFileFromDrive] = useState(false);
   const [driveBusy, setDriveBusy] = useState(false);
   const [driveError, setDriveError] = useState(null);
 
@@ -1243,11 +1242,18 @@ export function AddAssignmentCard({ open, busy, error, onOpen, onCancel, onSubmi
       // null means the teacher opened the Google picker and cancelled —
       // not an error, just nothing to do.
       if (result) {
-        setFile(result.file);
-        setFileFromDrive(true);
-        // Only fills the name in if the teacher hasn't already typed
-        // one — never overwrites something they've already decided on.
-        setLabel(prev => prev.trim() ? prev : result.name);
+        // Auto-save immediately — no need to click Save separately.
+        // Use whatever label the teacher already typed, falling back to
+        // the file's own Drive name.
+        const assignmentLabel = label.trim() || result.name;
+        await onSubmit({ label: assignmentLabel, driveResult: result });
+        // Ask the parent BuildPage to reload the iframe — the Google
+        // Picker SDK does DOM cleanup after the picker closes that can
+        // corrupt React's fiber tree inside the iframe on re-render;
+        // a clean reload avoids the crash (same pattern as AddSlidesCard).
+        if (window.parent !== window) {
+          window.parent.postMessage({ type: "homeroom-drive-slides-saved" }, window.location.origin);
+        }
       }
     } catch (err) {
       setDriveError(err.message || "Something went wrong opening Google Drive.");
@@ -1311,13 +1317,7 @@ export function AddAssignmentCard({ open, busy, error, onOpen, onCancel, onSubmi
         onChange={e => { setFile(e.target.files?.[0] || null); setFileFromDrive(false); }}
         style={{ fontSize: 11, color: "rgba(255,255,255,0.7)" }}
       />
-      {file && fileFromDrive && (
-        // Only shown for a Drive pick, not a plain file input (which
-        // already shows its own chosen filename right next to "Choose
-        // File") — confirms the download/export actually finished, since
-        // that step has no other visible feedback once driveBusy clears.
-        <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", fontStyle: "italic" }}>{file.name}</div>
-      )}
+
       {driveError && <div style={{ fontSize: 11, color: "#e8a722", lineHeight: 1.4 }}>{driveError}</div>}
       {error && <div style={{ fontSize: 11, color: "#ff8a65", fontStyle: "italic" }}>{error}</div>}
       <div style={{ marginTop: "auto", display: "flex", gap: 6 }}>
@@ -1445,13 +1445,35 @@ function InlineAddButton({ label, placeholder, defaultValue, onAdd, style, input
   );
 }
 
-function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropdown, setOpenDropdown, handleUnitOverview, handleLessonClick, goHome, titleMain, titleAccent, isBlankTeacher, onAddUnit, onAddLesson }) {
+function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropdown, setOpenDropdown, handleUnitOverview, handleLessonClick, goHome, titleMain, titleAccent, isBlankTeacher, onAddUnit, onAddLesson, onRenameUnit, onDeleteUnit, onMoveUnit, onRenameLesson, onDeleteLesson, onMoveLesson }) {
+  // Build-mode-only local state for inline rename and two-step delete.
+  const [renamingUnit, setRenamingUnit] = useState(null);   // unitIdx being renamed
+  const [renameUnitVal, setRenameUnitVal] = useState("");
+  const [deletingUnit, setDeletingUnit] = useState(null);   // unitIdx pending delete confirm
+  const [renamingLesson, setRenamingLesson] = useState(null); // { unitIdx, lessonIdx }
+  const [renameLessonVal, setRenameLessonVal] = useState("");
+  const [deletingLesson, setDeletingLesson] = useState(null); // { unitIdx, lessonIdx }
+
+  // Tiny shared style for the micro action-icon buttons in build mode.
+  const microBtn = (extra = {}) => ({
+    background: "transparent",
+    border: "none",
+    cursor: "pointer",
+    color: "rgba(255,255,255,0.7)",
+    fontSize: 11,
+    padding: "1px 3px",
+    lineHeight: 1,
+    borderRadius: 2,
+    fontFamily: "Lato, sans-serif",
+    flexShrink: 0,
+    ...extra,
+  });
   return (
     <div style={{ background: "var(--board-primary)", borderBottom: "4px solid var(--board-secondary)", flexShrink: 0, position: "relative" }}>
       <div style={{ padding: `${SPACE.md}px ${SPACE.lg}px ${SPACE.sm}px`, textAlign: "center", position: "relative" }}>
         <div
           onClick={goHome}
-          style={{ fontFamily: "Oswald, sans-serif", color: "var(--board-primary-fg)", fontSize: 26, fontWeight: 600, letterSpacing: 2, cursor: "pointer", display: "inline-block" }}
+          style={{ fontFamily: "var(--board-heading-font, 'Oswald', sans-serif)", color: "var(--board-primary-fg)", fontSize: 26, fontWeight: 600, letterSpacing: 2, cursor: "pointer", display: "inline-block" }}
         >
           {titleMain ?? "Webster Groves"} <span style={{ color: "var(--board-secondary-accent)" }}>{titleAccent ?? "Chemistry"}</span>
         </div>
@@ -1501,16 +1523,49 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
             onMouseEnter={() => (u.lessons.length > 0 || (isBuildMode && isBlankTeacher)) && setOpenDropdown(ui)}
             onMouseLeave={() => setOpenDropdown(prev => (prev === ui ? null : prev))}
           >
-            <button
-              data-tour={ui === 0 ? "tour-unit-tab" : undefined}
-              data-tour-clicked={ui === 0 && activeUnitIdx === ui && isOverview ? "true" : undefined}
-              onClick={() => { handleUnitOverview(ui); setOpenDropdown(ui); }}
-              style={{ background: activeUnitIdx === ui && isOverview ? "#fff" : "var(--board-secondary)", color: activeUnitIdx === ui && isOverview ? "var(--board-secondary-accent)" : "var(--board-secondary-fg)", border: "none", borderRight: "1px solid rgba(0,0,0,0.2)", padding: `${SPACE.sm}px ${SPACE.xs}px`, fontSize: 13, fontFamily: "Oswald, sans-serif", cursor: "pointer", letterSpacing: 0.5, width: "100%", fontWeight: 600, transition: "all 0.15s" }}
-              onMouseEnter={e => { if (!(activeUnitIdx === ui && isOverview)) { e.currentTarget.style.background = "#fff"; e.currentTarget.style.color = "var(--board-secondary-accent)"; }}}
-              onMouseLeave={e => { if (!(activeUnitIdx === ui && isOverview)) { e.currentTarget.style.background = "var(--board-secondary)"; e.currentTarget.style.color = "var(--board-secondary-fg)"; }}}
-            >
-              {u.unit}
-            </button>
+            {/* Unit name — rename input in build mode, normal button otherwise */}
+            {isBuildMode && isBlankTeacher && renamingUnit === ui ? (
+              <form
+                style={{ display: "flex", borderRight: "1px solid rgba(0,0,0,0.2)" }}
+                onSubmit={e => { e.preventDefault(); onRenameUnit(ui, renameUnitVal); setRenamingUnit(null); }}
+              >
+                <input
+                  autoFocus
+                  value={renameUnitVal}
+                  onChange={e => setRenameUnitVal(e.target.value)}
+                  onBlur={() => { onRenameUnit(ui, renameUnitVal || u.unit); setRenamingUnit(null); }}
+                  onKeyDown={e => { if (e.key === "Escape") setRenamingUnit(null); }}
+                  style={{ flex: 1, background: "var(--board-secondary)", color: "var(--board-secondary-fg)", border: "none", borderBottom: "2px solid var(--board-primary-fg)", padding: `${SPACE.sm}px ${SPACE.xs}px`, fontSize: 13, fontFamily: "var(--board-heading-font, 'Oswald', sans-serif)", fontWeight: 600, letterSpacing: 0.5, outline: "none" }}
+                />
+              </form>
+            ) : (
+              <button
+                data-tour={ui === 0 ? "tour-unit-tab" : undefined}
+                data-tour-clicked={ui === 0 && activeUnitIdx === ui && isOverview ? "true" : undefined}
+                onClick={() => { handleUnitOverview(ui); setOpenDropdown(ui); }}
+                style={{ background: activeUnitIdx === ui && isOverview ? "#fff" : "var(--board-secondary)", color: activeUnitIdx === ui && isOverview ? "var(--board-secondary-accent)" : "var(--board-secondary-fg)", border: "none", borderRight: "1px solid rgba(0,0,0,0.2)", padding: `${SPACE.sm}px ${SPACE.xs}px`, fontSize: 13, fontFamily: "var(--board-heading-font, 'Oswald', sans-serif)", cursor: "pointer", letterSpacing: 0.5, width: "100%", fontWeight: 600, transition: "all 0.15s" }}
+                onMouseEnter={e => { if (!(activeUnitIdx === ui && isOverview)) { e.currentTarget.style.background = "#fff"; e.currentTarget.style.color = "var(--board-secondary-accent)"; }}}
+                onMouseLeave={e => { if (!(activeUnitIdx === ui && isOverview)) { e.currentTarget.style.background = "var(--board-secondary)"; e.currentTarget.style.color = "var(--board-secondary-fg)"; }}}
+              >
+                {u.unit}
+              </button>
+            )}
+            {/* Build-mode edit controls: rename, reorder, delete */}
+            {isBuildMode && isBlankTeacher && (
+              <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 1, padding: "2px 4px", background: "rgba(0,0,0,0.35)", borderRight: "1px solid rgba(0,0,0,0.2)" }}>
+                <button title="Rename unit" onClick={e => { e.stopPropagation(); setRenameUnitVal(u.unit); setRenamingUnit(ui); setDeletingUnit(null); }} style={microBtn()}>✏</button>
+                <button title="Move left"   onClick={e => { e.stopPropagation(); onMoveUnit(ui, -1); }} disabled={ui === 0} style={microBtn({ opacity: ui === 0 ? 0.3 : 1 })}>←</button>
+                <button title="Move right"  onClick={e => { e.stopPropagation(); onMoveUnit(ui, 1); }} disabled={ui === curriculum.length - 1} style={microBtn({ opacity: ui === curriculum.length - 1 ? 0.3 : 1 })}>→</button>
+                {deletingUnit === ui ? (
+                  <>
+                    <button title="Confirm delete" onClick={e => { e.stopPropagation(); onDeleteUnit(ui); setDeletingUnit(null); }} style={microBtn({ color: "#ff6868", fontWeight: 700 })}>Sure?</button>
+                    <button title="Cancel"         onClick={e => { e.stopPropagation(); setDeletingUnit(null); }} style={microBtn()}>✕</button>
+                  </>
+                ) : (
+                  <button title="Delete unit" onClick={e => { e.stopPropagation(); setDeletingUnit(ui); setRenamingUnit(null); }} style={microBtn({ color: "#ff9090" })}>🗑</button>
+                )}
+              </div>
+            )}
 
             {/* Dropdown — also opens (empty except the add-lesson row) for a
                 zero-lesson unit while in Build mode, so a freshly-added
@@ -1529,12 +1584,51 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
                 {u.lessons.map((lesson, li) => (
                   <div key={li}
                     data-tour={ui === 0 && li === 0 ? "tour-lesson-item" : undefined}
-                    onClick={() => handleLessonClick(ui, lesson)}
-                    style={{ padding: `${SPACE.sm}px ${SPACE.md}px`, fontSize: 13, fontFamily: "Lato, sans-serif", fontWeight: 700, color: activeLesson?.title === lesson.title ? "var(--board-secondary-accent)" : "#ccc", cursor: "pointer", borderBottom: "1px solid #2a2a2a", transition: "all 0.12s", whiteSpace: "normal", borderLeft: activeLesson?.title === lesson.title ? "3px solid var(--board-secondary-accent)" : "3px solid transparent", paddingLeft: activeLesson?.title === lesson.title ? SPACE.md - 3 : SPACE.md }}
-                    onMouseEnter={e => { e.currentTarget.style.background = "var(--board-secondary)"; e.currentTarget.style.color = "var(--board-secondary-fg)"; }}
-                    onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = activeLesson?.title === lesson.title ? "var(--board-secondary-accent)" : "#ccc"; }}
+                    style={{ borderBottom: "1px solid #2a2a2a", borderLeft: activeLesson?.title === lesson.title ? "3px solid var(--board-secondary-accent)" : "3px solid transparent" }}
                   >
-                    {lesson.title}
+                    {/* Rename input replaces the lesson row while editing */}
+                    {isBuildMode && isBlankTeacher && renamingLesson?.unitIdx === ui && renamingLesson?.lessonIdx === li ? (
+                      <form
+                        style={{ display: "flex", padding: `${SPACE.sm}px ${SPACE.md}px`, paddingLeft: SPACE.md - 3 }}
+                        onSubmit={e => { e.preventDefault(); onRenameLesson(ui, li, renameLessonVal); setRenamingLesson(null); }}
+                      >
+                        <input
+                          autoFocus
+                          value={renameLessonVal}
+                          onChange={e => setRenameLessonVal(e.target.value)}
+                          onBlur={() => { onRenameLesson(ui, li, renameLessonVal || lesson.title); setRenamingLesson(null); }}
+                          onKeyDown={e => { if (e.key === "Escape") setRenamingLesson(null); }}
+                          style={{ flex: 1, background: "transparent", color: "#fff", border: "none", borderBottom: "1px solid var(--board-secondary-accent)", fontSize: 13, fontFamily: "Lato, sans-serif", fontWeight: 700, outline: "none", padding: "2px 0" }}
+                        />
+                      </form>
+                    ) : (
+                      <div style={{ display: "flex", alignItems: "center" }}>
+                        <div
+                          onClick={() => handleLessonClick(ui, lesson)}
+                          style={{ flex: 1, padding: `${SPACE.sm}px ${SPACE.md}px`, fontSize: 13, fontFamily: "Lato, sans-serif", fontWeight: 700, color: activeLesson?.title === lesson.title ? "var(--board-secondary-accent)" : "#ccc", cursor: "pointer", transition: "all 0.12s", whiteSpace: "normal", paddingLeft: activeLesson?.title === lesson.title ? SPACE.md - 3 : SPACE.md }}
+                          onMouseEnter={e => { e.currentTarget.style.background = "var(--board-secondary)"; e.currentTarget.style.color = "var(--board-secondary-fg)"; }}
+                          onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = activeLesson?.title === lesson.title ? "var(--board-secondary-accent)" : "#ccc"; }}
+                        >
+                          {lesson.title}
+                        </div>
+                        {/* Build-mode lesson actions */}
+                        {isBuildMode && isBlankTeacher && (
+                          <div style={{ display: "flex", alignItems: "center", gap: 1, paddingRight: 6, flexShrink: 0 }}>
+                            <button title="Rename lesson" onClick={e => { e.stopPropagation(); setRenameLessonVal(lesson.title); setRenamingLesson({ unitIdx: ui, lessonIdx: li }); setDeletingLesson(null); }} style={microBtn()}>✏</button>
+                            <button title="Move up"   onClick={e => { e.stopPropagation(); onMoveLesson(ui, li, -1); }} disabled={li === 0} style={microBtn({ opacity: li === 0 ? 0.3 : 1 })}>↑</button>
+                            <button title="Move down" onClick={e => { e.stopPropagation(); onMoveLesson(ui, li, 1); }} disabled={li === u.lessons.length - 1} style={microBtn({ opacity: li === u.lessons.length - 1 ? 0.3 : 1 })}>↓</button>
+                            {deletingLesson?.unitIdx === ui && deletingLesson?.lessonIdx === li ? (
+                              <>
+                                <button title="Confirm delete" onClick={e => { e.stopPropagation(); onDeleteLesson(ui, li); setDeletingLesson(null); }} style={microBtn({ color: "#ff6868", fontWeight: 700 })}>Sure?</button>
+                                <button title="Cancel"         onClick={e => { e.stopPropagation(); setDeletingLesson(null); }} style={microBtn()}>✕</button>
+                              </>
+                            ) : (
+                              <button title="Delete lesson" onClick={e => { e.stopPropagation(); setDeletingLesson({ unitIdx: ui, lessonIdx: li }); setRenamingLesson(null); }} style={microBtn({ color: "#ff9090" })}>🗑</button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))}
                 {isBuildMode && isBlankTeacher && (
@@ -1649,8 +1743,8 @@ export default function App() {
     return () => { cancelled = true; };
   }, [isBlankTeacher, activeTeacherId]);
   const themeVars = isBlankTeacher
-    ? boardThemeVars(teacherProfile?.primaryColor, teacherProfile?.secondaryColor)
-    : boardThemeVars(); // Webster Groves gets the same defaults either way — no-op
+    ? boardThemeVars(teacherProfile?.primaryColor, teacherProfile?.secondaryColor, teacherProfile?.headingFont, teacherProfile?.bodyFont)
+    : boardThemeVars(); // Webster Groves keeps its fixed Oswald/Lato defaults regardless
   const boardTitleMain = isBlankTeacher ? (teacherProfile?.school || "Your School") : undefined;
   const boardTitleAccent = isBlankTeacher ? (teacherProfile?.subject || "Your Subject") : undefined;
 
@@ -1973,19 +2067,34 @@ export default function App() {
     return () => { cancelled = true; };
   }, [activeUnitIdx, activeLesson, activeUnit, isHome, isOverview]);
 
-  const handleAddAssignment = async ({ label, file }) => {
+  const handleAddAssignment = async ({ label, file, driveResult }) => {
     setAddAssignmentBusy(true);
     setAddAssignmentError(null);
     try {
-      const { pdfUrl, thumbUrl, publicId } = await uploadAssignmentPdf(file);
+      let url, thumbUrl, cloudinaryPublicId;
+      if (driveResult) {
+        // Drive path — file already lives in the teacher's Drive; just
+        // store the viewer URL and thumbnail directly, no Cloudinary upload.
+        url = driveResult.viewUrl;
+        thumbUrl = driveResult.thumbUrl;
+        // cloudinaryPublicId intentionally omitted for Drive picks
+      } else {
+        // Local file path — upload to Cloudinary as before.
+        const result = await uploadAssignmentPdf(file);
+        url = result.pdfUrl;
+        thumbUrl = result.thumbUrl;
+        cloudinaryPublicId = result.publicId;
+      }
       const saved = await createExtraAssignment({
-        unitIdx: activeUnitIdx, lessonTitle: activeLesson.title, label, url: pdfUrl, thumb: thumbUrl, cloudinaryPublicId: publicId,
+        unitIdx: activeUnitIdx, lessonTitle: activeLesson.title, label,
+        url, thumb: thumbUrl,
+        ...(cloudinaryPublicId ? { cloudinaryPublicId } : {}),
       });
       setExtraAssignments(prev => [...prev, saved]);
       setAddAssignmentOpen(false);
     } catch (err) {
       console.error("Failed to add assignment", err);
-      setAddAssignmentError(err.message || "Something went wrong uploading that file.");
+      setAddAssignmentError(err.message || "Something went wrong saving that assignment.");
     } finally {
       setAddAssignmentBusy(false);
     }
@@ -2064,6 +2173,74 @@ export default function App() {
   const handleAddLesson = (unitIdx, title) => {
     const newLesson = { title, slides: null, goals: [], assignments: [], videos: [] };
     const next = blankUnits.map((u, i) => i === unitIdx ? { ...u, lessons: [...u.lessons, newLesson] } : u);
+    setBlankUnits(next);
+    saveCurriculum(activeTeacherId, next).catch(() => {});
+  };
+
+  // ── Rename / delete / reorder units ────────────────────────────────────
+  const handleRenameUnit = (unitIdx, newTitle) => {
+    if (!newTitle.trim()) return;
+    const next = blankUnits.map((u, i) => i === unitIdx ? { ...u, unit: newTitle.trim() } : u);
+    setBlankUnits(next);
+    saveCurriculum(activeTeacherId, next).catch(() => {});
+  };
+  const handleDeleteUnit = (unitIdx) => {
+    const next = blankUnits.filter((_, i) => i !== unitIdx);
+    setBlankUnits(next);
+    if (activeUnitIdx === unitIdx) {
+      setActiveUnitIdx(null);
+      setActiveLesson(null);
+    } else if (activeUnitIdx > unitIdx) {
+      setActiveUnitIdx(activeUnitIdx - 1);
+    }
+    saveCurriculum(activeTeacherId, next).catch(() => {});
+  };
+  const handleMoveUnit = (unitIdx, direction) => {
+    const next = [...blankUnits];
+    const swapIdx = unitIdx + direction;
+    if (swapIdx < 0 || swapIdx >= next.length) return;
+    [next[unitIdx], next[swapIdx]] = [next[swapIdx], next[unitIdx]];
+    setBlankUnits(next);
+    if (activeUnitIdx === unitIdx) setActiveUnitIdx(swapIdx);
+    else if (activeUnitIdx === swapIdx) setActiveUnitIdx(unitIdx);
+    saveCurriculum(activeTeacherId, next).catch(() => {});
+  };
+
+  // ── Rename / delete / reorder lessons ──────────────────────────────────
+  const handleRenameLesson = (unitIdx, lessonIdx, newTitle) => {
+    if (!newTitle.trim()) return;
+    const oldTitle = blankUnits[unitIdx]?.lessons[lessonIdx]?.title;
+    const next = blankUnits.map((u, i) => {
+      if (i !== unitIdx) return u;
+      return { ...u, lessons: u.lessons.map((l, li) => li === lessonIdx ? { ...l, title: newTitle.trim() } : l) };
+    });
+    setBlankUnits(next);
+    if (activeUnitIdx === unitIdx && activeLesson?.title === oldTitle) {
+      setActiveLesson(prev => prev ? { ...prev, title: newTitle.trim() } : prev);
+    }
+    saveCurriculum(activeTeacherId, next).catch(() => {});
+  };
+  const handleDeleteLesson = (unitIdx, lessonIdx) => {
+    const oldTitle = blankUnits[unitIdx]?.lessons[lessonIdx]?.title;
+    const next = blankUnits.map((u, i) => {
+      if (i !== unitIdx) return u;
+      return { ...u, lessons: u.lessons.filter((_, li) => li !== lessonIdx) };
+    });
+    setBlankUnits(next);
+    if (activeUnitIdx === unitIdx && activeLesson?.title === oldTitle) {
+      setActiveLesson(null);
+    }
+    saveCurriculum(activeTeacherId, next).catch(() => {});
+  };
+  const handleMoveLesson = (unitIdx, lessonIdx, direction) => {
+    const next = blankUnits.map((u, i) => {
+      if (i !== unitIdx) return u;
+      const lessons = [...u.lessons];
+      const swapIdx = lessonIdx + direction;
+      if (swapIdx < 0 || swapIdx >= lessons.length) return u;
+      [lessons[lessonIdx], lessons[swapIdx]] = [lessons[swapIdx], lessons[lessonIdx]];
+      return { ...u, lessons };
+    });
     setBlankUnits(next);
     saveCurriculum(activeTeacherId, next).catch(() => {});
   };
@@ -2277,6 +2454,8 @@ export default function App() {
     curriculum: activeCurriculum, activeUnitIdx, isOverview, activeLesson, openDropdown, setOpenDropdown, handleUnitOverview, handleLessonClick, goHome,
     titleMain: boardTitleMain, titleAccent: boardTitleAccent,
     isBlankTeacher, onAddUnit: handleAddUnit, onAddLesson: handleAddLesson,
+    onRenameUnit: handleRenameUnit, onDeleteUnit: handleDeleteUnit, onMoveUnit: handleMoveUnit,
+    onRenameLesson: handleRenameLesson, onDeleteLesson: handleDeleteLesson, onMoveLesson: handleMoveLesson,
   };
 
   // On a real board tab, "one screen" legitimately means the teacher's
