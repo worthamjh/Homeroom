@@ -280,3 +280,232 @@ export async function pickGoogleDriveAssignmentFile() {
     thumbUrl: `https://drive.google.com/thumbnail?id=${doc.id}&sz=w400`,
   };
 }
+
+// ─── Google Calendar picker ──────────────────────────────────────────────────
+//
+// Unlike the Drive picker (which has Google's own UI), Google Calendar is a
+// separate product with no built-in picker widget. Instead we use the Calendar
+// API v3 to list the teacher's calendars and render our own small modal.
+//
+// Requires the calendar.readonly OAuth scope, stored separately from the
+// drive.file token so the two flows don't stomp on each other.
+
+const CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar.readonly";
+const CALENDAR_TOKEN_KEY = "homeroom_google_calendar_token";
+
+function readCachedCalendarToken() {
+  try {
+    const raw = sessionStorage.getItem(CALENDAR_TOKEN_KEY);
+    if (!raw) return null;
+    const { token, expiresAt } = JSON.parse(raw);
+    if (!token || Date.now() >= expiresAt) { sessionStorage.removeItem(CALENDAR_TOKEN_KEY); return null; }
+    return token;
+  } catch { return null; }
+}
+function writeCachedCalendarToken(token, expiresInSec) {
+  try {
+    sessionStorage.setItem(CALENDAR_TOKEN_KEY, JSON.stringify({
+      token,
+      expiresAt: Date.now() + ((expiresInSec || 3600) - 60) * 1000,
+    }));
+  } catch { /* noop */ }
+}
+
+function requestCalendarToken() {
+  return new Promise((resolve, reject) => {
+    const cached = readCachedCalendarToken();
+    if (cached) { resolve(cached); return; }
+    const tokenClient = window.google.accounts.oauth2.initTokenClient({
+      client_id: CLIENT_ID,
+      scope: CALENDAR_SCOPE,
+      callback: (resp) => {
+        if (resp.error) { reject(new Error(resp.error)); return; }
+        writeCachedCalendarToken(resp.access_token, resp.expires_in);
+        resolve(resp.access_token);
+      },
+      error_callback: (err) => reject(new Error(err?.type || "Google sign-in was cancelled or failed")),
+    });
+    tokenClient.requestAccessToken();
+  });
+}
+
+async function fetchCalendarList(accessToken) {
+  const res = await fetch(
+    "https://www.googleapis.com/calendar/v3/calendarList?minAccessRole=reader&fields=items(id,summary,backgroundColor,primary)",
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  );
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    throw new Error(`Couldn't fetch your calendars (${res.status}): ${detail}`);
+  }
+  const data = await res.json();
+  return (data.items || []).sort((a, b) => (b.primary ? 1 : 0) - (a.primary ? 1 : 0));
+}
+
+/**
+ * Opens a small DOM-based modal listing the teacher's Google Calendars.
+ * Returns the same { embedUrl, name, shareWarning } shape as pickGoogleSlidesEmbed
+ * so AddEmbedCard's onBrowseDrive handler works unchanged.
+ *
+ * @returns {Promise<{ embedUrl: string, name: string, shareWarning: null } | null>}
+ */
+export async function pickGoogleCalendar() {
+  await ensureGoogleScriptsLoaded();
+  const accessToken = await requestCalendarToken();
+  const calendars = await fetchCalendarList(accessToken);
+
+  if (!calendars.length) {
+    throw new Error("No calendars found on this Google account.");
+  }
+
+  return new Promise((resolve) => {
+    // ── overlay ──────────────────────────────────────────────────────────────
+    const overlay = document.createElement("div");
+    Object.assign(overlay.style, {
+      position: "fixed", inset: "0",
+      background: "rgba(0,0,0,0.72)",
+      zIndex: "99999",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      fontFamily: "Lato, sans-serif",
+    });
+
+    // ── modal ─────────────────────────────────────────────────────────────────
+    const modal = document.createElement("div");
+    Object.assign(modal.style, {
+      background: "#1e1e1e",
+      border: "1px solid #333",
+      borderRadius: "10px",
+      padding: "24px",
+      width: "min(480px, 90vw)",
+      maxHeight: "70vh",
+      display: "flex",
+      flexDirection: "column",
+      gap: "16px",
+      boxShadow: "0 12px 40px rgba(0,0,0,0.6)",
+      boxSizing: "border-box",
+    });
+
+    // title
+    const title = document.createElement("div");
+    title.textContent = "Choose a Google Calendar";
+    Object.assign(title.style, {
+      fontFamily: "Oswald, sans-serif",
+      fontSize: "17px",
+      color: "#fff",
+      letterSpacing: "0.5px",
+    });
+
+    // sub-hint
+    const hint = document.createElement("div");
+    hint.textContent = "Pick the calendar to embed on the unit overview page.";
+    Object.assign(hint.style, {
+      fontSize: "12px",
+      color: "rgba(255,255,255,0.45)",
+      marginTop: "-8px",
+    });
+
+    // list
+    const list = document.createElement("div");
+    Object.assign(list.style, {
+      overflowY: "auto",
+      display: "flex",
+      flexDirection: "column",
+      gap: "6px",
+      flexShrink: "1",
+    });
+
+    const BASE_BTN = {
+      background: "#2a2a2a",
+      border: "1px solid #444",
+      borderRadius: "6px",
+      padding: "10px 14px",
+      color: "#fff",
+      cursor: "pointer",
+      textAlign: "left",
+      display: "flex",
+      alignItems: "center",
+      gap: "10px",
+      width: "100%",
+      boxSizing: "border-box",
+      transition: "border-color 0.12s",
+    };
+
+    calendars.forEach(cal => {
+      const btn = document.createElement("button");
+      Object.assign(btn.style, BASE_BTN);
+
+      if (cal.backgroundColor) {
+        const dot = document.createElement("span");
+        Object.assign(dot.style, {
+          width: "11px", height: "11px",
+          borderRadius: "50%",
+          background: cal.backgroundColor,
+          flexShrink: "0",
+          display: "inline-block",
+        });
+        btn.appendChild(dot);
+      }
+
+      const nameSpan = document.createElement("span");
+      nameSpan.textContent = cal.summary || cal.id;
+      Object.assign(nameSpan.style, { fontSize: "14px", lineHeight: "1.3" });
+      btn.appendChild(nameSpan);
+
+      if (cal.primary) {
+        const badge = document.createElement("span");
+        badge.textContent = "primary";
+        Object.assign(badge.style, {
+          marginLeft: "auto",
+          fontSize: "10px",
+          color: "rgba(255,255,255,0.35)",
+          fontStyle: "italic",
+        });
+        btn.appendChild(badge);
+      }
+
+      btn.onmouseenter = () => { btn.style.borderColor = "#f90"; btn.style.background = "#333"; };
+      btn.onmouseleave = () => { btn.style.borderColor = "#444"; btn.style.background = "#2a2a2a"; };
+
+      btn.onclick = () => {
+        document.body.removeChild(overlay);
+        resolve({
+          embedUrl: `https://calendar.google.com/calendar/embed?src=${encodeURIComponent(cal.id)}&showTitle=0&showNav=1&showDate=1&showPrint=0&showTabs=1&showCalendars=0`,
+          name: cal.summary || cal.id,
+          shareWarning: null,
+        });
+      };
+
+      list.appendChild(btn);
+    });
+
+    // cancel
+    const cancelBtn = document.createElement("button");
+    cancelBtn.textContent = "Cancel";
+    Object.assign(cancelBtn.style, {
+      background: "transparent",
+      border: "1px solid #555",
+      borderRadius: "4px",
+      color: "rgba(255,255,255,0.5)",
+      padding: "7px 16px",
+      cursor: "pointer",
+      fontFamily: "Oswald, sans-serif",
+      fontSize: "11px",
+      letterSpacing: "0.5px",
+      textTransform: "uppercase",
+      alignSelf: "flex-start",
+    });
+    cancelBtn.onmouseenter = () => { cancelBtn.style.borderColor = "#888"; cancelBtn.style.color = "#fff"; };
+    cancelBtn.onmouseleave = () => { cancelBtn.style.borderColor = "#555"; cancelBtn.style.color = "rgba(255,255,255,0.5)"; };
+    cancelBtn.onclick = () => { document.body.removeChild(overlay); resolve(null); };
+
+    // click backdrop to cancel
+    overlay.onclick = (e) => { if (e.target === overlay) { document.body.removeChild(overlay); resolve(null); } };
+
+    modal.appendChild(title);
+    modal.appendChild(hint);
+    modal.appendChild(list);
+    modal.appendChild(cancelBtn);
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+  });
+}
