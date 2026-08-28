@@ -116,12 +116,11 @@ function LiveBuildBoard({ teacherId, highlightRegion, onPanelCountInfo, onViewCh
         onViewChange?.({ unitIdx: e.data.unitIdx, lessonTitle: e.data.lessonTitle });
       }
       if (e.data?.type === "homeroom-drive-slides-saved") {
-        // The iframe saved slides from the Drive picker and is asking us to
-        // reload it — the Picker SDK's own DOM cleanup can corrupt React's
-        // fiber tree inside the iframe on re-render, so we reload it here
-        // (where the save has already persisted to localStorage) rather than
-        // letting the iframe try to re-render into a broken DOM.
-        iframeRef.current?.contentWindow?.location.reload();
+        // The iframe already called window.location.reload() on itself right
+        // after sending this message, so we don't need to reload it here.
+        // We DO need to scroll the build page back to the top so the teacher
+        // lands on the fresh board instead of in the middle of the page.
+        window.scrollTo({ top: 0, behavior: "instant" });
       }
     };
     window.addEventListener("message", handler);

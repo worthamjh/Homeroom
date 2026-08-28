@@ -995,12 +995,16 @@ function AddEmbedCard({ open, label, promptText, placeholder, initialUrl, onOpen
       if (result) {
         if (result.shareWarning) setDriveError(result.shareWarning);
         onSave(result.embedUrl);
-        // The Google Picker SDK does DOM cleanup after the picker closes that
-        // corrupts React's fiber tree. Calling window.location.reload() here
-        // fires synchronously — it interrupts the React render that setLessonSlidesUrl
-        // scheduled before React can try to re-render against the broken DOM.
-        // The localStorage write in onSave() is synchronous and always completes
-        // first, so the reloaded page picks up the saved URL immediately.
+        // Tell the parent BuildPage to scroll to the top before the reload
+        // lands — without this the browser keeps its current scroll position,
+        // dropping the teacher into the middle of the (briefly enlarged) page.
+        if (window.parent !== window) {
+          window.parent.postMessage({ type: "homeroom-drive-slides-saved" }, window.location.origin);
+        }
+        // Reload synchronously to cut off React's pending re-render before it
+        // hits the Google Picker SDK's corrupted fiber tree. The localStorage
+        // write in onSave() is synchronous and always completes first, so the
+        // reloaded page picks up the saved URL immediately.
         window.location.reload();
       }
     } catch (err) {
@@ -2129,16 +2133,24 @@ export default function App() {
   // changes the page's height.
   useEffect(() => {
     if (!isBuildMode || typeof ResizeObserver === "undefined") return;
+    // Debounce the report by 250 ms so that transient layout spikes during
+    // Google Slides iframe load (or any other async content settling) don't
+    // inflate the BuildPage wrapper to a huge height that then requires
+    // scrolling to get back to the top.
+    let timer = null;
     const report = () => {
-      window.parent?.postMessage(
-        { type: "homeroom-build-content-height", height: document.documentElement.scrollHeight },
-        window.location.origin
-      );
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        window.parent?.postMessage(
+          { type: "homeroom-build-content-height", height: document.documentElement.scrollHeight },
+          window.location.origin
+        );
+      }, 250);
     };
     report();
     const ro = new ResizeObserver(report);
     ro.observe(document.body);
-    return () => ro.disconnect();
+    return () => { ro.disconnect(); clearTimeout(timer); };
   }, []);
 
   const toggleGoal = (panelKey, idx) => {
