@@ -1579,8 +1579,10 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
                     <button title="Cancel"         onClick={e => { e.stopPropagation(); setDeletingUnit(null); }} style={microBtn()}>cancel</button>
                   </>
                 ) : (
-                  <button title={u.hidden ? "Show unit on live board" : "Hide unit from live board"} onClick={e => { e.stopPropagation(); onToggleUnitVisibility(ui); }} style={microBtn({ color: u.hidden ? "#90e890" : "rgba(255,255,255,0.75)" })}>{u.hidden ? "show" : "hide"}</button>
-                <button title="Delete unit" onClick={e => { e.stopPropagation(); setDeletingUnit(ui); setRenamingUnit(null); }} style={microBtn({ color: "#ff9090" })}>delete</button>
+                  <>
+                    <button title={u.hidden ? "Show unit on live board" : "Hide unit from live board"} onClick={e => { e.stopPropagation(); onToggleUnitVisibility(ui); }} style={microBtn({ color: u.hidden ? "#90e890" : "rgba(255,255,255,0.75)" })}>{u.hidden ? "show" : "hide"}</button>
+                    <button title="Delete unit" onClick={e => { e.stopPropagation(); setDeletingUnit(ui); setRenamingUnit(null); }} style={microBtn({ color: "#ff9090" })}>delete</button>
+                  </>
                 )}
               </div>
             )}
