@@ -2080,31 +2080,63 @@ export default function App() {
   // with whatever boardSlides happened to be (null included), which is
   // what silently produced an empty slide frame with no add button (Jay:
   // "There is not add presentation button").
-  const renderLessonSlides = () => (
-    !isOverview && isBuildMode && !boardSlides ? (
-      <AddSlidesCard
-        open={slidesEditing}
-        onOpen={() => setSlidesEditing(true)}
-        onCancel={() => setSlidesEditing(false)}
-        onSave={handleSaveSlides}
-        dataTour="tour-add-slides"
-      />
-    ) : !isOverview && isBuildMode && slidesEditing ? (
-      <AddSlidesCard
-        open={true}
-        initialUrl={lessonSlidesUrl}
-        onOpen={() => {}}
-        onCancel={() => setSlidesEditing(false)}
-        onSave={handleSaveSlides}
-      />
-    ) : !isOverview && isBuildMode ? (
-      <BuildEditableSlot onChange={() => setSlidesEditing(true)} onRemove={handleRemoveSlides}>
-        <SmartBoard src={boardSlides} />
-      </BuildEditableSlot>
-    ) : (
-      <SmartBoard src={boardSlides} />
-    )
-  );
+  // Shared button style matching BuildEditableSlot's Change/Remove buttons.
+  const _slotBtnStyle = { background: "rgba(20,20,20,0.9)", border: "1px solid rgba(255,255,255,0.4)", borderRadius: 3, color: "white", fontFamily: "Oswald, sans-serif", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, padding: "6px 10px", cursor: "pointer", boxShadow: "0 1px 4px rgba(0,0,0,0.5)", transition: "border-color 0.15s" };
+
+  const renderLessonSlides = () => {
+    if (!isOverview && isBuildMode && !boardSlides) {
+      // No slides yet — keep the SmartBoard frame visible (empty) so the
+      // layout stays intact, and overlay an "Add Slides" button on top.
+      // When the form is open it appears as a centred overlay over the board.
+      return (
+        <div style={{ position: "relative", width: "100%", height: "100%" }}>
+          <SmartBoard src={null} />
+          {slidesEditing ? (
+            <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.75)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 10, borderRadius: 8 }}>
+              <AddSlidesCard
+                open={true}
+                initialUrl=""
+                onOpen={() => {}}
+                onCancel={() => setSlidesEditing(false)}
+                onSave={handleSaveSlides}
+              />
+            </div>
+          ) : (
+            <div style={{ position: "absolute", top: 8, right: 8, display: "flex", gap: 6, zIndex: 5, pointerEvents: "auto" }}>
+              <button
+                data-tour="tour-add-slides"
+                style={_slotBtnStyle}
+                onClick={() => setSlidesEditing(true)}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--board-secondary)"; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.4)"; }}
+              >
+                Add Slides
+              </button>
+            </div>
+          )}
+        </div>
+      );
+    }
+    if (!isOverview && isBuildMode && slidesEditing) {
+      return (
+        <AddSlidesCard
+          open={true}
+          initialUrl={lessonSlidesUrl}
+          onOpen={() => {}}
+          onCancel={() => setSlidesEditing(false)}
+          onSave={handleSaveSlides}
+        />
+      );
+    }
+    if (!isOverview && isBuildMode) {
+      return (
+        <BuildEditableSlot onChange={() => setSlidesEditing(true)} onRemove={handleRemoveSlides}>
+          <SmartBoard src={boardSlides} />
+        </BuildEditableSlot>
+      );
+    }
+    return <SmartBoard src={boardSlides} />;
+  };
 
   // The active lesson's goals, flattened to one flat list of
   // { text, panelKey, idx } — same shape/keys the Learning Goals checklist
