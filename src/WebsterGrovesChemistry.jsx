@@ -995,13 +995,13 @@ function AddEmbedCard({ open, label, promptText, placeholder, initialUrl, onOpen
       if (result) {
         if (result.shareWarning) setDriveError(result.shareWarning);
         onSave(result.embedUrl);
-        // Ask the parent BuildPage to reload the iframe — the Google Picker SDK
-        // does DOM cleanup after the picker closes that can corrupt React's fiber
-        // tree on re-render; a clean reload avoids the crash and shows the saved
-        // content immediately without needing a manual tab close and refresh.
-        if (window.parent !== window) {
-          window.parent.postMessage({ type: "homeroom-drive-slides-saved" }, window.location.origin);
-        }
+        // The Google Picker SDK does DOM cleanup after the picker closes that
+        // corrupts React's fiber tree. Calling window.location.reload() here
+        // fires synchronously — it interrupts the React render that setLessonSlidesUrl
+        // scheduled before React can try to re-render against the broken DOM.
+        // The localStorage write in onSave() is synchronous and always completes
+        // first, so the reloaded page picks up the saved URL immediately.
+        window.location.reload();
       }
     } catch (err) {
       setDriveError(err.message || "Something went wrong opening Google Drive.");
