@@ -69,14 +69,39 @@ export function ensureGoogleScriptsLoaded() {
   return scriptsPromise;
 }
 
-// Cached in memory only (never persisted) — GIS access tokens are
-// short-lived (~1hr) and it's fine, even a little expected, to ask again
-// after that. Getting a fresh one is still just a silent popup+consent
-// check for an already-authorized teacher, not a full re-login.
-let cachedToken = null;
+// Access tokens are cached in sessionStorage (tab-scoped, survives
+// iframe reloads within the session) so the teacher doesn't have to
+// re-pick their Google account every time they add slides and the iframe
+// reloads. GIS tokens are short-lived (~1hr) and we record an explicit
+// expiresAt so we never hand a stale token to the Picker.
+const TOKEN_STORAGE_KEY = "homeroom_google_access_token";
+function readCachedToken() {
+  try {
+    const raw = sessionStorage.getItem(TOKEN_STORAGE_KEY);
+    if (!raw) return null;
+    const { token, expiresAt } = JSON.parse(raw);
+    if (!token || Date.now() >= expiresAt) { sessionStorage.removeItem(TOKEN_STORAGE_KEY); return null; }
+    return token;
+  } catch { return null; }
+}
+function writeCachedToken(token, expiresInSec) {
+  try {
+    sessionStorage.setItem(TOKEN_STORAGE_KEY, JSON.stringify({
+      token,
+      // Expire a minute early so a near-the-hour pick never uses a token
+      // that expires mid-request.
+      expiresAt: Date.now() + ((expiresInSec || 3600) - 60) * 1000,
+    }));
+  } catch { /* sessionStorage unavailable — harmless, just re-prompts next time */ }
+}
+function clearCachedToken() {
+  try { sessionStorage.removeItem(TOKEN_STORAGE_KEY); } catch { /* noop */ }
+}
+
 function requestAccessToken() {
   return new Promise((resolve, reject) => {
-    if (cachedToken) { resolve(cachedToken); return; }
+    const cached = readCachedToken();
+    if (cached) { resolve(cached); return; }
     // This MUST run synchronously inside the caller's click handler (no
     // preceding await) — see the comment on ensureGoogleScriptsLoaded
     // above for why.
@@ -85,11 +110,7 @@ function requestAccessToken() {
       scope: DRIVE_SCOPE,
       callback: (resp) => {
         if (resp.error) { reject(new Error(resp.error)); return; }
-        cachedToken = resp.access_token;
-        // Drop the cache a little before GIS's own expiry so a
-        // near-the-hour-mark pick doesn't try to use a token that
-        // expires mid-request.
-        setTimeout(() => { cachedToken = null; }, ((resp.expires_in || 3600) - 60) * 1000);
+        writeCachedToken(resp.access_token, resp.expires_in);
         resolve(resp.access_token);
       },
       error_callback: (err) => reject(new Error(err?.type || "Google sign-in was cancelled or failed")),
