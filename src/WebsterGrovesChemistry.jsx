@@ -3,7 +3,7 @@ import ChalkboardBoardRow, { toGoalPanels } from "./ChalkboardBoardRow";
 import { useFullAgendaFields, ObjectivesChecklist, EditableField, ResetBoardButton } from "./FullAgendaBoard";
 import { fetchExtraAssignments, createExtraAssignment, deleteExtraAssignment } from "./lib/extraAssignments";
 import { uploadAssignmentPdf } from "./lib/cloudinary";
-import { googleDriveConfigured, ensureGoogleScriptsLoaded, pickGoogleSlidesEmbed, pickGoogleDriveAssignmentFile } from "./lib/googleDrive";
+import { googleDriveConfigured, ensureGoogleScriptsLoaded, pickGoogleSlidesEmbed, pickGoogleDriveAssignmentFile, pickGoogleCalendar } from "./lib/googleDrive";
 import { fetchProfile } from "./lib/profileApi";
 import { fetchCurriculum, saveCurriculum } from "./lib/curriculumApi";
 import { fetchCheckedGoals, saveCheckedGoals } from "./lib/checkedGoalsApi";
@@ -980,7 +980,7 @@ function SmartBoard({ src }) {
 // collapsed empty tile and the expanded paste form. See googleDrive.js for
 // the actual OAuth+Picker flow this triggers; this component only owns
 // the loading/error UI around calling it.
-function AddEmbedCard({ open, label, promptText, placeholder, initialUrl, onOpen, onCancel, onSave, dataTour, onBrowseDrive }) {
+function AddEmbedCard({ open, label, promptText, placeholder, initialUrl, onOpen, onCancel, onSave, dataTour, onBrowseDrive, browseLabel = "Browse Google Drive", browseBusyLabel = "Connecting to Google Drive…" }) {
   const [url, setUrl] = useState(initialUrl || "");
   const [driveBusy, setDriveBusy] = useState(false);
   const [driveError, setDriveError] = useState(null);
@@ -1021,7 +1021,7 @@ function AddEmbedCard({ open, label, promptText, placeholder, initialUrl, onOpen
       disabled={driveBusy}
       style={{ background: "transparent", border: "1px solid var(--board-secondary)", borderRadius: 2, color: "var(--board-secondary-accent)", fontFamily: "Oswald, sans-serif", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, padding: "8px 12px", cursor: driveBusy ? "default" : "pointer", opacity: driveBusy ? 0.6 : 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
     >
-      {driveBusy ? "Connecting to Google Drive…" : "Browse Google Drive"}
+      {driveBusy ? browseBusyLabel : browseLabel}
     </button>
   );
 
@@ -1097,12 +1097,23 @@ function AddEmbedCard({ open, label, promptText, placeholder, initialUrl, onOpen
 // just with an "add calendar" affordance where the real one has an
 // already-configured calendar).
 export function AddCalendarCard(props) {
+  const driveReady = googleDriveConfigured();
+  // Eager script load mirrors AddSlidesCard — GIS needs to be ready before
+  // the teacher clicks "Browse Google Calendar" so the OAuth popup can open
+  // synchronously within that click handler (see ensureGoogleScriptsLoaded).
+  useEffect(() => {
+    if (driveReady) ensureGoogleScriptsLoaded().catch(() => {});
+  }, [driveReady]);
+
   return (
     <AddEmbedCard
       {...props}
       label="Add Calendar"
       promptText="Paste your Google Calendar embed URL"
       placeholder="https://calendar.google.com/calendar/embed?src=..."
+      onBrowseDrive={driveReady ? pickGoogleCalendar : undefined}
+      browseLabel="Browse Google Calendar"
+      browseBusyLabel="Loading your calendars…"
     />
   );
 }
@@ -1307,7 +1318,7 @@ export function AddAssignmentCard({ open, busy, error, onOpen, onCancel, onSubmi
             disabled={busy || driveBusy}
             style={{ background: "transparent", border: "1px solid var(--board-secondary)", borderRadius: 2, color: "var(--board-secondary-accent)", fontFamily: "Oswald, sans-serif", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, padding: "8px 12px", cursor: driveBusy ? "default" : "pointer", opacity: driveBusy ? 0.6 : 1 }}
           >
-            {driveBusy ? "Connecting to Google Drive…" : "Browse Google Drive"}
+            {driveBusy ? browseBusyLabel : browseLabel}
           </button>
           <div style={{ display: "flex", alignItems: "center", gap: 8, color: "rgba(255,255,255,0.3)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>
             <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.15)" }} />
@@ -1975,7 +1986,7 @@ export default function App() {
   const slidingEnabled = slidingBoardsEnabled === "true";
   const slidingCount = parseInt(slidingBoardsCount, 10) || parseInt(DEFAULT_SLIDING_BOARDS_COUNT, 10);
 
-  const isHome = activeUnitIdx === null;
+  const isHome = activeUnitIdx === null || (!isBuildMode && !!activeCurriculum[activeUnitIdx]?.hidden);
   const activeUnit = isHome ? null : activeCurriculum[activeUnitIdx];
   const isOverview = activeLesson === null;
 
