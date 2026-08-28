@@ -1460,14 +1460,14 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
 
   // Tiny shared style for the micro action-icon buttons in build mode.
   const microBtn = (extra = {}) => ({
-    background: "transparent",
+    background: "rgba(0,0,0,0.25)",
     border: "none",
     cursor: "pointer",
-    color: "rgba(255,255,255,0.7)",
-    fontSize: 11,
-    padding: "1px 3px",
+    color: "rgba(255,255,255,0.9)",
+    fontSize: 14,
+    padding: "2px 5px",
     lineHeight: 1,
-    borderRadius: 2,
+    borderRadius: 3,
     fontFamily: "Lato, sans-serif",
     flexShrink: 0,
     ...extra,
@@ -2492,15 +2492,7 @@ export default function App() {
         : { ...themeVars, ...wallStyle, minHeight: oneScreenHeight, fontFamily: "Lato, sans-serif", display: "flex", flexDirection: "column", ...highlightStyle("background") }
       }>
 
-      {isBlankTeacher && (
-        // Unmissable on purpose — this is the only thing distinguishing a
-        // blank experimentation shell from the real, live Webster Groves
-        // site at a glance, so it needs to survive being seen for half a
-        // second, not just be technically present.
-        <div style={{ background: "#7a3ff0", color: "white", fontFamily: "Oswald, sans-serif", fontSize: 12, letterSpacing: 1, textTransform: "uppercase", textAlign: "center", padding: "6px 12px", flexShrink: 0 }}>
-          Blank shell — teacher: "{activeTeacherId}" — not the real Webster Groves site
-        </div>
-      )}
+
 
       {isHome ? (
         <>
