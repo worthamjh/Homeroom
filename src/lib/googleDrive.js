@@ -255,7 +255,7 @@ export async function pickGoogleDriveAssignmentFile() {
   return {
     fileId: doc.id,
     name: doc.name.replace(/\.(pdf|docx?|gdoc)$/i, ""),
-    viewUrl: `https://drive.google.com/file/d/${doc.id}/view`,
+    viewUrl: `https://web.kamihq.com/web/viewer.html?state=${encodeURIComponent(JSON.stringify({ id: doc.id, action: 'open', from: 'google-drive' }))}`,
     thumbUrl: `https://drive.google.com/thumbnail?id=${doc.id}&sz=w400`,
   };
 }
