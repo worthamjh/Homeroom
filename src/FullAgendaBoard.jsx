@@ -56,6 +56,7 @@ export function defaultFullAgendaContent() {
     essentialQuestion: "",
     agenda: "",
     bellRinger: "",
+    bellRingerKamiUrl: "",
     homeLearning: "",
     learningGoals: "",
   };
@@ -216,10 +217,16 @@ export function useFullAgendaFields(storageKey, mongoKey) {
 // than each having its own copy of the same style object, specifically so
 // they can never visually drift apart from each other again (Jay caught a
 // case where Objectives' heading looked different from the others').
-function SectionHeader({ label, surface }) {
+function SectionHeader({ label, surface, onClick, kamiIndicator }) {
   return (
-    <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 12, color: surface.accent, letterSpacing: 2, textTransform: "uppercase", borderBottom: `1px solid ${surface.dividerBorder}`, paddingBottom: 6 }}>
-      {label}
+    <div
+      onClick={onClick}
+      style={{ fontFamily: "Oswald, sans-serif", fontSize: 12, color: surface.accent, letterSpacing: 2, textTransform: "uppercase", borderBottom: `1px solid ${surface.dividerBorder}`, paddingBottom: 6, display: "flex", alignItems: "center", gap: 6, cursor: onClick ? "pointer" : "default" }}
+    >
+      <span style={{ flex: 1 }}>{label}</span>
+      {kamiIndicator && (
+        <span style={{ fontSize: 9, background: "rgba(255,255,255,0.15)", borderRadius: 3, padding: "2px 7px", letterSpacing: 0.5, color: surface.accent, fontFamily: "Lato, sans-serif" }}>📄 tap to open</span>
+      )}
     </div>
   );
 }
@@ -263,7 +270,46 @@ function splitGoalLines(raw) {
   return (raw || "").split("\n").filter(l => l.trim().length > 0);
 }
 
-function Section({ label, value, placeholder, editing, onStartEdit, onSave, rows = 3, minHeight, surface, itemized, checkedLines, onToggleLine, quickAddOptions, interactive = true }) {
+// Small Kami URL input — build mode only, Bell Ringer section.
+function KamiUrlInput({ kamiUrl, onSaveKamiUrl, surface = DEFAULT_SURFACE }) {
+  const [draft, setDraft] = useState(kamiUrl || "");
+  const [saved, setSaved] = useState(false);
+  useEffect(() => { setDraft(kamiUrl || ""); setSaved(false); }, [kamiUrl]);
+  const handleSave = () => { onSaveKamiUrl(draft.trim()); setSaved(true); setTimeout(() => setSaved(false), 1800); };
+  return (
+    <div style={{ marginTop: 8, borderTop: `1px dashed ${surface.dividerBorder}`, paddingTop: 8, display: "flex", flexDirection: "column", gap: 4 }}>
+      <div style={{ fontFamily: "Lato, sans-serif", fontSize: 10, letterSpacing: 1, textTransform: "uppercase", color: surface.placeholderText }}>
+        📄 Kami URL <span style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0, opacity: 0.7 }}>— paste your Kami share/embed link</span>
+      </div>
+      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+        <input
+          type="url"
+          value={draft}
+          onChange={e => { setDraft(e.target.value); setSaved(false); }}
+          onKeyDown={e => { if (e.key === "Enter") handleSave(); if (e.key === "Escape") setDraft(kamiUrl || ""); }}
+          placeholder="https://app.kami.com/..."
+          style={{ flex: 1, fontFamily: "Lato, sans-serif", fontSize: 12, padding: "4px 8px", background: "rgba(255,255,255,0.08)", border: `1px solid ${surface.dividerBorder}`, borderRadius: 4, color: "#fff", outline: "none", minWidth: 0 }}
+          onFocus={e => { e.currentTarget.style.borderColor = surface.accent; }}
+          onBlur={e => { e.currentTarget.style.borderColor = surface.dividerBorder; }}
+        />
+        <button
+          onClick={handleSave}
+          disabled={draft.trim() === (kamiUrl || "")}
+          style={{ fontFamily: "Lato, sans-serif", fontSize: 11, padding: "4px 12px", background: saved ? "rgba(100,220,100,0.2)" : "rgba(255,255,255,0.1)", border: `1px solid ${saved ? "rgba(100,220,100,0.5)" : surface.dividerBorder}`, borderRadius: 4, color: saved ? "#7de87d" : "#fff", cursor: "pointer", opacity: draft.trim() === (kamiUrl || "") ? 0.4 : 1, transition: "all 0.2s" }}
+        >
+          {saved ? "✓ Saved" : "Save"}
+        </button>
+        {kamiUrl && (
+          <button onClick={() => { setDraft(""); onSaveKamiUrl(""); }} title="Remove Kami link"
+            style={{ fontFamily: "Lato, sans-serif", fontSize: 11, padding: "4px 8px", background: "transparent", border: `1px solid ${surface.dividerBorder}`, borderRadius: 4, color: surface.placeholderText, cursor: "pointer" }}>✕</button>
+        )}
+      </div>
+      {kamiUrl && <div style={{ fontFamily: "Lato, sans-serif", fontSize: 10, color: surface.placeholderText, wordBreak: "break-all" }}>Linked: {kamiUrl}</div>}
+    </div>
+  );
+}
+
+function Section({ label, value, placeholder, editing, onStartEdit, onSave, rows = 3, minHeight, surface, itemized, checkedLines, onToggleLine, quickAddOptions, interactive = true, kamiUrl, onSaveKamiUrl, onKamiOpen }) {
   const ref = useRef(null);
   const [draft, setDraft] = useState(value);
 
@@ -295,6 +341,8 @@ function Section({ label, value, placeholder, editing, onStartEdit, onSave, rows
   const lastSavedRef = useRef(value);
   const itemRefs = useRef([]);
   const pendingFocusRef = useRef(null);
+  const [dragItemId, setDragItemId] = useState(null);
+  const [draggingItems, setDraggingItems] = useState(null);
 
   // Re-sync from an externally-changed value (Reset Board, a Mongo-synced
   // update from another device, or a fresh lesson loading in) -- but never
@@ -402,7 +450,7 @@ function Section({ label, value, placeholder, editing, onStartEdit, onSave, rows
     if (isEmpty) {
       return (
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          <SectionHeader label={label} surface={surface} />
+          <SectionHeader label={label} surface={surface} onClick={!interactive && onKamiOpen && kamiUrl ? onKamiOpen : undefined} kamiIndicator={!interactive && !!kamiUrl && !!onKamiOpen} />
         </div>
       );
     }
@@ -410,27 +458,66 @@ function Section({ label, value, placeholder, editing, onStartEdit, onSave, rows
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-      <SectionHeader label={label} surface={surface} />
+      <SectionHeader label={label} surface={surface} onClick={!interactive && onKamiOpen && kamiUrl ? onKamiOpen : undefined} kamiIndicator={!interactive && !!kamiUrl && !!onKamiOpen} />
       {itemized ? (
         editable ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-            {items.map((text, idx) => {
-              const checked = !!(checkedLines && checkedLines[idx]);
+            {(draggingItems ?? items.map((text, i) => ({ id: i, text }))).map((item, displayIdx) => {
+              const text = item.text;
+              const id = item.id;
+              const checked = !!(checkedLines && checkedLines[displayIdx]);
+              const isDragging = dragItemId !== null && id === dragItemId;
               return (
-                <div key={idx} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "3px 2px" }}>
+                <div
+                  key={id}
+                  style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "3px 2px", opacity: isDragging ? 0.4 : 1 }}
+                  onDragOver={e => {
+                    e.preventDefault();
+                    if (dragItemId === null || !draggingItems || id === dragItemId) return;
+                    const ls = [...draggingItems];
+                    const from = ls.findIndex(d => d.id === dragItemId);
+                    const to = ls.findIndex(d => d.id === id);
+                    if (from !== -1 && to !== -1 && from !== to) {
+                      const [mv] = ls.splice(from, 1);
+                      ls.splice(to, 0, mv);
+                      setDraggingItems(ls);
+                    }
+                  }}
+                >
+                  <div
+                    draggable
+                    onDragStart={e => {
+                      e.stopPropagation();
+                      setDragItemId(id);
+                      setDraggingItems(items.map((t, i) => ({ id: i, text: t })));
+                      e.dataTransfer.effectAllowed = "move";
+                    }}
+                    onDragEnd={() => {
+                      if (draggingItems) updateItems(draggingItems.map(d => d.text));
+                      setDragItemId(null);
+                      setDraggingItems(null);
+                    }}
+                    style={{ display: "flex", alignItems: "center", paddingTop: 4, paddingRight: 2, flexShrink: 0, cursor: "grab", color: surface.placeholderText, fontSize: 14, userSelect: "none", opacity: 0.5 }}
+                  >≡</div>
                   <span
-                    onClick={() => onToggleLine(idx)}
+                    onClick={() => onToggleLine(displayIdx)}
                     style={{ width: 14, height: 14, marginTop: 5, borderRadius: 3, border: `2px solid ${checked ? surface.accent : surface.checkboxBorder}`, background: checked ? surface.accent : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: "pointer", transition: "all 0.15s" }}
                   >
                     {checked && <span style={{ color: "white", fontSize: 9, lineHeight: 1 }}>✓</span>}
                   </span>
                   <textarea
-                    ref={el => { itemRefs.current[idx] = el; }}
+                    ref={el => { itemRefs.current[displayIdx] = el; }}
                     value={text}
                     rows={1}
-                    onChange={e => handleItemChange(idx, e.target.value)}
-                    onKeyDown={e => handleItemKeyDown(idx, e)}
-                    placeholder={idx === 0 ? placeholder : ""}
+                    onChange={e => {
+                      if (draggingItems) return;
+                      const next = items.slice();
+                      next[id] = e.target.value;
+                      setItems(next);
+                      persistItems(next);
+                    }}
+                    onKeyDown={e => handleItemKeyDown(id, e)}
+                    placeholder={displayIdx === 0 ? placeholder : ""}
                     style={{
                       flex: 1, minWidth: 0, resize: "none", overflow: "hidden", border: "none", outline: "none",
                       background: "transparent", fontFamily: "Caveat, cursive", fontSize: 17, lineHeight: 1.4,
@@ -440,7 +527,7 @@ function Section({ label, value, placeholder, editing, onStartEdit, onSave, rows
                   />
                   <button
                     type="button"
-                    onClick={() => removeItem(idx)}
+                    onClick={() => removeItem(id)}
                     title="Remove"
                     style={{ background: "transparent", border: "none", color: surface.placeholderText, cursor: "pointer", fontSize: 14, lineHeight: 1, padding: "2px 2px", flexShrink: 0, opacity: 0.6 }}
                     onMouseEnter={e => { e.currentTarget.style.opacity = 1; }}
@@ -558,6 +645,9 @@ function Section({ label, value, placeholder, editing, onStartEdit, onSave, rows
         >
           {lines.length ? lines.join("\n") : placeholder}
         </div>
+      )}
+      {interactive && onSaveKamiUrl !== undefined && (
+        <KamiUrlInput kamiUrl={kamiUrl} onSaveKamiUrl={onSaveKamiUrl} surface={surface} />
       )}
     </div>
   );
@@ -691,7 +781,7 @@ export function FullAgendaFields({
 // edit mode, or clicking one would flip every mounted copy into edit mode
 // in the same render. The flat (non-sliding) column only ever mounts one
 // copy of each field, so it never needs to pass this.
-export function EditableField({ fieldKey, content, editingKey, onStartEdit, onSave, surface = DEFAULT_SURFACE, interactive = true, checkedLines, onToggleLine }) {
+export function EditableField({ fieldKey, content, editingKey, onStartEdit, onSave, surface = DEFAULT_SURFACE, interactive = true, checkedLines, onToggleLine, kamiUrl, onSaveKamiUrl, onKamiOpen }) {
   const meta = FULL_AGENDA_FIELD_META[fieldKey];
   if (!meta) return null;
   // Same Agenda-only quick-add chips as FullAgendaFields' section() helper
@@ -717,6 +807,9 @@ export function EditableField({ fieldKey, content, editingKey, onStartEdit, onSa
       checkedLines={checkedLines}
       onToggleLine={interactive ? onToggleLine : undefined}
       quickAddOptions={quickAddOptions}
+      kamiUrl={kamiUrl}
+      onSaveKamiUrl={onSaveKamiUrl}
+      onKamiOpen={onKamiOpen}
     />
   );
 }
