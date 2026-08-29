@@ -802,7 +802,7 @@ export function FullAgendaFields({
       surface={surface}
       itemized={opts.itemized}
       checkedLines={key === "agenda" ? checkedAgendaLines : undefined}
-      onToggleLine={interactive && key === "agenda" ? onToggleAgendaLine : undefined}
+      onToggleLine={key === "agenda" ? onToggleAgendaLine : undefined}
       quickAddOptions={key === "agenda" ? agendaQuickAddOptions : undefined}
     />
   );
@@ -859,7 +859,7 @@ export function EditableField({ fieldKey, content, editingKey, onStartEdit, onSa
       itemized={meta.itemized}
       interactive={interactive}
       checkedLines={checkedLines}
-      onToggleLine={interactive ? onToggleLine : undefined}
+      onToggleLine={onToggleLine}
       quickAddOptions={quickAddOptions}
       kamiUrl={kamiUrl}
       onSaveKamiUrl={onSaveKamiUrl}
