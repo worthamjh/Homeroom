@@ -113,9 +113,14 @@ function requestAccessToken() {
         writeCachedToken(resp.access_token, resp.expires_in);
         resolve(resp.access_token);
       },
-      error_callback: (err) => reject(new Error(err?.type || "Google sign-in was cancelled or failed")),
+      error_callback: (err) => {
+        const detail = err
+          ? (typeof err === "string" ? err : (err.type || err.message || JSON.stringify(err)))
+          : "cancelled";
+        reject(new Error(`Auth error (${detail})`));
+      },
     });
-    tokenClient.requestAccessToken();
+    tokenClient.requestAccessToken({ prompt: "consent" });
   });
 }
 
@@ -295,7 +300,7 @@ export async function pickGoogleDriveAssignmentFile() {
 // users added as test users (the developer/teacher is always a test user).
 
 const CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar.readonly";
-const CALENDAR_TOKEN_KEY = "homeroom_google_calendar_v2_token";
+const CALENDAR_TOKEN_KEY = "homeroom_google_calendar_v3_token";
 
 function readCachedCalendarToken() {
   try {
@@ -327,9 +332,14 @@ function requestCalendarToken() {
         writeCachedCalendarToken(resp.access_token, resp.expires_in);
         resolve(resp.access_token);
       },
-      error_callback: (err) => reject(new Error(err?.type || "Google sign-in was cancelled or failed")),
+      error_callback: (err) => {
+        const detail = err
+          ? (typeof err === "string" ? err : (err.type || err.message || JSON.stringify(err)))
+          : "cancelled";
+        reject(new Error(`Auth error (${detail})`));
+      },
     });
-    tokenClient.requestAccessToken();
+    tokenClient.requestAccessToken({ prompt: "consent" });
   });
 }
 
