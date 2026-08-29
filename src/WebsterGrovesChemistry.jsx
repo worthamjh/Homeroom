@@ -1195,12 +1195,47 @@ function BuildEditableSlot({ children, onChange, onRemove, label }) {
 // assignments — the hardcoded curriculum ones aren't deletable this way),
 // shows a small "×" in the corner on hover, matching the hover-reveal
 // pattern used elsewhere in Build mode.
-export function AssignmentThumb({ label, url, thumb, onRemove }) {
+export function AssignmentThumb({ label, url, thumb, onRemove, onRename }) {
+  const [renaming, setRenaming] = useState(false);
+  const [draft, setDraft] = useState(label);
+  const inputRef = useRef(null);
+
+  const startRename = (e) => { e.preventDefault(); e.stopPropagation(); setDraft(label); setRenaming(true); };
+  const commitRename = () => {
+    setRenaming(false);
+    if (draft.trim() && draft.trim() !== label) onRename?.(draft.trim());
+  };
+
+  if (renaming) {
+    return (
+      <div style={{ background: "white", borderRadius: 3, overflow: "hidden", position: "relative", border: "2px solid var(--board-secondary)", aspectRatio: "8.5/11", display: "flex", flexDirection: "column" }}>
+        {thumb ? (
+          <img src={thumb} alt={label} style={{ flex: 1, width: "100%", objectFit: "cover", objectPosition: "top", display: "block", minHeight: 0 }} />
+        ) : (
+          <div style={{ flex: 1, background: "#f5f5f5", display: "flex", flexDirection: "column", padding: 6, gap: 3, minHeight: 0 }}>
+            {[80, 60, 95, 70, 55, 90].map((w, i) => <div key={i} style={{ height: 3, background: "#ccc", borderRadius: 1, width: `${w}%` }} />)}
+          </div>
+        )}
+        <div style={{ background: "rgba(232,119,34,0.95)", padding: "4px 6px", display: "flex", gap: 4 }}>
+          <input
+            ref={inputRef}
+            autoFocus
+            value={draft}
+            onChange={e => setDraft(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter") commitRename(); if (e.key === "Escape") setRenaming(false); }}
+            onBlur={commitRename}
+            style={{ flex: 1, background: "rgba(255,255,255,0.2)", border: "none", borderRadius: 2, color: "white", fontSize: 10, fontFamily: "Oswald, sans-serif", padding: "2px 4px", outline: "none", letterSpacing: 0.5 }}
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <a href={url} target="_blank" rel="noreferrer"
       style={{ background: "white", borderRadius: 3, overflow: "hidden", cursor: "pointer", position: "relative", border: "2px solid transparent", transition: "all 0.15s", aspectRatio: "8.5/11", textDecoration: "none", display: "block" }}
-      onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--board-secondary)"; e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.querySelector(".aLabel").style.opacity = 1; const r = e.currentTarget.querySelector(".aRemove"); if (r) r.style.opacity = 1; }}
-      onMouseLeave={e => { e.currentTarget.style.borderColor = "transparent"; e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.querySelector(".aLabel").style.opacity = 0; const r = e.currentTarget.querySelector(".aRemove"); if (r) r.style.opacity = 0; }}
+      onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--board-secondary)"; e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.querySelector(".aLabel").style.opacity = 1; const r = e.currentTarget.querySelector(".aRemove"); if (r) r.style.opacity = 1; const rn = e.currentTarget.querySelector(".aRename"); if (rn) rn.style.opacity = 1; }}
+      onMouseLeave={e => { e.currentTarget.style.borderColor = "transparent"; e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.querySelector(".aLabel").style.opacity = 0; const r = e.currentTarget.querySelector(".aRemove"); if (r) r.style.opacity = 0; const rn = e.currentTarget.querySelector(".aRename"); if (rn) rn.style.opacity = 0; }}
     >
       {thumb ? (
         <img src={thumb} alt={label} style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "top", display: "block" }} />
@@ -1210,6 +1245,16 @@ export function AssignmentThumb({ label, url, thumb, onRemove }) {
           <div style={{ height: 4 }} />
           {[80, 60, 95, 70, 55, 90].map((w, i) => <div key={i} style={{ height: 3, background: "#ccc", borderRadius: 1, width: `${w}%` }} />)}
         </div>
+      )}
+      {onRename && (
+        <button
+          className="aRename"
+          onClick={startRename}
+          title="Rename assignment"
+          style={{ position: "absolute", top: 4, right: onRemove ? 28 : 4, width: 20, height: 20, borderRadius: "50%", border: "none", background: "rgba(20,20,20,0.75)", color: "#aaa", fontSize: 11, lineHeight: "20px", textAlign: "center", padding: 0, cursor: "pointer", opacity: 0, transition: "opacity 0.15s" }}
+        >
+          ✎
+        </button>
       )}
       {onRemove && (
         <button
