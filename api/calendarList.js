@@ -9,7 +9,7 @@ export default async function handler(req, res) {
     return;
   }
 
-  const path = "/calendar/v3/calendarList?minAccessRole=reader&fields=items(id,summary,backgroundColor,primary)";
+  const path = "/calendar/v3/users/me/calendarList?minAccessRole=reader&fields=items(id,summary,backgroundColor,primary)";
   const options = {
     hostname: "www.googleapis.com",
     path,
