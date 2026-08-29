@@ -141,7 +141,7 @@ export function useFullAgendaFields(storageKey, mongoKey) {
   useEffect(() => {
     if (!mongoKey) return;
     let cancelled = false;
-    fetchBoardContent(mongoKey.teacherId, mongoKey.unitIdx, mongoKey.lessonTitle)
+    fetchBoardContent(mongoKey.teacherId, mongoKey.unitIdx, mongoKey.lessonTitle, mongoKey.panelIdx)
       .then(remote => {
         if (cancelled || !remote) return;
         const { checkedAgendaLines: remoteChecked, checkedLearningGoalsLines: remoteGoalsChecked, ...remoteText } = remote;
@@ -152,7 +152,7 @@ export function useFullAgendaFields(storageKey, mongoKey) {
       .catch(() => {}); // no saved data yet, or a transient error — this browser's own cache stands
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mongoKey?.teacherId, mongoKey?.unitIdx, mongoKey?.lessonTitle]);
+  }, [mongoKey?.teacherId, mongoKey?.unitIdx, mongoKey?.lessonTitle, mongoKey?.panelIdx]);
 
   const save = (key, value) => {
     setEditingKey(null);
@@ -163,7 +163,7 @@ export function useFullAgendaFields(storageKey, mongoKey) {
       }
       return next;
     });
-    if (mongoKey) saveBoardContent(mongoKey.teacherId, mongoKey.unitIdx, mongoKey.lessonTitle, { [key]: value }).catch(() => {});
+    if (mongoKey) saveBoardContent(mongoKey.teacherId, mongoKey.unitIdx, mongoKey.lessonTitle, { [key]: value }, mongoKey.panelIdx).catch(() => {});
   };
 
   // Toggles one Agenda line's checked state by its position in the
@@ -175,7 +175,7 @@ export function useFullAgendaFields(storageKey, mongoKey) {
       if (typeof window !== "undefined") {
         try { window.localStorage.setItem(agendaCheckedKey(storageKey), JSON.stringify(next)); } catch { /* ignore */ }
       }
-      if (mongoKey) saveBoardContent(mongoKey.teacherId, mongoKey.unitIdx, mongoKey.lessonTitle, { checkedAgendaLines: next }).catch(() => {});
+      if (mongoKey) saveBoardContent(mongoKey.teacherId, mongoKey.unitIdx, mongoKey.lessonTitle, { checkedAgendaLines: next }, mongoKey.panelIdx).catch(() => {});
       return next;
     });
   };
@@ -187,7 +187,7 @@ export function useFullAgendaFields(storageKey, mongoKey) {
       if (typeof window !== "undefined") {
         try { window.localStorage.setItem(learningGoalsCheckedKey(storageKey), JSON.stringify(next)); } catch { /* ignore */ }
       }
-      if (mongoKey) saveBoardContent(mongoKey.teacherId, mongoKey.unitIdx, mongoKey.lessonTitle, { checkedLearningGoalsLines: next }).catch(() => {});
+      if (mongoKey) saveBoardContent(mongoKey.teacherId, mongoKey.unitIdx, mongoKey.lessonTitle, { checkedLearningGoalsLines: next }, mongoKey.panelIdx).catch(() => {});
       return next;
     });
   };
@@ -206,7 +206,7 @@ export function useFullAgendaFields(storageKey, mongoKey) {
         window.localStorage.removeItem(learningGoalsCheckedKey(storageKey));
       } catch { /* ignore */ }
     }
-    if (mongoKey) deleteBoardContent(mongoKey.teacherId, mongoKey.unitIdx, mongoKey.lessonTitle).catch(() => {});
+    if (mongoKey) deleteBoardContent(mongoKey.teacherId, mongoKey.unitIdx, mongoKey.lessonTitle, mongoKey.panelIdx).catch(() => {});
   };
 
   return { content, editingKey, setEditingKey, save, resetToDefaults, checkedAgendaLines, toggleAgendaLine, checkedLearningGoalsLines, toggleLearningGoalsLine };
