@@ -387,7 +387,14 @@ function Section({ label, value, placeholder, editing, onStartEdit, onSave, rows
   // interactive/front copy of a field (see EditableField and
   // FullAgendaFields above) -- every other copy renders the plain
   // read-only checklist below instead.
-  const editable = itemized && typeof onToggleLine === "function";
+  // Drag-to-reorder, remove (×), and the "Add item" row are Build-only
+  // affordances -- a teacher checking off Agenda/Learning Goals on the
+  // live board should still be able to toggle a line (see canToggle in
+  // the read-only branch below), just not reorder/delete/add lines from
+  // the projected board. `interactive` is isBuildMode (see the callers in
+  // WebsterGrovesChemistry.jsx), so gating on it here keeps those controls
+  // out of the live /board view entirely.
+  const editable = itemized && typeof onToggleLine === "function" && interactive;
   const [items, setItems] = useState(() => splitGoalLines(value));
   const lastSavedRef = useRef(value);
   const itemRefs = useRef([]);
