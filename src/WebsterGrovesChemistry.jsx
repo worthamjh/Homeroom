@@ -1275,8 +1275,11 @@ export function AddAssignmentCard({ open, busy, error, onOpen, onCancel, onSubmi
       }
     } catch (err) {
       // Cannot safely call setDriveError here — DOM may already be
-      // corrupted by the Picker SDK. Log and let the reload handle it.
+      // corrupted by the Picker SDK. Always reload so we escape the
+      // corrupted state; the assignment save may not have completed
+      // but the board will at least render again.
       console.error("Drive assignment pick failed:", err);
+      window.location.reload();
     }
   };
 
