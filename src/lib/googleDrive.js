@@ -139,10 +139,12 @@ function requestAccessToken() {
 function openPicker(accessToken, { viewId, mimeTypes } = {}) {
   return new Promise((resolve) => {
     const makeView = () => {
-      const view = new window.google.picker.DocsView(viewId || window.google.picker.ViewId.DOCS)
+      const _view = new window.google.picker.DocsView(viewId || window.google.picker.ViewId.DOCS)
         .setSelectFolderEnabled(false)
-        .setMode(window.google.picker.DocsViewMode.LIST)
-        .setSortCriteria(window.google.picker.SortCriteria.TITLE);
+        .setMode(window.google.picker.DocsViewMode.LIST);
+      const view = window.google.picker.SortCriteria?.TITLE
+        ? _view.setSortCriteria(window.google.picker.SortCriteria.TITLE)
+        : _view;
       if (mimeTypes) view.setMimeTypes(mimeTypes);
       return view;
     };
