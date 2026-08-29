@@ -2403,18 +2403,6 @@ export default function App() {
     setBlankUnits(next);
     saveCurriculum(activeTeacherId, next).catch(() => {});
   };
-  const handleReorderLesson = (unitIdx, fromIdx, toIdx) => {
-    if (fromIdx === toIdx) return;
-    const next = blankUnits.map((u, i) => {
-      if (i !== unitIdx) return u;
-      const lessons = [...u.lessons];
-      const [moved] = lessons.splice(fromIdx, 1);
-      lessons.splice(toIdx, 0, moved);
-      return { ...u, lessons };
-    });
-    setBlankUnits(next);
-    saveCurriculum(activeTeacherId, next).catch(() => {});
-  };
   const handleSetLessonOrder = (unitIdx, orderedLessons) => {
     const next = blankUnits.map((u, i) => i === unitIdx ? { ...u, lessons: orderedLessons } : u);
     setBlankUnits(next);
