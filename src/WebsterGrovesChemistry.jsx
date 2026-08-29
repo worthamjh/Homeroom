@@ -1526,15 +1526,17 @@ function InlineAddButton({ label, placeholder, defaultValue, onAdd, style, input
 //
 // Uses position:fixed so it escapes every overflow:hidden ancestor and
 // always layers on top of the projected board regardless of board layout.
-function KamiOverlay({ url, state, onToggleFullscreen, onClose }) {
+function KamiOverlay({ url, state, onToggleFullscreen, onClose, contained = false }) {
   if (!url || !state) return null;
   const isFullscreen = state === "fullscreen";
   return (
     <div style={{
-      position: "fixed",
+      position: isFullscreen ? "fixed" : (contained ? "absolute" : "fixed"),
       ...(isFullscreen
         ? { inset: 0, borderRadius: 0 }
-        : { top: "6%", left: "4%", right: "4%", bottom: "6%", borderRadius: 10 }),
+        : contained
+          ? { inset: 0, borderRadius: 8 }
+          : { top: "6%", left: "4%", right: "4%", bottom: "6%", borderRadius: 10 }),
       zIndex: 8000,
       display: "flex",
       flexDirection: "column",
@@ -1913,7 +1915,21 @@ export default function App() {
   // Build) instead of dumping the teacher back at the homepage and making
   // them re-navigate.
   const initialView = (isPreviewMode || isBuildMode)
-    ? resolveView(readCurrentView(), activeCurriculum)
+    ? (() => {
+        try {
+          const raw = sessionStorage.getItem("homeroom-build-reload-restore");
+          if (raw) {
+            sessionStorage.removeItem("homeroom-build-reload-restore");
+            const v = resolveView(JSON.parse(raw), activeCurriculum);
+            // For blank-shell teachers the curriculum is empty here — stash parsed
+            // raw so the re-resolve effect below can use it once units load.
+            if (v.unitIdx !== null) return v;
+            // curriculum not loaded yet; put the key back for the re-resolve effect
+            sessionStorage.setItem("homeroom-build-reload-restore", raw);
+          }
+        } catch {}
+        return resolveView(readCurrentView(), activeCurriculum);
+      })()
     : resolveView(readViewFromUrlParams(), activeCurriculum);
   const [activeUnitIdx, setActiveUnitIdx] = useState(initialView.unitIdx);
   const [activeLesson, setActiveLesson] = useState(initialView.lesson);
@@ -1936,7 +1952,12 @@ export default function App() {
     if (!isBlankTeacher) return;
     if (blankUnits.length === 0) return; // still loading or truly empty
     if (activeUnitIdx !== null) return;  // already navigated somewhere
-    const saved = (isPreviewMode || isBuildMode) ? readCurrentView() : readViewFromUrlParams();
+    let saved = null;
+    try {
+      const raw = sessionStorage.getItem("homeroom-build-reload-restore");
+      if (raw) { sessionStorage.removeItem("homeroom-build-reload-restore"); saved = JSON.parse(raw); }
+    } catch {}
+    if (!saved) saved = (isPreviewMode || isBuildMode) ? readCurrentView() : readViewFromUrlParams();
     if (!saved) return;
     const view = resolveView(saved, blankUnits);
     if (view.unitIdx !== null) {
@@ -2192,6 +2213,8 @@ export default function App() {
   }, [activeUnitIdx, activeLesson]);
 
   const handleSaveSlides = (url) => {
+    // Persist current lesson so the post-picker window.location.reload() returns here
+    try { sessionStorage.setItem("homeroom-build-reload-restore", JSON.stringify({ unitIdx: activeUnitIdx, lessonTitle: activeLesson?.title || null })); } catch {}
     writeLessonSlidesUrl(activeUnit?.unit, activeLesson?.title, url);
     setLessonSlidesUrl(url);
     setSlidesEditing(false);
@@ -2878,7 +2901,7 @@ export default function App() {
                 // Full Agenda is selected) — only what's inside the goals
                 // column changes.
                 const slidesNode = (
-                  <div key="slides" style={{ minHeight: 0, minWidth: 0, display: "flex", flexDirection: "column", alignItems: "center", padding: SPACE.md, gap: SPACE.sm }}>
+                  <div key="slides" style={{ position: "relative", minHeight: 0, minWidth: 0, display: "flex", flexDirection: "column", alignItems: "center", padding: SPACE.md, gap: SPACE.sm }}>
                     <div style={{ flex: 1, minHeight: 0, minWidth: 0, width: "100%", maxWidth: "100%", display: "flex", justifyContent: "center", boxSizing: "border-box", overflow: "hidden" }}>
                       {isOverview && isBlankTeacher && !calendarUrl ? (
                         isBuildMode ? (
@@ -3021,7 +3044,16 @@ export default function App() {
                         )}
                       </>
                     )}
-                  </div>
+                  {kamiState !== "fullscreen" && (
+                    <KamiOverlay
+                      url={fullAgendaFields.content.bellRingerKamiUrl || ""}
+                      state={kamiState}
+                      onToggleFullscreen={() => setKamiState(prev => prev === "fullscreen" ? "overlay" : "fullscreen")}
+                      onClose={() => setKamiState(null)}
+                      contained={true}
+                    />
+                  )}
+                </div>
                 );
 
                 const nodesByKey = { slides: slidesNode, goals: goalsNode };
@@ -3033,13 +3065,15 @@ export default function App() {
               })()}
             </div>
 
-            {/* Kami Bell Ringer overlay — floats over the board in overlay or fullscreen mode */}
-            <KamiOverlay
-              url={fullAgendaFields.content.bellRingerKamiUrl || ""}
-              state={kamiState}
-              onToggleFullscreen={() => setKamiState(prev => prev === "fullscreen" ? "overlay" : "fullscreen")}
-              onClose={() => setKamiState(null)}
-            />
+            {/* Kami Bell Ringer overlay — fullscreen only (overlay mode is contained in the slides column) */}
+            {kamiState === "fullscreen" && (
+              <KamiOverlay
+                url={fullAgendaFields.content.bellRingerKamiUrl || ""}
+                state={kamiState}
+                onToggleFullscreen={() => setKamiState(prev => prev === "fullscreen" ? "overlay" : "fullscreen")}
+                onClose={() => setKamiState(null)}
+              />
+            )}
 
             {/* Chalk ledge / marker tray — styled per the Board Surface preset. */}
             <div style={{ height: 8, background: surface.ledgeBg, borderTop: `2px solid ${surface.ledgeBorder}`, display: "flex", alignItems: "center", padding: `0 ${SPACE.sm}px`, gap: SPACE.xs }}>
