@@ -803,7 +803,8 @@ export function FullAgendaFields({
       itemized={opts.itemized}
       checkedLines={key === "agenda" ? checkedAgendaLines : undefined}
       onToggleLine={key === "agenda" ? onToggleAgendaLine : undefined}
-      quickAddOptions={key === "agenda" ? agendaQuickAddOptions : undefined}
+      quickAddOptions={interactive && key === "agenda" ? agendaQuickAddOptions : undefined}
+      interactive={interactive}
     />
   );
 
