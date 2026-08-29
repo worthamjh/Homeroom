@@ -1006,7 +1006,7 @@ function AddEmbedCard({ open, label, promptText, placeholder, initialUrl, onOpen
         // hits the Google Picker SDK's corrupted fiber tree. The localStorage
         // write in onSave() is synchronous and always completes first, so the
         // reloaded page picks up the saved URL immediately.
-        window.location.reload();
+        if (!result.noReload) window.location.reload();
       }
     } catch (err) {
       setDriveError(err.message || "Something went wrong opening Google Drive.");
@@ -1317,7 +1317,7 @@ export function AddAssignmentCard({ open, busy, error, onOpen, onCancel, onSubmi
         // the Picker SDK's corrupted fiber tree (same pattern as AddSlidesCard).
         // MongoDB save above is awaited so the reloaded page picks up the new
         // assignment immediately.
-        window.location.reload();
+        if (!result.noReload) window.location.reload();
       }
     } catch (err) {
       // Cannot safely call setDriveError here — DOM may already be
@@ -1325,7 +1325,7 @@ export function AddAssignmentCard({ open, busy, error, onOpen, onCancel, onSubmi
       // corrupted state; the assignment save may not have completed
       // but the board will at least render again.
       console.error("Drive assignment pick failed:", err);
-      window.location.reload();
+      if (!result.noReload) window.location.reload();
     }
   };
 

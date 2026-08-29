@@ -494,7 +494,7 @@ export async function pickGoogleCalendar() {
         resolve({
           embedUrl: `https://calendar.google.com/calendar/embed?src=${encodeURIComponent(cal.id)}&showTitle=0&showNav=1&showDate=1&showPrint=0&showTabs=1&showCalendars=0`,
           name: cal.summary || cal.id,
-          shareWarning: null,
+          shareWarning: null, noReload: true,
         });
       };
 
