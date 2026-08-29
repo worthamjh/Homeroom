@@ -546,12 +546,56 @@ export async function pickGoogleCalendar() {
  * @param {string} [opts.title]  Display name for the new file (default: "Bell Ringer — <date>")
  * @returns {Promise<{ kamiUrl: string, fileId: string, name: string }>}
  */
+// Finds the teacher's "Bell Ringers" folder in Drive, or creates it at
+// the My Drive root if it doesn't exist yet. Returns the folder's file ID.
+// Uses drive.file scope — creating a folder counts as a "file" the app owns.
+async function getOrCreateBellRingerFolder(accessToken) {
+  const FOLDER_NAME = "Bell Ringers";
+  const FOLDER_MIME = "application/vnd.google-apps.folder";
+
+  // Search for an existing non-trashed folder with that name
+  const q = encodeURIComponent(
+    `name='${FOLDER_NAME}' and mimeType='${FOLDER_MIME}' and trashed=false`
+  );
+  const searchRes = await fetch(
+    `https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)&pageSize=1`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  );
+  if (searchRes.ok) {
+    const { files } = await searchRes.json();
+    if (files && files.length > 0) return files[0].id;
+  }
+
+  // Not found — create it
+  const createRes = await fetch("https://www.googleapis.com/drive/v3/files", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ name: FOLDER_NAME, mimeType: FOLDER_MIME }),
+  });
+  if (!createRes.ok) {
+    const detail = await createRes.text().catch(() => "");
+    throw new Error(`Couldn't create the Bell Ringers folder (${createRes.status}): ${detail}`);
+  }
+  const folder = await createRes.json();
+  return folder.id;
+}
+
 export async function createKamiBellRingerDoc({ title } = {}) {
   await ensureGoogleScriptsLoaded();
   const accessToken = await requestAccessToken();
 
   const name = title ||
     `Bell Ringer — ${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
+
+  // Find or create the "Bell Ringers" folder so all generated docs land
+  // in one place rather than scattered across the teacher's Drive root.
+  let parents;
+  try {
+    const folderId = await getOrCreateBellRingerFolder(accessToken);
+    parents = [folderId];
+  } catch {
+    parents = []; // fall back to Drive root if folder step fails
+  }
 
   // Create a blank Google Doc via the Drive v3 REST API.
   // drive.file scope allows creating files — no broader scope needed.
@@ -564,6 +608,7 @@ export async function createKamiBellRingerDoc({ title } = {}) {
     body: JSON.stringify({
       name,
       mimeType: "application/vnd.google-apps.document",
+      ...(parents.length ? { parents } : {}),
     }),
   });
 
