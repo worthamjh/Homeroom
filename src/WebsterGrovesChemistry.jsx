@@ -2598,7 +2598,26 @@ export default function App() {
         </BuildEditableSlot>
       );
     }
-    return <SmartBoard src={boardSlides} />;
+    // Live board only (every isBuildMode branch above already returned) --
+    // wrap SmartBoard in a positioned box so the Kami overlay, in its
+    // "overlay" state, can sit exactly over it at the same size, replacing
+    // the slides in place rather than floating over the whole page. Its
+    // "fullscreen" state still escapes to position:fixed (see KamiOverlay)
+    // so Full Screen still fills the viewport from here.
+    return (
+      <div style={{ position: "relative", width: "100%", height: "100%" }}>
+        <SmartBoard src={boardSlides} />
+        {kamiState && (
+          <KamiOverlay
+            url={kamiOverlayUrl}
+            state={kamiState}
+            contained={kamiState !== "fullscreen"}
+            onToggleFullscreen={() => setKamiState(prev => prev === "fullscreen" ? "overlay" : "fullscreen")}
+            onClose={() => { setKamiState(null); setKamiSourcePanelIdx(null); }}
+          />
+        )}
+      </div>
+    );
   };
 
   // The active lesson's goals, flattened to one flat list of
@@ -2727,6 +2746,15 @@ export default function App() {
   // Reset Board button and Edit fields in the flat content column. It
   // always refers to the flat per-lesson key so existing content is kept.
   const fullAgendaFields = mergePanelWithUnit(flatPanelFields);
+
+  // The Kami URL the overlay should show -- the sliding board keeps a
+  // separate Bell Ringer link per panel (allPanelFields), so once a panel's
+  // Bell Ringer has been tapped (kamiSourcePanelIdx set in that panel's own
+  // onKamiOpen, below) this reads that panel's link instead of always
+  // falling back to the flat layout's fullAgendaFields.
+  const kamiOverlayUrl = (kamiSourcePanelIdx != null
+    ? mergePanelWithUnit(allPanelFields[Math.min(kamiSourcePanelIdx, MAX_PANELS - 1)]).content.bellRingerKamiUrl
+    : fullAgendaFields.content.bellRingerKamiUrl) || "";
 
   const goHome = () => { setActiveUnitIdx(null); setActiveLesson(null); setOpenDropdown(null); };
   const topBarProps = {
@@ -3064,18 +3092,6 @@ export default function App() {
                 );
               })()}
             </div>
-
-            {/* Kami Bell Ringer overlay — floats over the board in overlay mode, fills screen in fullscreen */}
-            {kamiState && (
-              <KamiOverlay
-                url={(kamiSourcePanelIdx != null
-                  ? mergePanelWithUnit(allPanelFields[Math.min(kamiSourcePanelIdx, MAX_PANELS - 1)]).content.bellRingerKamiUrl
-                  : fullAgendaFields.content.bellRingerKamiUrl) || ""}
-                state={kamiState}
-                onToggleFullscreen={() => setKamiState(prev => prev === "fullscreen" ? "overlay" : "fullscreen")}
-                onClose={() => { setKamiState(null); setKamiSourcePanelIdx(null); }}
-              />
-            )}
 
             {/* Chalk ledge / marker tray — styled per the Board Surface preset. */}
             <div style={{ height: 8, background: surface.ledgeBg, borderTop: `2px solid ${surface.ledgeBorder}`, display: "flex", alignItems: "center", padding: `0 ${SPACE.sm}px`, gap: SPACE.xs }}>
