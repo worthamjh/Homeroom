@@ -1252,7 +1252,7 @@ export function AssignmentThumb({ label, url, thumb, onRemove, onRename }) {
           className="aRename"
           onClick={startRename}
           title="Rename assignment"
-          style={{ position: "absolute", top: 4, right: onRemove ? 28 : 4, width: 20, height: 20, borderRadius: "50%", border: "none", background: "rgba(20,20,20,0.75)", color: "#aaa", fontSize: 11, lineHeight: "20px", textAlign: "center", padding: 0, cursor: "pointer", opacity: 0, transition: "opacity 0.15s" }}
+          style={{ position: "absolute", top: 4, right: onRemove ? 34 : 4, width: 26, height: 26, borderRadius: "50%", border: "2px solid rgba(255,255,255,0.4)", background: "rgba(232,119,34,0.92)", color: "white", fontSize: 14, lineHeight: "22px", textAlign: "center", padding: 0, cursor: "pointer", opacity: 0, transition: "opacity 0.15s", boxShadow: "0 2px 6px rgba(0,0,0,0.4)" }}
         >
           ✎
         </button>
@@ -1262,7 +1262,7 @@ export function AssignmentThumb({ label, url, thumb, onRemove, onRename }) {
           className="aRemove"
           onClick={e => { e.preventDefault(); e.stopPropagation(); onRemove(); }}
           title="Remove assignment"
-          style={{ position: "absolute", top: 4, right: 4, width: 20, height: 20, borderRadius: "50%", border: "none", background: "rgba(20,20,20,0.75)", color: "#ff8a65", fontSize: 13, lineHeight: "20px", textAlign: "center", padding: 0, cursor: "pointer", opacity: 0, transition: "opacity 0.15s" }}
+          style={{ position: "absolute", top: 4, right: 4, width: 26, height: 26, borderRadius: "50%", border: "2px solid rgba(255,255,255,0.4)", background: "rgba(210,40,40,0.92)", color: "white", fontSize: 16, lineHeight: "22px", textAlign: "center", padding: 0, cursor: "pointer", opacity: 0, transition: "opacity 0.15s", boxShadow: "0 2px 6px rgba(0,0,0,0.4)" }}
         >
           ×
         </button>
@@ -2068,14 +2068,35 @@ export default function App() {
   const [calendarUrl, setCalendarUrl] = useState(() => readCalendarUrl());
   const [calendarEditing, setCalendarEditing] = useState(false);
 
+  // Fetch calendar URL from MongoDB on mount so it survives clearing site data
+  useEffect(() => {
+    if (!activeTeacherId) return;
+    fetchBoardContent(activeTeacherId, -1, "__calendarUrl__")
+      .then(doc => {
+        if (doc?.calendarUrl && !readCalendarUrl()) {
+          writeCalendarUrl(doc.calendarUrl);
+          setCalendarUrl(doc.calendarUrl);
+        }
+      })
+      .catch(() => {});
+  }, [activeTeacherId]);
+
   const handleSaveCalendar = (url) => {
     writeCalendarUrl(url);
     setCalendarUrl(url);
     setCalendarEditing(false);
+    // Persist globally to MongoDB so it survives clearing site data and
+    // appears on ALL unit pages in every session
+    if (activeTeacherId) {
+      saveBoardContent(activeTeacherId, -1, "__calendarUrl__", { calendarUrl: url }).catch(() => {});
+    }
   };
   const handleRemoveCalendar = () => {
     writeCalendarUrl("");
     setCalendarUrl("");
+    if (activeTeacherId) {
+      saveBoardContent(activeTeacherId, -1, "__calendarUrl__", { calendarUrl: "" }).catch(() => {});
+    }
   };
 
   // A lesson's own slideshow, overriding the hardcoded curriculum
