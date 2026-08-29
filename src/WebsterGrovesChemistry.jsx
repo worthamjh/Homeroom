@@ -2155,6 +2155,12 @@ export default function App() {
   const [calendarEditing, setCalendarEditing] = useState(false);
   // Kami Bell Ringer overlay: null = hidden, "overlay" = floating over slides, "fullscreen" = fills viewport
   const [kamiState, setKamiState] = useState(null);
+  // Which sliding panel's Bell Ringer opened the overlay (null = the flat,
+  // non-sliding layout's own fullAgendaFields) -- the sliding board keeps a
+  // separate Kami URL per panel (allPanelFields), so the overlay needs to
+  // know which one to read from rather than always falling back to the
+  // flat layout's fields.
+  const [kamiSourcePanelIdx, setKamiSourcePanelIdx] = useState(null);
 
   // Fetch calendar URL from MongoDB on mount so it survives clearing site data
   useEffect(() => {
@@ -2868,7 +2874,7 @@ export default function App() {
                         />
                       );
                     }
-                    const isOnByKey = { essentialQuestion: essentialQuestionIsOn, agenda: agendaIsOn, bellRinger: isBuildMode && bellRingerIsOn, homeLearning: isBuildMode && homeLearningIsOn };
+                    const isOnByKey = { essentialQuestion: essentialQuestionIsOn, agenda: agendaIsOn, bellRinger: bellRingerIsOn, homeLearning: isBuildMode && homeLearningIsOn };
                     if (!isOnByKey[key]) return null;
                     return (
                       <EditableField
@@ -2885,7 +2891,7 @@ export default function App() {
                         {...(key === "bellRinger" ? {
                           kamiUrl: pf.content.bellRingerKamiUrl || "",
                           onSaveKamiUrl: val => pf.save("bellRingerKamiUrl", val),
-                          onKamiOpen: () => setKamiState(prev => prev ? null : "overlay"),
+                          onKamiOpen: () => { setKamiSourcePanelIdx(panelIdx); setKamiState(prev => prev ? null : "overlay"); },
                           lessonLabel: activeLesson?.title,
                         } : {})}
                       />
@@ -3017,7 +3023,7 @@ export default function App() {
                               </div>
                             );
                           }
-                          const isOnByKey = { essentialQuestion: essentialQuestionIsOn, agenda: agendaIsOn, bellRinger: isBuildMode && bellRingerIsOn, homeLearning: isBuildMode && homeLearningIsOn };
+                          const isOnByKey = { essentialQuestion: essentialQuestionIsOn, agenda: agendaIsOn, bellRinger: bellRingerIsOn, homeLearning: isBuildMode && homeLearningIsOn };
                           if (!isOnByKey[key]) return null;
                           return (
                             <EditableField
@@ -3035,7 +3041,7 @@ export default function App() {
                                 kamiUrl: fullAgendaFields.content.bellRingerKamiUrl || "",
                                 onSaveKamiUrl: val => fullAgendaFields.save("bellRingerKamiUrl", val),
                                 lessonLabel: activeLesson?.title,
-                                onKamiOpen: () => setKamiState(prev => prev ? null : "overlay"),
+                                onKamiOpen: () => { setKamiSourcePanelIdx(null); setKamiState(prev => prev ? null : "overlay"); },
                               } : {})}
                             />
                           );
@@ -3062,10 +3068,12 @@ export default function App() {
             {/* Kami Bell Ringer overlay — floats over the board in overlay mode, fills screen in fullscreen */}
             {kamiState && (
               <KamiOverlay
-                url={fullAgendaFields.content.bellRingerKamiUrl || ""}
+                url={(kamiSourcePanelIdx != null
+                  ? mergePanelWithUnit(allPanelFields[Math.min(kamiSourcePanelIdx, MAX_PANELS - 1)]).content.bellRingerKamiUrl
+                  : fullAgendaFields.content.bellRingerKamiUrl) || ""}
                 state={kamiState}
                 onToggleFullscreen={() => setKamiState(prev => prev === "fullscreen" ? "overlay" : "fullscreen")}
-                onClose={() => setKamiState(null)}
+                onClose={() => { setKamiState(null); setKamiSourcePanelIdx(null); }}
               />
             )}
 
