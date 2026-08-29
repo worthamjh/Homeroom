@@ -34,6 +34,7 @@ function sanitizeUnits(units) {
     .filter(u => u && typeof u.unit === "string" && Array.isArray(u.lessons))
     .map(u => ({
       unit: u.unit,
+      hidden: u.hidden === true ? true : undefined,
       lessons: u.lessons
         .filter(l => l && typeof l.title === "string")
         .map(l => ({
