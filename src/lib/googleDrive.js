@@ -69,33 +69,32 @@ export function ensureGoogleScriptsLoaded() {
   return scriptsPromise;
 }
 
-// Access tokens are cached in sessionStorage (tab-scoped, survives
-// iframe reloads within the session) so the teacher doesn't have to
-// re-pick their Google account every time they add slides and the iframe
-// reloads. GIS tokens are short-lived (~1hr) and we record an explicit
-// expiresAt so we never hand a stale token to the Picker.
+// Access tokens are cached in localStorage (persists across reloads and
+// sessions, scoped to this origin) so the teacher stays signed in to
+// Google Drive across page reloads and new tabs. GIS tokens are short-lived
+// (~1hr) and we record an explicit expiresAt so we never hand a stale token.
 const TOKEN_STORAGE_KEY = "homeroom_google_access_token";
 function readCachedToken() {
   try {
-    const raw = sessionStorage.getItem(TOKEN_STORAGE_KEY);
+    const raw = localStorage.getItem(TOKEN_STORAGE_KEY);
     if (!raw) return null;
     const { token, expiresAt } = JSON.parse(raw);
-    if (!token || Date.now() >= expiresAt) { sessionStorage.removeItem(TOKEN_STORAGE_KEY); return null; }
+    if (!token || Date.now() >= expiresAt) { localStorage.removeItem(TOKEN_STORAGE_KEY); return null; }
     return token;
   } catch { return null; }
 }
 function writeCachedToken(token, expiresInSec) {
   try {
-    sessionStorage.setItem(TOKEN_STORAGE_KEY, JSON.stringify({
+    localStorage.setItem(TOKEN_STORAGE_KEY, JSON.stringify({
       token,
       // Expire a minute early so a near-the-hour pick never uses a token
       // that expires mid-request.
       expiresAt: Date.now() + ((expiresInSec || 3600) - 60) * 1000,
     }));
-  } catch { /* sessionStorage unavailable — harmless, just re-prompts next time */ }
+  } catch { /* localStorage unavailable — harmless, just re-prompts next time */ }
 }
 function clearCachedToken() {
-  try { sessionStorage.removeItem(TOKEN_STORAGE_KEY); } catch { /* noop */ }
+  try { localStorage.removeItem(TOKEN_STORAGE_KEY); } catch { /* noop */ }
 }
 
 function requestAccessToken() {
@@ -120,7 +119,7 @@ function requestAccessToken() {
         reject(new Error(`Auth error (${detail})`));
       },
     });
-    tokenClient.requestAccessToken({ prompt: "consent" });
+    tokenClient.requestAccessToken({ prompt: "" });
   });
 }
 
@@ -308,16 +307,16 @@ const CALENDAR_TOKEN_KEY = "homeroom_google_calendar_v3_token";
 
 function readCachedCalendarToken() {
   try {
-    const raw = sessionStorage.getItem(CALENDAR_TOKEN_KEY);
+    const raw = localStorage.getItem(CALENDAR_TOKEN_KEY);
     if (!raw) return null;
     const { token, expiresAt } = JSON.parse(raw);
-    if (!token || Date.now() >= expiresAt) { sessionStorage.removeItem(CALENDAR_TOKEN_KEY); return null; }
+    if (!token || Date.now() >= expiresAt) { localStorage.removeItem(CALENDAR_TOKEN_KEY); return null; }
     return token;
   } catch { return null; }
 }
 function writeCachedCalendarToken(token, expiresInSec) {
   try {
-    sessionStorage.setItem(CALENDAR_TOKEN_KEY, JSON.stringify({
+    localStorage.setItem(CALENDAR_TOKEN_KEY, JSON.stringify({
       token,
       expiresAt: Date.now() + ((expiresInSec || 3600) - 60) * 1000,
     }));
@@ -343,7 +342,7 @@ function requestCalendarToken() {
         reject(new Error(`Auth error (${detail})`));
       },
     });
-    tokenClient.requestAccessToken({ prompt: "consent" });
+    tokenClient.requestAccessToken({ prompt: "" });
   });
 }
 
@@ -353,12 +352,12 @@ async function fetchCalendarList(accessToken) {
   try {
     res = await fetch(`/api/calendarList?accessToken=${encodeURIComponent(accessToken)}`);
   } catch (netErr) {
-    sessionStorage.removeItem("homeroom_google_calendar_v3_token");
+    localStorage.removeItem("homeroom_google_calendar_v3_token");
     throw new Error(`Network error reaching calendar proxy: ${netErr.message}`);
   }
   if (!res.ok) {
     const detail = await res.json().catch(() => ({}));
-    sessionStorage.removeItem("homeroom_google_calendar_v3_token");
+    localStorage.removeItem("homeroom_google_calendar_v3_token");
     throw new Error(`Couldn't fetch your calendars (${res.status}): ${detail.detail || detail.error || ""}`);
   }
   const data = await res.json();
