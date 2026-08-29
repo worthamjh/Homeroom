@@ -842,7 +842,7 @@ export function EditableField({ fieldKey, content, editingKey, onStartEdit, onSa
   // — see the comment on them in Section. This is the path the flat,
   // reorderable board-content column (and Sliding Boards' per-panel
   // copies) render through, so it needs its own copy of that logic.
-  const quickAddOptions = fieldKey === "agenda" ? [
+  const quickAddOptions = (interactive && fieldKey === "agenda") ? [
     { label: FULL_AGENDA_FIELD_META.bellRinger.label, value: (content.bellRinger || "").trim() || FULL_AGENDA_FIELD_META.bellRinger.label },
     { label: FULL_AGENDA_FIELD_META.homeLearning.label, value: (content.homeLearning || "").trim() || FULL_AGENDA_FIELD_META.homeLearning.label },
   ] : undefined;

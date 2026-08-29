@@ -2868,7 +2868,7 @@ export default function App() {
                         />
                       );
                     }
-                    const isOnByKey = { essentialQuestion: essentialQuestionIsOn, agenda: agendaIsOn, bellRinger: bellRingerIsOn, homeLearning: homeLearningIsOn };
+                    const isOnByKey = { essentialQuestion: essentialQuestionIsOn, agenda: agendaIsOn, bellRinger: isBuildMode && bellRingerIsOn, homeLearning: isBuildMode && homeLearningIsOn };
                     if (!isOnByKey[key]) return null;
                     return (
                       <EditableField
@@ -3017,7 +3017,7 @@ export default function App() {
                               </div>
                             );
                           }
-                          const isOnByKey = { essentialQuestion: essentialQuestionIsOn, agenda: agendaIsOn, bellRinger: bellRingerIsOn, homeLearning: homeLearningIsOn };
+                          const isOnByKey = { essentialQuestion: essentialQuestionIsOn, agenda: agendaIsOn, bellRinger: isBuildMode && bellRingerIsOn, homeLearning: isBuildMode && homeLearningIsOn };
                           if (!isOnByKey[key]) return null;
                           return (
                             <EditableField
