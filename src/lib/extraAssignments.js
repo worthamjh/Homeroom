@@ -34,3 +34,13 @@ export async function deleteExtraAssignment(id) {
   const res = await fetch(`/api/assignments?${params}`, { method: "DELETE" });
   if (!res.ok) throw new Error(`Failed to remove assignment (${res.status})`);
 }
+
+export async function updateExtraAssignment(id, { label }) {
+  const res = await fetch(`/api/assignments?id=${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ label, teacherId: getActiveTeacherId() }),
+  });
+  if (!res.ok) throw new Error(`Failed to update assignment (${res.status})`);
+  return res.json();
+}

@@ -93,6 +93,25 @@ export default async function handler(req, res) {
       return;
     }
 
+    if (req.method === "PATCH") {
+      const { id } = req.query;
+      const { label, teacherId } = req.body || {};
+      if (!id || !label) {
+        res.status(400).json({ error: "id (query param) and label (body) are required" });
+        return;
+      }
+      const { ObjectId } = await import("mongodb");
+      const col = await getCollection();
+      const result = await col.findOneAndUpdate(
+        { _id: new ObjectId(id), teacherId: teacherId ? String(teacherId) : DEFAULT_TEACHER_ID },
+        { $set: { label: String(label) } },
+        { returnDocument: "after" }
+      );
+      if (!result) { res.status(404).json({ error: "Assignment not found" }); return; }
+      res.status(200).json(toClientShape(result));
+      return;
+    }
+
     if (req.method === "DELETE") {
       const { id, teacherId } = req.query;
       if (!id) {

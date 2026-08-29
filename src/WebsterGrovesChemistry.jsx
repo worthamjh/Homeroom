@@ -7,6 +7,7 @@ import { googleDriveConfigured, ensureGoogleScriptsLoaded, pickGoogleSlidesEmbed
 import { fetchProfile } from "./lib/profileApi";
 import { fetchCurriculum, saveCurriculum } from "./lib/curriculumApi";
 import { fetchCheckedGoals, saveCheckedGoals } from "./lib/checkedGoalsApi";
+import { fetchBoardContent, saveBoardContent } from "./lib/boardContentApi";
 import {
   scopedKey, useScopedSetting,
   getActiveTeacherId, DEFAULT_TEACHER_ID,
@@ -2086,18 +2087,36 @@ export default function App() {
   const [slidesEditing, setSlidesEditing] = useState(false);
 
   useEffect(() => {
-    setLessonSlidesUrl(readLessonSlidesUrl(activeUnit?.unit, activeLesson?.title));
+    const local = readLessonSlidesUrl(activeUnit?.unit, activeLesson?.title);
+    setLessonSlidesUrl(local);
     setSlidesEditing(false);
+    // Also fetch from MongoDB so the URL survives clearing site data
+    if (activeTeacherId && activeUnitIdx != null && activeLesson?.title) {
+      fetchBoardContent(activeTeacherId, activeUnitIdx, activeLesson.title)
+        .then(doc => {
+          if (doc?.customSlidesUrl && !local) {
+            writeLessonSlidesUrl(activeUnit?.unit, activeLesson.title, doc.customSlidesUrl);
+            setLessonSlidesUrl(doc.customSlidesUrl);
+          }
+        })
+        .catch(() => {}); // best-effort
+    }
   }, [activeUnitIdx, activeLesson]);
 
   const handleSaveSlides = (url) => {
     writeLessonSlidesUrl(activeUnit?.unit, activeLesson?.title, url);
     setLessonSlidesUrl(url);
     setSlidesEditing(false);
+    if (activeTeacherId && activeUnitIdx != null && activeLesson?.title) {
+      saveBoardContent(activeTeacherId, activeUnitIdx, activeLesson.title, { customSlidesUrl: url }).catch(() => {});
+    }
   };
   const handleRemoveSlides = () => {
     writeLessonSlidesUrl(activeUnit?.unit, activeLesson?.title, "");
     setLessonSlidesUrl("");
+    if (activeTeacherId && activeUnitIdx != null && activeLesson?.title) {
+      saveBoardContent(activeTeacherId, activeUnitIdx, activeLesson.title, { customSlidesUrl: "" }).catch(() => {});
+    }
   };
 
   // Teacher-uploaded assignments (Cloudinary-hosted PDFs, Mongo-backed
@@ -2199,6 +2218,17 @@ export default function App() {
       url: driveResult.viewUrl,
       thumb: driveResult.thumbUrl,
     });
+  };
+
+  const handleRenameAssignment = async (id, newLabel) => {
+    setExtraAssignments(prev => prev.map(a => a.id === id ? { ...a, label: newLabel } : a));
+    try {
+      await updateExtraAssignment(id, { label: newLabel });
+    } catch (err) {
+      console.error("Failed to rename assignment", err);
+      // Revert optimistic update on failure
+      setExtraAssignments(prev => prev.map(a => a.id === id ? { ...a, label: a.label } : a));
+    }
   };
 
   const handleRemoveAssignment = async (id) => {
@@ -2952,7 +2982,7 @@ export default function App() {
                   <AssignmentThumb key={`base-${ai}`} {...a} />
                 ))}
                 {extraAssignments.map((a) => (
-                  <AssignmentThumb key={a.id} {...a} onRemove={isBuildMode ? () => handleRemoveAssignment(a.id) : undefined} />
+                  <AssignmentThumb key={a.id} {...a} onRemove={isBuildMode ? () => handleRemoveAssignment(a.id) : undefined} onRename={isBuildMode ? (newLabel) => handleRenameAssignment(a.id, newLabel) : undefined} />
                 ))}
                 {isBuildMode && (
                   <AddAssignmentCard
