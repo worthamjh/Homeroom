@@ -680,14 +680,15 @@ function Section({ label, value, placeholder, editing, onStartEdit, onSave, rows
         />
       ) : (
         <div
-          onClick={onStartEdit}
-          title="Click to edit"
+          onClick={(!interactive && kamiUrl && onKamiOpen) ? onKamiOpen : onStartEdit}
+          title={(!interactive && kamiUrl && onKamiOpen) ? "Tap to open Bell Ringer in Kami" : "Click to edit"}
           style={{
             fontFamily: "Caveat, cursive", fontSize: 17, lineHeight: 1.4,
             color: lines.length ? surface.bodyText : surface.placeholderText,
             textShadow: lines.length ? surface.textShadow : "none",
             fontStyle: lines.length ? "normal" : "italic",
-            cursor: "text", minHeight: minHeight ?? 24, padding: "2px 4px",
+            cursor: (!interactive && kamiUrl && onKamiOpen) ? "pointer" : "text",
+            minHeight: minHeight ?? 24, padding: "2px 4px",
             borderRadius: 4, whiteSpace: "pre-wrap", wordBreak: "break-word",
           }}
           onMouseEnter={e => { e.currentTarget.style.background = "rgba(128,128,128,0.12)"; }}
