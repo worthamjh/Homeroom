@@ -1471,6 +1471,7 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
   const [renamingLesson, setRenamingLesson] = useState(null); // { unitIdx, lessonIdx }
   const [renameLessonVal, setRenameLessonVal] = useState("");
   const [deletingLesson, setDeletingLesson] = useState(null); // { unitIdx, lessonIdx }
+  const [hoveredUnit, setHoveredUnit] = useState(null);       // unitIdx hovered in build mode
 
   // Tiny shared style for the micro action-icon buttons in build mode.
   const microBtn = (extra = {}) => ({
@@ -1540,8 +1541,8 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
         {curriculum.map((u, ui) => (
           (!isBuildMode && u.hidden) ? null : (
           <div key={ui} style={{ position: "relative", flex: 1, opacity: (isBuildMode && u.hidden) ? 0.45 : 1 }}
-            onMouseEnter={() => (u.lessons.length > 0 || (isBuildMode && isBlankTeacher)) && setOpenDropdown(ui)}
-            onMouseLeave={() => setOpenDropdown(prev => (prev === ui ? null : prev))}
+            onMouseEnter={() => { (u.lessons.length > 0 || (isBuildMode && isBlankTeacher)) && setOpenDropdown(ui); if (isBuildMode && isBlankTeacher) setHoveredUnit(ui); }}
+            onMouseLeave={() => { setOpenDropdown(prev => (prev === ui ? null : prev)); setHoveredUnit(null); }}
           >
             {/* Unit name — rename input in build mode, normal button otherwise */}
             {isBuildMode && isBlankTeacher && renamingUnit === ui ? (
@@ -1559,33 +1560,39 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
                 />
               </form>
             ) : (
-              <button
-                data-tour={ui === 0 ? "tour-unit-tab" : undefined}
-                data-tour-clicked={ui === 0 && activeUnitIdx === ui && isOverview ? "true" : undefined}
-                onClick={() => { handleUnitOverview(ui); setOpenDropdown(ui); }}
-                style={{ background: activeUnitIdx === ui && isOverview ? "#fff" : "var(--board-secondary)", color: activeUnitIdx === ui && isOverview ? "var(--board-secondary-accent)" : "var(--board-secondary-fg)", border: "none", borderRight: "1px solid rgba(0,0,0,0.2)", padding: `${SPACE.sm}px ${SPACE.xs}px`, fontSize: 13, fontFamily: "var(--board-heading-font, 'Oswald', sans-serif)", cursor: "pointer", letterSpacing: 0.5, width: "100%", fontWeight: 600, transition: "all 0.15s" }}
-                onMouseEnter={e => { if (!(activeUnitIdx === ui && isOverview)) { e.currentTarget.style.background = "#fff"; e.currentTarget.style.color = "var(--board-secondary-accent)"; }}}
-                onMouseLeave={e => { if (!(activeUnitIdx === ui && isOverview)) { e.currentTarget.style.background = "var(--board-secondary)"; e.currentTarget.style.color = "var(--board-secondary-fg)"; }}}
-              >
-                {u.unit}
-              </button>
-            )}
-            {/* Build-mode edit controls: rename, reorder, delete */}
-            {isBuildMode && isBlankTeacher && (
-              <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 5, padding: "4px 8px", background: "rgba(0,0,0,0.2)" }}>
-                <button title="Rename unit" onClick={e => { e.stopPropagation(); setRenameUnitVal(u.unit); setRenamingUnit(ui); setDeletingUnit(null); }} style={microBtn({ color: "#89c9f5" })}>rename</button>
-                <button title="Move left"   onClick={e => { e.stopPropagation(); onMoveUnit(ui, -1); }} disabled={ui === 0} style={microBtn({ opacity: ui === 0 ? 0.2 : 1 })}>◀</button>
-                <button title="Move right"  onClick={e => { e.stopPropagation(); onMoveUnit(ui, 1); }} disabled={ui === curriculum.length - 1} style={microBtn({ opacity: ui === curriculum.length - 1 ? 0.2 : 1 })}>▶</button>
-                {deletingUnit === ui ? (
-                  <>
-                    <button title="Confirm delete" onClick={e => { e.stopPropagation(); onDeleteUnit(ui); setDeletingUnit(null); }} style={microBtn({ color: "#ff6868", fontWeight: 600 })}>delete?</button>
-                    <button title="Cancel"         onClick={e => { e.stopPropagation(); setDeletingUnit(null); }} style={microBtn()}>cancel</button>
-                  </>
-                ) : (
-                  <>
-                    <button title={u.hidden ? "Show unit on live board" : "Hide unit from live board"} onClick={e => { e.stopPropagation(); onToggleUnitVisibility(ui); }} style={microBtn({ color: u.hidden ? "#7de87d" : "rgba(255,255,255,0.7)" })}>{u.hidden ? "show" : "hide"}</button>
-                    <button title="Delete unit" onClick={e => { e.stopPropagation(); setDeletingUnit(ui); setRenamingUnit(null); }} style={microBtn({ color: "#ff9090" })}>delete</button>
-                  </>
+              <div style={{ position: "relative", display: "flex", alignItems: "stretch", borderRight: "1px solid rgba(0,0,0,0.2)" }}>
+                {isBuildMode && isBlankTeacher && (
+                  <button title="Move left" onClick={e => { e.stopPropagation(); onMoveUnit(ui, -1); }} disabled={ui === 0} style={{ background: "transparent", border: "none", cursor: ui === 0 ? "default" : "pointer", color: "var(--board-secondary-fg)", opacity: ui === 0 ? 0.15 : 0.5, fontSize: 10, padding: "0 5px", flexShrink: 0 }}>◀</button>
+                )}
+                <button
+                  data-tour={ui === 0 ? "tour-unit-tab" : undefined}
+                  data-tour-clicked={ui === 0 && activeUnitIdx === ui && isOverview ? "true" : undefined}
+                  onClick={() => { handleUnitOverview(ui); setOpenDropdown(ui); }}
+                  onDoubleClick={isBuildMode && isBlankTeacher ? (e => { e.stopPropagation(); setRenameUnitVal(u.unit); setRenamingUnit(ui); setDeletingUnit(null); }) : undefined}
+                  title={isBuildMode && isBlankTeacher ? "Double-click to rename" : undefined}
+                  style={{ flex: 1, background: activeUnitIdx === ui && isOverview ? "#fff" : "var(--board-secondary)", color: activeUnitIdx === ui && isOverview ? "var(--board-secondary-accent)" : "var(--board-secondary-fg)", border: "none", padding: `${SPACE.sm}px ${SPACE.xs}px`, fontSize: 13, fontFamily: "var(--board-heading-font, 'Oswald', sans-serif)", cursor: isBuildMode && isBlankTeacher ? "text" : "pointer", letterSpacing: 0.5, fontWeight: 600, transition: "all 0.15s" }}
+                  onMouseEnter={e => { if (!(activeUnitIdx === ui && isOverview)) { e.currentTarget.style.background = "#fff"; e.currentTarget.style.color = "var(--board-secondary-accent)"; }}}
+                  onMouseLeave={e => { if (!(activeUnitIdx === ui && isOverview)) { e.currentTarget.style.background = "var(--board-secondary)"; e.currentTarget.style.color = "var(--board-secondary-fg)"; }}}
+                >
+                  {u.unit}
+                </button>
+                {isBuildMode && isBlankTeacher && (
+                  <button title="Move right" onClick={e => { e.stopPropagation(); onMoveUnit(ui, 1); }} disabled={ui === curriculum.length - 1} style={{ background: "transparent", border: "none", cursor: ui === curriculum.length - 1 ? "default" : "pointer", color: "var(--board-secondary-fg)", opacity: ui === curriculum.length - 1 ? 0.15 : 0.5, fontSize: 10, padding: "0 5px", flexShrink: 0 }}>▶</button>
+                )}
+                {isBuildMode && isBlankTeacher && hoveredUnit === ui && (
+                  <div style={{ position: "absolute", top: 0, right: 0, display: "flex", gap: 2, padding: "2px 4px", background: "rgba(0,0,0,0.5)", borderRadius: "0 0 0 4px", zIndex: 10 }}>
+                    {deletingUnit === ui ? (
+                      <>
+                        <button title="Confirm delete" onClick={e => { e.stopPropagation(); onDeleteUnit(ui); setDeletingUnit(null); }} style={microBtn({ color: "#ff6868", fontWeight: 600, fontSize: 10 })}>delete?</button>
+                        <button title="Cancel" onClick={e => { e.stopPropagation(); setDeletingUnit(null); }} style={microBtn({ fontSize: 10 })}>cancel</button>
+                      </>
+                    ) : (
+                      <>
+                        <button title={u.hidden ? "Show unit" : "Hide unit"} onClick={e => { e.stopPropagation(); onToggleUnitVisibility(ui); }} style={microBtn({ color: u.hidden ? "#7de87d" : "rgba(255,255,255,0.6)", fontSize: 10, padding: "1px 6px" })}>{u.hidden ? "show" : "hide"}</button>
+                        <button title="Delete unit" onClick={e => { e.stopPropagation(); setDeletingUnit(ui); setRenamingUnit(null); }} style={microBtn({ color: "rgba(255,130,130,0.7)", fontSize: 10, padding: "1px 6px" })}>×</button>
+                      </>
+                    )}
+                  </div>
                 )}
               </div>
             )}
@@ -1626,29 +1633,31 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
                       </form>
                     ) : (
                       <div style={{ display: "flex", alignItems: "center" }}>
+                        {isBuildMode && isBlankTeacher && (
+                          <div style={{ display: "flex", flexDirection: "column", paddingLeft: 5, gap: 1, flexShrink: 0, justifyContent: "center" }}>
+                            <button title="Move up" onClick={e => { e.stopPropagation(); onMoveLesson(ui, li, -1); }} disabled={li === 0} style={{ background: "none", border: "none", cursor: li === 0 ? "default" : "pointer", color: "var(--board-secondary-fg)", opacity: li === 0 ? 0.15 : 0.5, fontSize: 8, padding: "1px 3px", lineHeight: 1 }}>▲</button>
+                            <button title="Move down" onClick={e => { e.stopPropagation(); onMoveLesson(ui, li, 1); }} disabled={li === u.lessons.length - 1} style={{ background: "none", border: "none", cursor: li === u.lessons.length - 1 ? "default" : "pointer", color: "var(--board-secondary-fg)", opacity: li === u.lessons.length - 1 ? 0.15 : 0.5, fontSize: 8, padding: "1px 3px", lineHeight: 1 }}>▼</button>
+                          </div>
+                        )}
                         <div
                           onClick={() => handleLessonClick(ui, lesson)}
-                          style={{ flex: 1, padding: `${SPACE.sm}px ${SPACE.md}px`, fontSize: 13, fontFamily: "Lato, sans-serif", fontWeight: 700, color: activeLesson?.title === lesson.title ? "var(--board-secondary-accent)" : "#ccc", cursor: "pointer", transition: "all 0.12s", whiteSpace: "normal", paddingLeft: activeLesson?.title === lesson.title ? SPACE.md - 3 : SPACE.md }}
+                          onDoubleClick={isBuildMode && isBlankTeacher ? (e => { e.stopPropagation(); setRenameLessonVal(lesson.title); setRenamingLesson({ unitIdx: ui, lessonIdx: li }); setDeletingLesson(null); }) : undefined}
+                          title={isBuildMode && isBlankTeacher ? "Double-click to rename" : undefined}
+                          style={{ flex: 1, padding: `${SPACE.sm}px ${SPACE.md}px`, fontSize: 13, fontFamily: "Lato, sans-serif", fontWeight: 700, color: activeLesson?.title === lesson.title ? "var(--board-secondary-accent)" : "#ccc", cursor: isBuildMode && isBlankTeacher ? "text" : "pointer", transition: "all 0.12s", whiteSpace: "normal", paddingLeft: activeLesson?.title === lesson.title ? SPACE.md - 3 : SPACE.md }}
                           onMouseEnter={e => { e.currentTarget.style.background = "var(--board-secondary)"; e.currentTarget.style.color = "var(--board-secondary-fg)"; }}
                           onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = activeLesson?.title === lesson.title ? "var(--board-secondary-accent)" : "#ccc"; }}
                         >
                           {lesson.title}
                         </div>
-                        {/* Build-mode lesson actions */}
                         {isBuildMode && isBlankTeacher && (
-                          <div style={{ display: "flex", alignItems: "center", gap: 4, paddingRight: 8, paddingLeft: 4, flexShrink: 0 }}>
-                            <button title="Rename lesson" onClick={e => { e.stopPropagation(); setRenameLessonVal(lesson.title); setRenamingLesson({ unitIdx: ui, lessonIdx: li }); setDeletingLesson(null); }} style={microBtn({ color: "#89c9f5" })}>rename</button>
-                            <button title="Move up"   onClick={e => { e.stopPropagation(); onMoveLesson(ui, li, -1); }} disabled={li === 0} style={microBtn({ opacity: li === 0 ? 0.2 : 1 })}>▲</button>
-                            <button title="Move down" onClick={e => { e.stopPropagation(); onMoveLesson(ui, li, 1); }} disabled={li === u.lessons.length - 1} style={microBtn({ opacity: li === u.lessons.length - 1 ? 0.2 : 1 })}>▼</button>
-                            {deletingLesson?.unitIdx === ui && deletingLesson?.lessonIdx === li ? (
-                              <>
-                                <button title="Confirm delete" onClick={e => { e.stopPropagation(); onDeleteLesson(ui, li); setDeletingLesson(null); }} style={microBtn({ color: "#ff6868", fontWeight: 600 })}>delete?</button>
-                                <button title="Cancel"         onClick={e => { e.stopPropagation(); setDeletingLesson(null); }} style={microBtn()}>cancel</button>
-                              </>
-                            ) : (
-                              <button title="Delete lesson" onClick={e => { e.stopPropagation(); setDeletingLesson({ unitIdx: ui, lessonIdx: li }); setRenamingLesson(null); }} style={microBtn({ color: "#ff9090" })}>delete</button>
-                            )}
-                          </div>
+                          deletingLesson?.unitIdx === ui && deletingLesson?.lessonIdx === li ? (
+                            <div style={{ display: "flex", gap: 3, paddingRight: 6, flexShrink: 0 }}>
+                              <button title="Confirm delete" onClick={e => { e.stopPropagation(); onDeleteLesson(ui, li); setDeletingLesson(null); }} style={microBtn({ color: "#ff6868", fontWeight: 600, fontSize: 10 })}>delete?</button>
+                              <button title="Cancel" onClick={e => { e.stopPropagation(); setDeletingLesson(null); }} style={microBtn({ fontSize: 10 })}>cancel</button>
+                            </div>
+                          ) : (
+                            <button title="Delete lesson" onClick={e => { e.stopPropagation(); setDeletingLesson({ unitIdx: ui, lessonIdx: li }); setRenamingLesson(null); }} style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(255,120,120,0.35)", fontSize: 15, paddingRight: 8, paddingLeft: 2, flexShrink: 0, lineHeight: 1 }}>×</button>
+                          )
                         )}
                       </div>
                     )}
