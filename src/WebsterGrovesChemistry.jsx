@@ -1263,9 +1263,15 @@ export function AddAssignmentCard({ open, busy, error, onOpen, onCancel, onSubmi
         if (onDrivePick) {
           await onDrivePick({ label: assignmentLabel, driveResult: result });
         }
+        // Tell the parent BuildPage to scroll to top before the reload lands.
         if (window.parent !== window) {
           window.parent.postMessage({ type: "homeroom-drive-slides-saved" }, window.location.origin);
         }
+        // Self-reload to cut off any pending React re-render before it hits
+        // the Picker SDK's corrupted fiber tree (same pattern as AddSlidesCard).
+        // MongoDB save above is awaited so the reloaded page picks up the new
+        // assignment immediately.
+        window.location.reload();
       }
     } catch (err) {
       // Cannot safely call setDriveError here — DOM may already be
