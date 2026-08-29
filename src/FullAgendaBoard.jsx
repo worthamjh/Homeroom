@@ -359,7 +359,7 @@ function KamiUrlInput({ kamiUrl, onSaveKamiUrl, lessonLabel, surface = DEFAULT_S
   );
 }
 
-function Section({ label, value, placeholder, editing, onStartEdit, onSave, rows = 3, minHeight, surface, itemized, checkedLines, onToggleLine, quickAddOptions, interactive = true, kamiUrl, onSaveKamiUrl, onKamiOpen }) {
+function Section({ label, value, placeholder, editing, onStartEdit, onSave, rows = 3, minHeight, surface, itemized, checkedLines, onToggleLine, quickAddOptions, interactive = true, kamiUrl, onSaveKamiUrl, onKamiOpen, lessonLabel }) {
   const ref = useRef(null);
   const [draft, setDraft] = useState(value);
 
@@ -698,7 +698,7 @@ function Section({ label, value, placeholder, editing, onStartEdit, onSave, rows
         </div>
       )}
       {interactive && onSaveKamiUrl !== undefined && (
-        <KamiUrlInput kamiUrl={kamiUrl} onSaveKamiUrl={onSaveKamiUrl} surface={surface} />
+        <KamiUrlInput kamiUrl={kamiUrl} onSaveKamiUrl={onSaveKamiUrl} surface={surface} lessonLabel={lessonLabel} />
       )}
     </div>
   );
@@ -832,7 +832,7 @@ export function FullAgendaFields({
 // edit mode, or clicking one would flip every mounted copy into edit mode
 // in the same render. The flat (non-sliding) column only ever mounts one
 // copy of each field, so it never needs to pass this.
-export function EditableField({ fieldKey, content, editingKey, onStartEdit, onSave, surface = DEFAULT_SURFACE, interactive = true, checkedLines, onToggleLine, kamiUrl, onSaveKamiUrl, onKamiOpen }) {
+export function EditableField({ fieldKey, content, editingKey, onStartEdit, onSave, surface = DEFAULT_SURFACE, interactive = true, checkedLines, onToggleLine, kamiUrl, onSaveKamiUrl, onKamiOpen, lessonLabel }) {
   const meta = FULL_AGENDA_FIELD_META[fieldKey];
   if (!meta) return null;
   // Same Agenda-only quick-add chips as FullAgendaFields' section() helper
@@ -861,6 +861,7 @@ export function EditableField({ fieldKey, content, editingKey, onStartEdit, onSa
       kamiUrl={kamiUrl}
       onSaveKamiUrl={onSaveKamiUrl}
       onKamiOpen={onKamiOpen}
+      lessonLabel={lessonLabel}
     />
   );
 }

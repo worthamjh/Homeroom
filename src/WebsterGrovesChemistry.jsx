@@ -2886,6 +2886,7 @@ export default function App() {
                           kamiUrl: pf.content.bellRingerKamiUrl || "",
                           onSaveKamiUrl: val => pf.save("bellRingerKamiUrl", val),
                           onKamiOpen: () => setKamiState(prev => prev ? null : "overlay"),
+                          lessonLabel: activeLesson?.title,
                         } : {})}
                       />
                     );
@@ -3041,6 +3042,7 @@ export default function App() {
                               {...(key === "bellRinger" ? {
                                 kamiUrl: fullAgendaFields.content.bellRingerKamiUrl || "",
                                 onSaveKamiUrl: val => fullAgendaFields.save("bellRingerKamiUrl", val),
+                                lessonLabel: activeLesson?.title,
                                 onKamiOpen: () => setKamiState(prev => prev ? null : "overlay"),
                               } : {})}
                             />
