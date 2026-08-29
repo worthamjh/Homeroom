@@ -284,7 +284,8 @@ function KamiUrlInput({ kamiUrl, onSaveKamiUrl, lessonLabel, surface = DEFAULT_S
     setCreating(true);
     setCreateError(null);
     try {
-      const title = lessonLabel ? `Bell Ringer — ${lessonLabel}` : undefined;
+      const dateStr = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+      const title = lessonLabel ? `Bell Ringer — ${lessonLabel} — ${dateStr}` : undefined;
       const { kamiUrl: newUrl, name } = await createKamiBellRingerDoc({ title });
       onSaveKamiUrl(newUrl);
       setDraft(newUrl);
