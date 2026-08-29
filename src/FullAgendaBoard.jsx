@@ -497,7 +497,7 @@ function Section({ label, value, placeholder, editing, onStartEdit, onSave, rows
                       setDragItemId(null);
                       setDraggingItems(null);
                     }}
-                    style={{ display: "flex", alignItems: "center", paddingTop: 4, paddingRight: 2, flexShrink: 0, cursor: "grab", color: surface.placeholderText, fontSize: 14, userSelect: "none", opacity: 0.5 }}
+                    style={{ display: "flex", alignItems: "center", paddingTop: 4, paddingRight: 2, flexShrink: 0, cursor: "grab", color: "rgba(255,255,255,0.55)", fontSize: 15, userSelect: "none" }}
                   >≡</div>
                   <span
                     onClick={() => onToggleLine(displayIdx)}
