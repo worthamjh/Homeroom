@@ -531,3 +531,54 @@ export async function pickGoogleCalendar() {
     document.body.appendChild(overlay);
   });
 }
+
+/**
+ * Auto-creates a blank Google Doc in the teacher's Drive and returns a
+ * Kami viewer URL for it — so a bell ringer document is ready instantly
+ * without the teacher having to make one manually.
+ *
+ * Uses the same OAuth token as the Slides picker (drive.file scope).
+ * The created file is accessible to Kami because Kami's web viewer uses
+ * the teacher's own Drive session to open it.
+ *
+ * @param {object} [opts]
+ * @param {string} [opts.title]  Display name for the new file (default: "Bell Ringer — <date>")
+ * @returns {Promise<{ kamiUrl: string, fileId: string, name: string }>}
+ */
+export async function createKamiBellRingerDoc({ title } = {}) {
+  await ensureGoogleScriptsLoaded();
+  const accessToken = await requestAccessToken();
+
+  const name = title ||
+    `Bell Ringer — ${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
+
+  // Create a blank Google Doc via the Drive v3 REST API.
+  // drive.file scope allows creating files — no broader scope needed.
+  const res = await fetch("https://www.googleapis.com/drive/v3/files", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      name,
+      mimeType: "application/vnd.google-apps.document",
+    }),
+  });
+
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    throw new Error(`Couldn't create the Bell Ringer doc (${res.status}): ${detail}`);
+  }
+
+  const file = await res.json();
+
+  // Kami's web viewer opens Drive files via a state parameter containing
+  // the Drive file ID — the same pattern the rest of Homeroom already uses
+  // for assignment files (see pickGoogleDriveAssignmentFile above).
+  const kamiUrl = `https://web.kamihq.com/web/viewer.html?state=${encodeURIComponent(
+    JSON.stringify({ id: file.id, action: "open", from: "google-drive" })
+  )}`;
+
+  return { kamiUrl, fileId: file.id, name: file.name };
+}

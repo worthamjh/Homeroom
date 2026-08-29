@@ -1,5 +1,6 @@
 import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { fetchBoardContent, saveBoardContent, deleteBoardContent } from "./lib/boardContentApi";
+import { createKamiBellRingerDoc, googleDriveConfigured } from "./lib/googleDrive";
 
 /**
  * FullAgendaBoard
@@ -271,23 +272,69 @@ function splitGoalLines(raw) {
 }
 
 // Small Kami URL input — build mode only, Bell Ringer section.
-function KamiUrlInput({ kamiUrl, onSaveKamiUrl, surface = DEFAULT_SURFACE }) {
+function KamiUrlInput({ kamiUrl, onSaveKamiUrl, lessonLabel, surface = DEFAULT_SURFACE }) {
   const [draft, setDraft] = useState(kamiUrl || "");
   const [saved, setSaved] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState(null);
   useEffect(() => { setDraft(kamiUrl || ""); setSaved(false); }, [kamiUrl]);
   const handleSave = () => { onSaveKamiUrl(draft.trim()); setSaved(true); setTimeout(() => setSaved(false), 1800); };
+
+  const handleAutoCreate = async () => {
+    setCreating(true);
+    setCreateError(null);
+    try {
+      const title = lessonLabel ? `Bell Ringer — ${lessonLabel}` : undefined;
+      const { kamiUrl: newUrl, name } = await createKamiBellRingerDoc({ title });
+      onSaveKamiUrl(newUrl);
+      setDraft(newUrl);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } catch (err) {
+      setCreateError(err.message || "Couldn't create the file.");
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const canAutoCreate = googleDriveConfigured();
+
   return (
     <div style={{ marginTop: 8, borderTop: `1px dashed ${surface.dividerBorder}`, paddingTop: 8, display: "flex", flexDirection: "column", gap: 4 }}>
       <div style={{ fontFamily: "Lato, sans-serif", fontSize: 10, letterSpacing: 1, textTransform: "uppercase", color: surface.placeholderText }}>
-        📄 Kami URL <span style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0, opacity: 0.7 }}>— paste your Kami share/embed link</span>
+        📄 Bell Ringer · Kami
       </div>
+
+      {/* Auto-create row — shown when Google Drive is configured */}
+      {canAutoCreate && !kamiUrl && (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
+          <button
+            onClick={handleAutoCreate}
+            disabled={creating}
+            style={{
+              fontFamily: "Oswald, sans-serif", fontSize: 11, letterSpacing: 0.5,
+              padding: "5px 14px",
+              background: creating ? "rgba(255,255,255,0.06)" : "rgba(255,165,0,0.18)",
+              border: `1px solid ${creating ? surface.dividerBorder : "rgba(255,165,0,0.5)"}`,
+              borderRadius: 4, color: creating ? surface.placeholderText : "#ffb347",
+              cursor: creating ? "default" : "pointer", transition: "all 0.2s",
+            }}
+          >
+            {creating ? "⏳ Creating…" : "⚡ Auto-create Kami doc"}
+          </button>
+          <span style={{ fontFamily: "Lato, sans-serif", fontSize: 10, color: surface.placeholderText }}>
+            or paste a link below
+          </span>
+        </div>
+      )}
+
       <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
         <input
           type="url"
           value={draft}
           onChange={e => { setDraft(e.target.value); setSaved(false); }}
           onKeyDown={e => { if (e.key === "Enter") handleSave(); if (e.key === "Escape") setDraft(kamiUrl || ""); }}
-          placeholder="https://app.kami.com/..."
+          placeholder="https://web.kamihq.com/web/viewer.html?state=..."
           style={{ flex: 1, fontFamily: "Lato, sans-serif", fontSize: 12, padding: "4px 8px", background: "rgba(255,255,255,0.08)", border: `1px solid ${surface.dividerBorder}`, borderRadius: 4, color: "#fff", outline: "none", minWidth: 0 }}
           onFocus={e => { e.currentTarget.style.borderColor = surface.accent; }}
           onBlur={e => { e.currentTarget.style.borderColor = surface.dividerBorder; }}
@@ -304,6 +351,9 @@ function KamiUrlInput({ kamiUrl, onSaveKamiUrl, surface = DEFAULT_SURFACE }) {
             style={{ fontFamily: "Lato, sans-serif", fontSize: 11, padding: "4px 8px", background: "transparent", border: `1px solid ${surface.dividerBorder}`, borderRadius: 4, color: surface.placeholderText, cursor: "pointer" }}>✕</button>
         )}
       </div>
+      {createError && (
+        <div style={{ fontFamily: "Lato, sans-serif", fontSize: 10, color: "#ff7b7b" }}>⚠ {createError}</div>
+      )}
       {kamiUrl && <div style={{ fontFamily: "Lato, sans-serif", fontSize: 10, color: surface.placeholderText, wordBreak: "break-all" }}>Linked: {kamiUrl}</div>}
     </div>
   );
