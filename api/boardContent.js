@@ -25,7 +25,7 @@ const COLLECTION = "boardContent";
 
 // The four freeform text fields — kept in one list so GET/POST/sanitizing
 // don't have to spell out all four separately in more than one place.
-const TEXT_FIELDS = ["essentialQuestion", "agenda", "bellRinger", "homeLearning"];
+const TEXT_FIELDS = ["essentialQuestion", "agenda", "bellRinger", "homeLearning", "bellRingerKamiUrl", "learningGoals"];
 
 function getClientPromise() {
   if (!process.env.MONGODB_URI) {
@@ -90,7 +90,7 @@ export default async function handler(req, res) {
         set.checkedAgendaLines = checkedAgendaLines;
       }
       if (Object.keys(set).length === 0) {
-        res.status(400).json({ error: "at least one of essentialQuestion, agenda, bellRinger, homeLearning, or checkedAgendaLines is required" });
+        res.status(400).json({ error: "at least one recognized field is required" });
         return;
       }
       set.updatedAt = new Date();
