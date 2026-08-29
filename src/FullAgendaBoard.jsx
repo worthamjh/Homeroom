@@ -643,9 +643,11 @@ function Section({ label, value, placeholder, editing, onStartEdit, onSave, rows
             ) : (
               lines.map((line, li) => {
                 const checked = !!(checkedLines && checkedLines[li]);
+                const canToggle = typeof onToggleLine === "function";
                 return (
-                  <div key={li} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "3px 2px" }}>
-                    <span style={{ width: 14, height: 14, marginTop: 3, borderRadius: 3, border: `2px solid ${checked ? surface.accent : surface.checkboxBorder}`, background: checked ? surface.accent : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <div key={li} onClick={canToggle ? () => onToggleLine(li) : undefined}
+                    style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "3px 2px", cursor: canToggle ? "pointer" : "default" }}>
+                    <span style={{ width: 14, height: 14, marginTop: 3, borderRadius: 3, border: `2px solid ${checked ? surface.accent : surface.checkboxBorder}`, background: checked ? surface.accent : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "all 0.15s" }}>
                       {checked && <span style={{ color: "white", fontSize: 9, lineHeight: 1 }}>✓</span>}
                     </span>
                     <span style={{ fontFamily: "Caveat, cursive", fontSize: 17, lineHeight: 1.4, minWidth: 0, wordBreak: "break-word", color: checked ? surface.bodyTextChecked : surface.bodyText, textShadow: surface.textShadow, textDecoration: checked ? "line-through" : "none" }}>
