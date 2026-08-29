@@ -1354,46 +1354,53 @@ export function AddAssignmentCard({ open, busy, error, onOpen, onCancel, onSubmi
       onSubmit={e => { e.preventDefault(); if (label.trim() && file) onSubmit({ label: label.trim(), file }); }}
       style={{
         background: "#242424", borderRadius: 3, aspectRatio: "8.5/11", border: "2px solid var(--board-secondary)",
-        display: "flex", flexDirection: "column", gap: 8, padding: 10, boxSizing: "border-box",
+        display: "flex", flexDirection: "column", padding: 16, boxSizing: "border-box",
       }}
     >
+      <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 11, textTransform: "uppercase", letterSpacing: 1, color: "rgba(255,255,255,0.45)", marginBottom: 10 }}>Add Assignment</div>
       <input
         type="text" placeholder="Assignment name" value={label} onChange={e => setLabel(e.target.value)}
         disabled={busy} autoFocus
-        style={{ background: "var(--board-primary)", border: "1px solid #444", borderRadius: 2, color: "var(--board-primary-fg)", fontSize: 12, padding: "6px 8px", fontFamily: "Lato, sans-serif" }}
+        style={{ background: "var(--board-primary)", border: "1px solid #555", borderRadius: 3, color: "var(--board-primary-fg)", fontSize: 13, padding: "10px 10px", fontFamily: "Lato, sans-serif" }}
       />
       {driveReady && (
         <>
-          <button
-            type="button"
-            onClick={handleBrowseDrive}
-            disabled={busy || driveBusy}
-            style={{ background: "transparent", border: "1px solid var(--board-secondary)", borderRadius: 2, color: "var(--board-secondary-accent)", fontFamily: "Oswald, sans-serif", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, padding: "8px 12px", cursor: driveBusy ? "default" : "pointer", opacity: driveBusy ? 0.6 : 1 }}
-          >
-            {driveBusy ? "Connecting to Google Drive…" : "Browse Google Drive"}
-          </button>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, color: "rgba(255,255,255,0.3)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>
+          <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <button
+              type="button"
+              onClick={handleBrowseDrive}
+              disabled={busy || driveBusy}
+              style={{ width: "100%", background: "transparent", border: "2px solid var(--board-secondary)", borderRadius: 3, color: "var(--board-secondary-accent)", fontFamily: "Oswald, sans-serif", fontSize: 13, textTransform: "uppercase", letterSpacing: 1, padding: "14px 12px", cursor: driveBusy ? "default" : "pointer", opacity: driveBusy ? 0.6 : 1 }}
+            >
+              {driveBusy ? "Connecting…" : "Browse Google Drive"}
+            </button>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, color: "rgba(255,255,255,0.3)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 0 }}>
             <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.15)" }} />
             or upload a file
             <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.15)" }} />
           </div>
         </>
       )}
-      <input
-        type="file" accept="application/pdf" disabled={busy}
-        onChange={e => { setFile(e.target.files?.[0] || null); }}
-        style={{ fontSize: 11, color: "rgba(255,255,255,0.7)" }}
-      />
+      <div style={{ flex: driveReady ? 1 : 2, display: "flex", alignItems: "center", justifyContent: "center", border: "1px dashed rgba(255,255,255,0.2)", borderRadius: 3, padding: 12, marginTop: driveReady ? 0 : 16 }}>
+        <label style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, cursor: "pointer", color: "rgba(255,255,255,0.5)", fontSize: 11, fontFamily: "Lato, sans-serif", textAlign: "center" }}>
+          <span style={{ fontSize: 24 }}>📄</span>
+          <span>{file ? file.name : "Choose PDF file"}</span>
+          <input type="file" accept="application/pdf" disabled={busy}
+            onChange={e => { setFile(e.target.files?.[0] || null); }}
+            style={{ display: "none" }} />
+        </label>
+      </div>
 
-      {driveError && <div style={{ fontSize: 11, color: "#e8a722", lineHeight: 1.4 }}>{driveError}</div>}
-      {error && <div style={{ fontSize: 11, color: "#ff8a65", fontStyle: "italic" }}>{error}</div>}
-      <div style={{ marginTop: "auto", display: "flex", gap: 6 }}>
+      {driveError && <div style={{ fontSize: 11, color: "#e8a722", lineHeight: 1.4, marginTop: 8 }}>{driveError}</div>}
+      {error && <div style={{ fontSize: 11, color: "#ff8a65", fontStyle: "italic", marginTop: 8 }}>{error}</div>}
+      <div style={{ marginTop: 16, display: "flex", gap: 8 }}>
         <button type="submit" disabled={busy || !label.trim() || !file}
-          style={{ flex: 1, background: "var(--board-secondary)", border: "none", borderRadius: 2, color: "var(--board-secondary-fg)", fontFamily: "Oswald, sans-serif", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, padding: "6px 0", cursor: busy ? "default" : "pointer", opacity: busy ? 0.6 : 1 }}>
+          style={{ flex: 1, background: "var(--board-secondary)", border: "none", borderRadius: 3, color: "var(--board-secondary-fg)", fontFamily: "Oswald, sans-serif", fontSize: 12, textTransform: "uppercase", letterSpacing: 0.5, padding: "10px 0", cursor: busy ? "default" : "pointer", opacity: (busy || !label.trim() || !file) ? 0.5 : 1 }}>
           {busy ? "Uploading…" : "Save"}
         </button>
         <button type="button" onClick={onCancel} disabled={busy}
-          style={{ background: "transparent", border: "1px solid #555", borderRadius: 2, color: "rgba(255,255,255,0.6)", fontFamily: "Oswald, sans-serif", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, padding: "6px 10px", cursor: "pointer" }}>
+          style={{ background: "transparent", border: "1px solid #555", borderRadius: 3, color: "rgba(255,255,255,0.6)", fontFamily: "Oswald, sans-serif", fontSize: 12, textTransform: "uppercase", letterSpacing: 0.5, padding: "10px 14px", cursor: "pointer" }}>
           Cancel
         </button>
       </div>
@@ -1509,6 +1516,65 @@ function InlineAddButton({ label, placeholder, defaultValue, onAdd, style, input
         style={{ background: "var(--board-primary)", border: "1px solid #444", borderRadius: 2, color: "var(--board-primary-fg)", fontSize: 12, padding: "4px 6px", fontFamily: "Lato, sans-serif", minWidth: 0, ...inputStyle }}
       />
     </form>
+  );
+}
+
+// Kami Bell Ringer overlay — three states managed by the parent:
+//   null        → hidden (default)
+//   "overlay"   → floating panel over the slides, presentation-friendly
+//   "fullscreen" → fills the entire viewport so the teacher can mark up
+//
+// Uses position:fixed so it escapes every overflow:hidden ancestor and
+// always layers on top of the projected board regardless of board layout.
+function KamiOverlay({ url, state, onToggleFullscreen, onClose }) {
+  if (!url || !state) return null;
+  const isFullscreen = state === "fullscreen";
+  return (
+    <div style={{
+      position: "fixed",
+      ...(isFullscreen
+        ? { inset: 0, borderRadius: 0 }
+        : { top: "6%", left: "4%", right: "4%", bottom: "6%", borderRadius: 10 }),
+      zIndex: 8000,
+      display: "flex",
+      flexDirection: "column",
+      background: "#111",
+      boxShadow: "0 12px 60px rgba(0,0,0,0.75)",
+      overflow: "hidden",
+      transition: "all 0.25s ease",
+    }}>
+      {/* Toolbar */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 12px", background: "rgba(0,0,0,0.55)", flexShrink: 0, backdropFilter: "blur(4px)" }}>
+        <span style={{ flex: 1, fontFamily: "Oswald, sans-serif", fontSize: 13, letterSpacing: 1.5, textTransform: "uppercase", color: "rgba(255,255,255,0.6)" }}>
+          Bell Ringer
+        </span>
+        <button
+          onClick={onToggleFullscreen}
+          title={isFullscreen ? "Minimize to overlay" : "Full screen"}
+          style={{ fontFamily: "Lato, sans-serif", fontSize: 12, padding: "5px 14px", background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.25)", borderRadius: 5, color: "#fff", cursor: "pointer" }}
+          onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.2)"; }}
+          onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.1)"; }}
+        >
+          {isFullscreen ? "⊡ Minimize" : "⛶ Full Screen"}
+        </button>
+        <button
+          onClick={onClose}
+          title="Close Bell Ringer"
+          style={{ fontFamily: "Lato, sans-serif", fontSize: 12, padding: "5px 14px", background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.25)", borderRadius: 5, color: "#fff", cursor: "pointer" }}
+          onMouseEnter={e => { e.currentTarget.style.background = "rgba(200,60,60,0.35)"; e.currentTarget.style.borderColor = "rgba(200,60,60,0.6)"; }}
+          onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.1)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.25)"; }}
+        >
+          ✕ Close
+        </button>
+      </div>
+      {/* Kami iframe */}
+      <iframe
+        src={url}
+        style={{ flex: 1, border: "none", width: "100%", display: "block" }}
+        allow="fullscreen; clipboard-read; clipboard-write"
+        title="Bell Ringer — Kami"
+      />
+    </div>
   );
 }
 
@@ -2966,6 +3032,14 @@ export default function App() {
                 );
               })()}
             </div>
+
+            {/* Kami Bell Ringer overlay — floats over the board in overlay or fullscreen mode */}
+            <KamiOverlay
+              url={fullAgendaFields.content.bellRingerKamiUrl || ""}
+              state={kamiState}
+              onToggleFullscreen={() => setKamiState(prev => prev === "fullscreen" ? "overlay" : "fullscreen")}
+              onClose={() => setKamiState(null)}
+            />
 
             {/* Chalk ledge / marker tray — styled per the Board Surface preset. */}
             <div style={{ height: 8, background: surface.ledgeBg, borderTop: `2px solid ${surface.ledgeBorder}`, display: "flex", alignItems: "center", padding: `0 ${SPACE.sm}px`, gap: SPACE.xs }}>
