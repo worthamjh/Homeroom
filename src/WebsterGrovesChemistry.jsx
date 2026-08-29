@@ -2937,6 +2937,15 @@ export default function App() {
                         renderLessonSlides()
                       )}
                     </div>
+                  {kamiState !== "fullscreen" && (
+                    <KamiOverlay
+                      url={fullAgendaFields.content.bellRingerKamiUrl || ""}
+                      state={kamiState}
+                      onToggleFullscreen={() => setKamiState(prev => prev === "fullscreen" ? "overlay" : "fullscreen")}
+                      onClose={() => setKamiState(null)}
+                      contained={true}
+                    />
+                  )}
                   </div>
                 );
 
@@ -3044,16 +3053,7 @@ export default function App() {
                         )}
                       </>
                     )}
-                  {kamiState !== "fullscreen" && (
-                    <KamiOverlay
-                      url={fullAgendaFields.content.bellRingerKamiUrl || ""}
-                      state={kamiState}
-                      onToggleFullscreen={() => setKamiState(prev => prev === "fullscreen" ? "overlay" : "fullscreen")}
-                      onClose={() => setKamiState(null)}
-                      contained={true}
-                    />
-                  )}
-                </div>
+                  </div>
                 );
 
                 const nodesByKey = { slides: slidesNode, goals: goalsNode };
