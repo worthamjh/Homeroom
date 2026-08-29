@@ -71,19 +71,16 @@ function RadioRow({ selected, onClick, label, swatch }) {
 // than click-to-move-one-step arrows, since dragging a row to exactly
 // where it belongs is the more direct, obvious gesture once there's more
 // than a one-step move to make.
-function ToggleRow({ checked, onClick, label, draggable, onDragStart, onDragOver, onDrop, onDragEnd, isDragging, isDropTarget }) {
+function ToggleRow({ checked, onClick, label, draggable, onDragStart, onDragOver, onDragEnd, isDragging }) {
   return (
     <div
       onDragOver={onDragOver}
-      onDrop={onDrop}
       style={{
         padding: "6px 14px 6px 6px", display: "flex", alignItems: "center", gap: 6, borderRadius: 5,
         opacity: isDragging ? 0.4 : 1,
-        outline: isDropTarget ? "2px dashed var(--board-secondary)" : "none",
-        outlineOffset: -2,
       }}
-      onMouseEnter={e => { if (!isDropTarget) e.currentTarget.style.background = "#242424"; }}
-      onMouseLeave={e => { if (!isDropTarget) e.currentTarget.style.background = "transparent"; }}
+      onMouseEnter={e => { e.currentTarget.style.background = "#242424"; }}
+      onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}
     >
       <div
         draggable={draggable}
@@ -154,7 +151,7 @@ export default function BoardSettingsPanel({ selected, onSelect, panelCountInfo 
   // and back on doesn't lose its place in line.
   const [boardContentOrder, setBoardContentOrder] = useBoardContentOrder();
   const [dragKey, setDragKey] = useState(null);
-  const [dropTargetKey, setDropTargetKey] = useState(null);
+
   // Lookup table so the Board Content rows below can render themselves by
   // iterating boardContentOrder instead of five near-identical hardcoded
   // <ToggleRow> lines — checked state and its setter for whichever
@@ -272,16 +269,9 @@ export default function BoardSettingsPanel({ selected, onSelect, panelCountInfo 
                         label={BOARD_COMPONENTS[key].label}
                         draggable
                         isDragging={dragKey === key}
-                        isDropTarget={dropTargetKey === key && dragKey !== key}
                         onDragStart={e => { setDragKey(key); e.dataTransfer.effectAllowed = "move"; }}
-                        onDragOver={e => { e.preventDefault(); if (dragKey && dragKey !== key) setDropTargetKey(key); }}
-                        onDrop={e => {
-                          e.preventDefault();
-                          if (dragKey && dragKey !== key) setBoardContentOrder(reorder(boardContentOrder, dragKey, key));
-                          setDragKey(null);
-                          setDropTargetKey(null);
-                        }}
-                        onDragEnd={() => { setDragKey(null); setDropTargetKey(null); }}
+                        onDragOver={e => { e.preventDefault(); if (dragKey && dragKey !== key) setBoardContentOrder(reorder(boardContentOrder, dragKey, key)); }}
+                        onDragEnd={() => { setDragKey(null); }}
                       />
                     );
                   })}
