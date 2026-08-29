@@ -1324,7 +1324,7 @@ export function AddAssignmentCard({ open, busy, error, onOpen, onCancel, onSubmi
             disabled={busy || driveBusy}
             style={{ background: "transparent", border: "1px solid var(--board-secondary)", borderRadius: 2, color: "var(--board-secondary-accent)", fontFamily: "Oswald, sans-serif", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, padding: "8px 12px", cursor: driveBusy ? "default" : "pointer", opacity: driveBusy ? 0.6 : 1 }}
           >
-            {driveBusy ? browseBusyLabel : browseLabel}
+            {driveBusy ? "Connecting to Google Drive…" : "Browse Google Drive"}
           </button>
           <div style={{ display: "flex", alignItems: "center", gap: 8, color: "rgba(255,255,255,0.3)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>
             <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.15)" }} />
@@ -1335,7 +1335,7 @@ export function AddAssignmentCard({ open, busy, error, onOpen, onCancel, onSubmi
       )}
       <input
         type="file" accept="application/pdf" disabled={busy}
-        onChange={e => { setFile(e.target.files?.[0] || null); setFileFromDrive(false); }}
+        onChange={e => { setFile(e.target.files?.[0] || null); }}
         style={{ fontSize: 11, color: "rgba(255,255,255,0.7)" }}
       />
 
@@ -1543,42 +1543,44 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
       <div style={{ display: "flex", borderTop: "1px solid #333" }} onClick={e => e.stopPropagation()}>
         {curriculum.map((u, ui) => (
           (!isBuildMode && u.hidden) ? null : (
-          <div key={ui} style={{ position: "relative", flex: 1, opacity: (isBuildMode && u.hidden) ? 0.45 : 1 }}
+          <div key={ui} style={{ position: "relative", flex: 1 }}
             onMouseEnter={() => { (u.lessons.length > 0 || (isBuildMode && isBlankTeacher)) && setOpenDropdown(ui); if (isBuildMode && isBlankTeacher) setHoveredUnit(ui); }}
             onMouseLeave={() => { setOpenDropdown(prev => (prev === ui ? null : prev)); setHoveredUnit(null); }}
           >
-            {/* Unit name — rename input in build mode, normal button otherwise */}
-            {isBuildMode && isBlankTeacher && renamingUnit === ui ? (
-              <form
-                style={{ display: "flex", borderRight: "1px solid rgba(0,0,0,0.2)" }}
-                onSubmit={e => { e.preventDefault(); onRenameUnit(ui, renameUnitVal); setRenamingUnit(null); }}
-              >
-                <input
-                  autoFocus
-                  value={renameUnitVal}
-                  onChange={e => setRenameUnitVal(e.target.value)}
-                  onBlur={() => { onRenameUnit(ui, renameUnitVal || u.unit); setRenamingUnit(null); }}
-                  onKeyDown={e => { if (e.key === "Escape") setRenamingUnit(null); }}
-                  style={{ flex: 1, background: "var(--board-secondary)", color: "var(--board-secondary-fg)", border: "none", borderBottom: "2px solid var(--board-primary-fg)", padding: `${SPACE.sm}px ${SPACE.xs}px`, fontSize: 13, fontFamily: "var(--board-heading-font, 'Oswald', sans-serif)", fontWeight: 600, letterSpacing: 0.5, outline: "none" }}
-                />
-              </form>
-            ) : (
+            {/* Opacity wrapper: applied only to the tab button content so the dropdown
+                (which follows) is NOT inside an opacity < 1 stacking context — opacity
+                on a parent creates a new stacking context that traps z-index and causes
+                the dropdown to render behind the bulletin board. */}
+            <div style={{ opacity: (isBuildMode && u.hidden) ? 0.45 : 1 }}>
+            {/* Unit name — inline editable in build mode */}
               <div style={{ position: "relative", display: "flex", alignItems: "stretch", borderRight: "1px solid rgba(0,0,0,0.2)" }}>
                 {isBuildMode && isBlankTeacher && (
                   <button title="Move left" onClick={e => { e.stopPropagation(); onMoveUnit(ui, -1); }} disabled={ui === 0} style={{ background: "transparent", border: "none", cursor: ui === 0 ? "default" : "pointer", color: "var(--board-secondary-fg)", opacity: ui === 0 ? 0.15 : 0.5, fontSize: 10, padding: "0 5px", flexShrink: 0 }}>◀</button>
                 )}
-                <button
-                  data-tour={ui === 0 ? "tour-unit-tab" : undefined}
-                  data-tour-clicked={ui === 0 && activeUnitIdx === ui && isOverview ? "true" : undefined}
-                  onClick={() => { handleUnitOverview(ui); setOpenDropdown(ui); }}
-                  onDoubleClick={isBuildMode && isBlankTeacher ? (e => { e.stopPropagation(); setRenameUnitVal(u.unit); setRenamingUnit(ui); setDeletingUnit(null); }) : undefined}
-                  title={isBuildMode && isBlankTeacher ? "Double-click to rename" : undefined}
-                  style={{ flex: 1, background: activeUnitIdx === ui && isOverview ? "#fff" : "var(--board-secondary)", color: activeUnitIdx === ui && isOverview ? "var(--board-secondary-accent)" : "var(--board-secondary-fg)", border: "none", padding: `${SPACE.sm}px ${SPACE.xs}px`, fontSize: 13, fontFamily: "var(--board-heading-font, 'Oswald', sans-serif)", cursor: isBuildMode && isBlankTeacher ? "text" : "pointer", letterSpacing: 0.5, fontWeight: 600, transition: "all 0.15s" }}
-                  onMouseEnter={e => { if (!(activeUnitIdx === ui && isOverview)) { e.currentTarget.style.background = "#fff"; e.currentTarget.style.color = "var(--board-secondary-accent)"; }}}
-                  onMouseLeave={e => { if (!(activeUnitIdx === ui && isOverview)) { e.currentTarget.style.background = "var(--board-secondary)"; e.currentTarget.style.color = "var(--board-secondary-fg)"; }}}
-                >
-                  {u.unit}
-                </button>
+                {isBuildMode && isBlankTeacher ? (
+                  <input
+                    key={u.unit + ui}
+                    data-tour={ui === 0 ? "tour-unit-tab" : undefined}
+                    defaultValue={u.unit}
+                    onFocus={() => { handleUnitOverview(ui); setOpenDropdown(ui); }}
+                    onBlur={e => { const v = e.target.value.trim(); if (v && v !== u.unit) onRenameUnit(ui, v); else e.target.value = u.unit; }}
+                    onKeyDown={e => { if (e.key === "Enter") e.target.blur(); if (e.key === "Escape") { e.target.value = u.unit; e.target.blur(); } }}
+                    style={{ flex: 1, minWidth: 0, background: "var(--board-secondary)", color: "var(--board-secondary-fg)", border: "none", borderBottom: "1px solid transparent", padding: `${SPACE.sm}px ${SPACE.xs}px`, fontSize: 13, fontFamily: "var(--board-heading-font, 'Oswald', sans-serif)", fontWeight: 600, letterSpacing: 0.5, outline: "none", textAlign: "center", cursor: "text", transition: "border-color 0.15s" }}
+                    onMouseEnter={e => { e.currentTarget.style.borderBottomColor = "rgba(255,255,255,0.35)"; }}
+                    onMouseLeave={e => { if (document.activeElement !== e.currentTarget) e.currentTarget.style.borderBottomColor = "transparent"; }}
+                  />
+                ) : (
+                  <button
+                    data-tour={ui === 0 ? "tour-unit-tab" : undefined}
+                    data-tour-clicked={ui === 0 && activeUnitIdx === ui && isOverview ? "true" : undefined}
+                    onClick={() => { handleUnitOverview(ui); setOpenDropdown(ui); }}
+                    style={{ flex: 1, background: activeUnitIdx === ui && isOverview ? "#fff" : "var(--board-secondary)", color: activeUnitIdx === ui && isOverview ? "var(--board-secondary-accent)" : "var(--board-secondary-fg)", border: "none", padding: `${SPACE.sm}px ${SPACE.xs}px`, fontSize: 13, fontFamily: "var(--board-heading-font, 'Oswald', sans-serif)", cursor: "pointer", letterSpacing: 0.5, fontWeight: 600, transition: "all 0.15s" }}
+                    onMouseEnter={e => { if (!(activeUnitIdx === ui && isOverview)) { e.currentTarget.style.background = "#fff"; e.currentTarget.style.color = "var(--board-secondary-accent)"; }}}
+                    onMouseLeave={e => { if (!(activeUnitIdx === ui && isOverview)) { e.currentTarget.style.background = "var(--board-secondary)"; e.currentTarget.style.color = "var(--board-secondary-fg)"; }}}
+                  >
+                    {u.unit}
+                  </button>
+                )}
                 {isBuildMode && isBlankTeacher && (
                   <button title="Move right" onClick={e => { e.stopPropagation(); onMoveUnit(ui, 1); }} disabled={ui === curriculum.length - 1} style={{ background: "transparent", border: "none", cursor: ui === curriculum.length - 1 ? "default" : "pointer", color: "var(--board-secondary-fg)", opacity: ui === curriculum.length - 1 ? 0.15 : 0.5, fontSize: 10, padding: "0 5px", flexShrink: 0 }}>▶</button>
                 )}
@@ -1598,7 +1600,8 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
                   </div>
                 )}
               </div>
-            )}
+
+            </div>{/* end opacity wrapper */}
 
             {/* Dropdown — also opens (empty except the add-lesson row) for a
                 zero-lesson unit while in Build mode, so a freshly-added
@@ -1619,39 +1622,35 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
                     data-tour={ui === 0 && li === 0 ? "tour-lesson-item" : undefined}
                     style={{ borderBottom: "1px solid #2a2a2a", borderLeft: activeLesson?.title === lesson.title ? "3px solid var(--board-secondary-accent)" : "3px solid transparent" }}
                   >
-                    {/* Rename input replaces the lesson row while editing */}
-                    {isBuildMode && isBlankTeacher && renamingLesson?.unitIdx === ui && renamingLesson?.lessonIdx === li ? (
-                      <form
-                        style={{ display: "flex", padding: `${SPACE.sm}px ${SPACE.md}px`, paddingLeft: SPACE.md - 3 }}
-                        onSubmit={e => { e.preventDefault(); onRenameLesson(ui, li, renameLessonVal); setRenamingLesson(null); }}
-                      >
-                        <input
-                          autoFocus
-                          value={renameLessonVal}
-                          onChange={e => setRenameLessonVal(e.target.value)}
-                          onBlur={() => { onRenameLesson(ui, li, renameLessonVal || lesson.title); setRenamingLesson(null); }}
-                          onKeyDown={e => { if (e.key === "Escape") setRenamingLesson(null); }}
-                          style={{ flex: 1, background: "transparent", color: "#fff", border: "none", borderBottom: "1px solid var(--board-secondary-accent)", fontSize: 13, fontFamily: "Lato, sans-serif", fontWeight: 700, outline: "none", padding: "2px 0" }}
-                        />
-                      </form>
-                    ) : (
+                    {/* Lesson row — inline editable in build mode */}
                       <div style={{ display: "flex", alignItems: "center" }}>
                         {isBuildMode && isBlankTeacher && (
-                          <div style={{ display: "flex", flexDirection: "column", paddingLeft: 5, gap: 1, flexShrink: 0, justifyContent: "center" }}>
+                          <div style={{ display: "flex", flexDirection: "column", paddingLeft: 5, gap: 1, flexShrink: 0, justifyContent: "center", cursor: "default" }}>
                             <button title="Move up" onClick={e => { e.stopPropagation(); onMoveLesson(ui, li, -1); }} disabled={li === 0} style={{ background: "none", border: "none", cursor: li === 0 ? "default" : "pointer", color: "var(--board-secondary-fg)", opacity: li === 0 ? 0.15 : 0.5, fontSize: 8, padding: "1px 3px", lineHeight: 1 }}>▲</button>
                             <button title="Move down" onClick={e => { e.stopPropagation(); onMoveLesson(ui, li, 1); }} disabled={li === u.lessons.length - 1} style={{ background: "none", border: "none", cursor: li === u.lessons.length - 1 ? "default" : "pointer", color: "var(--board-secondary-fg)", opacity: li === u.lessons.length - 1 ? 0.15 : 0.5, fontSize: 8, padding: "1px 3px", lineHeight: 1 }}>▼</button>
                           </div>
                         )}
-                        <div
-                          onClick={() => handleLessonClick(ui, lesson)}
-                          onDoubleClick={isBuildMode && isBlankTeacher ? (e => { e.stopPropagation(); setRenameLessonVal(lesson.title); setRenamingLesson({ unitIdx: ui, lessonIdx: li }); setDeletingLesson(null); }) : undefined}
-                          title={isBuildMode && isBlankTeacher ? "Double-click to rename" : undefined}
-                          style={{ flex: 1, padding: `${SPACE.sm}px ${SPACE.md}px`, fontSize: 13, fontFamily: "Lato, sans-serif", fontWeight: 700, color: activeLesson?.title === lesson.title ? "var(--board-secondary-accent)" : "#ccc", cursor: isBuildMode && isBlankTeacher ? "text" : "pointer", transition: "all 0.12s", whiteSpace: "normal", paddingLeft: activeLesson?.title === lesson.title ? SPACE.md - 3 : SPACE.md }}
-                          onMouseEnter={e => { e.currentTarget.style.background = "var(--board-secondary)"; e.currentTarget.style.color = "var(--board-secondary-fg)"; }}
-                          onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = activeLesson?.title === lesson.title ? "var(--board-secondary-accent)" : "#ccc"; }}
-                        >
-                          {lesson.title}
-                        </div>
+                        {isBuildMode && isBlankTeacher ? (
+                          <input
+                            key={lesson.title + li}
+                            defaultValue={lesson.title}
+                            onFocus={() => handleLessonClick(ui, lesson)}
+                            onBlur={e => { const v = e.target.value.trim(); if (v && v !== lesson.title) onRenameLesson(ui, li, v); else e.target.value = lesson.title; }}
+                            onKeyDown={e => { if (e.key === "Enter") e.target.blur(); if (e.key === "Escape") { e.target.value = lesson.title; e.target.blur(); } }}
+                            style={{ flex: 1, minWidth: 0, background: "transparent", color: activeLesson?.title === lesson.title ? "var(--board-secondary-accent)" : "#ccc", border: "none", borderBottom: "1px solid transparent", padding: `${SPACE.sm}px ${SPACE.md}px`, fontSize: 13, fontFamily: "Lato, sans-serif", fontWeight: 700, outline: "none", cursor: "text", transition: "border-color 0.15s", whiteSpace: "normal" }}
+                            onMouseEnter={e => { e.currentTarget.style.borderBottomColor = "rgba(255,255,255,0.25)"; e.currentTarget.style.background = "var(--board-secondary)"; e.currentTarget.style.color = "var(--board-secondary-fg)"; }}
+                            onMouseLeave={e => { if (document.activeElement !== e.currentTarget) { e.currentTarget.style.borderBottomColor = "transparent"; e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = activeLesson?.title === lesson.title ? "var(--board-secondary-accent)" : "#ccc"; } }}
+                          />
+                        ) : (
+                          <div
+                            onClick={() => handleLessonClick(ui, lesson)}
+                            style={{ flex: 1, padding: `${SPACE.sm}px ${SPACE.md}px`, fontSize: 13, fontFamily: "Lato, sans-serif", fontWeight: 700, color: activeLesson?.title === lesson.title ? "var(--board-secondary-accent)" : "#ccc", cursor: "pointer", transition: "all 0.12s", whiteSpace: "normal", paddingLeft: activeLesson?.title === lesson.title ? SPACE.md - 3 : SPACE.md }}
+                            onMouseEnter={e => { e.currentTarget.style.background = "var(--board-secondary)"; e.currentTarget.style.color = "var(--board-secondary-fg)"; }}
+                            onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = activeLesson?.title === lesson.title ? "var(--board-secondary-accent)" : "#ccc"; }}
+                          >
+                            {lesson.title}
+                          </div>
+                        )}
                         {isBuildMode && isBlankTeacher && (
                           deletingLesson?.unitIdx === ui && deletingLesson?.lessonIdx === li ? (
                             <div style={{ display: "flex", gap: 3, paddingRight: 6, flexShrink: 0 }}>
@@ -1663,7 +1662,6 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
                           )
                         )}
                       </div>
-                    )}
                   </div>
                 ))}
                 {isBuildMode && isBlankTeacher && (
