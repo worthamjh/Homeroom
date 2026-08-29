@@ -346,23 +346,18 @@ function requestCalendarToken() {
 }
 
 async function fetchCalendarList(accessToken) {
-  console.log("[Calendar] fetching list, token prefix:", accessToken ? accessToken.substring(0, 20) + "..." : "NULL/UNDEFINED");
+  // Proxy through our own Vercel API to avoid browser CORS issues inside the iframe
   let res;
   try {
-    res = await fetch(
-      "https://www.googleapis.com/calendar/v3/calendarList?minAccessRole=reader&fields=items(id,summary,backgroundColor,primary)",
-      { headers: { Authorization: `Bearer ${accessToken}` } }
-    );
+    res = await fetch(`/api/calendarList?accessToken=${encodeURIComponent(accessToken)}`);
   } catch (netErr) {
-    console.error("[Calendar] fetch threw:", netErr);
     sessionStorage.removeItem("homeroom_google_calendar_v3_token");
-    throw new Error(`Network error — ${netErr.message} — token: ${accessToken ? "present (" + accessToken.substring(0,15) + "...)" : "NULL"}`);
+    throw new Error(`Network error reaching calendar proxy: ${netErr.message}`);
   }
   if (!res.ok) {
-    const detail = await res.text().catch(() => "");
-    console.error("[Calendar] HTTP error:", res.status, detail);
+    const detail = await res.json().catch(() => ({}));
     sessionStorage.removeItem("homeroom_google_calendar_v3_token");
-    throw new Error(`Couldn't fetch your calendars (${res.status}): ${detail}`);
+    throw new Error(`Couldn't fetch your calendars (${res.status}): ${detail.detail || detail.error || ""}`);
   }
   const data = await res.json();
   return (data.items || []).sort((a, b) => (b.primary ? 1 : 0) - (a.primary ? 1 : 0));
