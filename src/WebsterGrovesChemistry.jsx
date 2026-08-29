@@ -1512,7 +1512,7 @@ function InlineAddButton({ label, placeholder, defaultValue, onAdd, style, input
   );
 }
 
-function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropdown, setOpenDropdown, handleUnitOverview, handleLessonClick, goHome, titleMain, titleAccent, isBlankTeacher, onAddUnit, onAddLesson, onRenameUnit, onDeleteUnit, onMoveUnit, onRenameLesson, onDeleteLesson, onMoveLesson, onReorderLesson, onToggleUnitVisibility }) {
+function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropdown, setOpenDropdown, handleUnitOverview, handleLessonClick, goHome, titleMain, titleAccent, isBlankTeacher, onAddUnit, onAddLesson, onRenameUnit, onDeleteUnit, onMoveUnit, onRenameLesson, onDeleteLesson, onMoveLesson, onReorderLesson, onSetLessonOrder, onToggleUnitVisibility }) {
   // Build-mode-only local state for inline rename and two-step delete.
   const [renamingUnit, setRenamingUnit] = useState(null);   // unitIdx being renamed
   const [renameUnitVal, setRenameUnitVal] = useState("");
@@ -1521,8 +1521,8 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
   const [renameLessonVal, setRenameLessonVal] = useState("");
   const [deletingLesson, setDeletingLesson] = useState(null); // { unitIdx, lessonIdx }
   const [hoveredUnit, setHoveredUnit] = useState(null);
-  const [dragLesson, setDragLesson] = useState(null);     // { unitIdx, lessonIdx }
-  const [dragOverLesson, setDragOverLesson] = useState(null); // { unitIdx, lessonIdx }       // unitIdx hovered in build mode
+  const [dragLessonTitle, setDragLessonTitle] = useState(null); // { unitIdx, title } — stable key during drag
+  const [draggingOrder, setDraggingOrder] = useState(null);    // { unitIdx, lessons } — live order while dragging
 
   // Tiny shared style for the micro action-icon buttons in build mode.
   const microBtn = (extra = {}) => ({
@@ -1665,20 +1665,19 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
               // title wrap onto a second line instead of overflowing past
               // that width when a unit segment is narrow.
               <div style={{ position: "absolute", top: "100%", left: 0, width: "100%", background: "var(--board-primary)", border: "1px solid var(--board-secondary)", borderTop: "none", borderRadius: "0 0 4px 4px", zIndex: 5000, overflow: "hidden" }}>
-                {u.lessons.map((lesson, li) => (
+                {(draggingOrder?.unitIdx === ui ? draggingOrder.lessons : u.lessons).map((lesson, li) => (
                   <div key={li}
                     data-tour={ui === 0 && li === 0 ? "tour-lesson-item" : undefined}
-                    style={{ borderBottom: "1px solid #2a2a2a", borderLeft: activeLesson?.title === lesson.title ? "3px solid var(--board-secondary-accent)" : "3px solid transparent", outline: dragOverLesson?.unitIdx === ui && dragOverLesson?.lessonIdx === li ? "2px solid var(--board-secondary-accent)" : "none" }}
-                    onDragOver={isBuildMode && isBlankTeacher ? (e => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; setDragOverLesson({ unitIdx: ui, lessonIdx: li }); }) : undefined}
-                    onDrop={isBuildMode && isBlankTeacher ? (e => { e.preventDefault(); if (dragLesson && dragLesson.unitIdx === ui && dragLesson.lessonIdx !== li) { onReorderLesson(ui, dragLesson.lessonIdx, li); } setDragLesson(null); setDragOverLesson(null); }) : undefined}
+                    style={{ borderBottom: "1px solid #2a2a2a", borderLeft: activeLesson?.title === lesson.title ? "3px solid var(--board-secondary-accent)" : "3px solid transparent", opacity: dragLessonTitle?.unitIdx === ui && dragLessonTitle?.title === lesson.title ? 0.4 : 1 }}
+                    onDragOver={isBuildMode && isBlankTeacher ? (e => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; if (dragLessonTitle && dragLessonTitle.unitIdx === ui && dragLessonTitle.title !== lesson.title && draggingOrder) { const ls = [...draggingOrder.lessons]; const from = ls.findIndex(l => l.title === dragLessonTitle.title); const to = ls.findIndex(l => l.title === lesson.title); if (from !== -1 && to !== -1) { const [mv] = ls.splice(from, 1); ls.splice(to, 0, mv); setDraggingOrder({ unitIdx: ui, lessons: ls }); } } }) : undefined}
                   >
                     {/* Lesson row — inline editable in build mode */}
                       <div style={{ display: "flex", alignItems: "center" }}>
                         {isBuildMode && isBlankTeacher && (
                           <div
                             draggable
-                            onDragStart={e => { e.stopPropagation(); setDragLesson({ unitIdx: ui, lessonIdx: li }); e.dataTransfer.effectAllowed = "move"; }}
-                            onDragEnd={() => { setDragLesson(null); setDragOverLesson(null); }}
+                            onDragStart={e => { e.stopPropagation(); setDragLessonTitle({ unitIdx: ui, title: lesson.title }); setDraggingOrder({ unitIdx: ui, lessons: [...u.lessons] }); e.dataTransfer.effectAllowed = "move"; }}
+                            onDragEnd={() => { if (draggingOrder) onSetLessonOrder(draggingOrder.unitIdx, draggingOrder.lessons); setDragLessonTitle(null); setDraggingOrder(null); }}
                             title="Drag to reorder"
                             style={{ display: "flex", alignItems: "center", paddingLeft: 7, paddingRight: 4, flexShrink: 0, cursor: "grab", color: "rgba(255,255,255,0.3)", fontSize: 15, userSelect: "none" }}
                           >≡</div>
@@ -2416,6 +2415,23 @@ export default function App() {
     setBlankUnits(next);
     saveCurriculum(activeTeacherId, next).catch(() => {});
   };
+  const handleSetLessonOrder = (unitIdx, orderedLessons) => {
+    const next = blankUnits.map((u, i) => i === unitIdx ? { ...u, lessons: orderedLessons } : u);
+    setBlankUnits(next);
+    saveCurriculum(activeTeacherId, next).catch(() => {});
+  };
+  const handleReorderLesson = (unitIdx, fromIdx, toIdx) => {
+    if (fromIdx === toIdx) return;
+    const next = blankUnits.map((u, i) => {
+      if (i !== unitIdx) return u;
+      const lessons = [...u.lessons];
+      const [moved] = lessons.splice(fromIdx, 1);
+      lessons.splice(toIdx, 0, moved);
+      return { ...u, lessons };
+    });
+    setBlankUnits(next);
+    saveCurriculum(activeTeacherId, next).catch(() => {});
+  };
 
   const handleToggleUnitVisibility = (unitIdx) => {
     const next = blankUnits.map((u, i) => i === unitIdx ? { ...u, hidden: !u.hidden } : u);
@@ -2633,7 +2649,7 @@ export default function App() {
     titleMain: boardTitleMain, titleAccent: boardTitleAccent,
     isBlankTeacher, onAddUnit: handleAddUnit, onAddLesson: handleAddLesson,
     onRenameUnit: handleRenameUnit, onDeleteUnit: handleDeleteUnit, onMoveUnit: handleMoveUnit,
-    onRenameLesson: handleRenameLesson, onDeleteLesson: handleDeleteLesson, onMoveLesson: handleMoveLesson, onReorderLesson: handleReorderLesson,
+    onRenameLesson: handleRenameLesson, onDeleteLesson: handleDeleteLesson, onMoveLesson: handleMoveLesson, onReorderLesson: handleReorderLesson, onSetLessonOrder: handleSetLessonOrder,
     onToggleUnitVisibility: handleToggleUnitVisibility,
   };
 
