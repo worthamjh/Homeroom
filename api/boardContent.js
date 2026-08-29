@@ -45,24 +45,28 @@ async function getCollection() {
   return client.db(DB_NAME).collection(COLLECTION);
 }
 
-function docKey({ teacherId, unitIdx, lessonTitle }) {
-  return {
+function docKey({ teacherId, unitIdx, lessonTitle, panelIdx }) {
+  const key = {
     teacherId: teacherId ? String(teacherId) : DEFAULT_TEACHER_ID,
     unitIdx: Number(unitIdx),
     lessonTitle: String(lessonTitle),
   };
+  // panelIdx is only present for sliding-board panels — flat board and unit
+  // board omit it, so their documents stay at the same key they always had.
+  if (panelIdx != null && panelIdx !== "") key.panelIdx = Number(panelIdx);
+  return key;
 }
 
 export default async function handler(req, res) {
   try {
     if (req.method === "GET") {
-      const { teacherId, unitIdx, lessonTitle } = req.query;
+      const { teacherId, unitIdx, lessonTitle, panelIdx } = req.query;
       if (unitIdx == null || !lessonTitle) {
         res.status(400).json({ error: "unitIdx and lessonTitle query params are required" });
         return;
       }
       const col = await getCollection();
-      const doc = await col.findOne(docKey({ teacherId, unitIdx, lessonTitle }));
+      const doc = await col.findOne(docKey({ teacherId, unitIdx, lessonTitle, panelIdx }));
       // 200 + null (not 404) when nothing's been saved for this lesson yet —
       // same convention as api/profile.js and api/curriculum.js. The client
       // falls back to its own defaults/localStorage cache in that case.
@@ -71,12 +75,12 @@ export default async function handler(req, res) {
     }
 
     if (req.method === "POST") {
-      const { teacherId, unitIdx, lessonTitle, checkedAgendaLines, ...rest } = req.body || {};
+      const { teacherId, unitIdx, lessonTitle, panelIdx, checkedAgendaLines, checkedLearningGoalsLines, ...rest } = req.body || {};
       if (unitIdx == null || !lessonTitle) {
         res.status(400).json({ error: "unitIdx and lessonTitle are required" });
         return;
       }
-      const key = docKey({ teacherId, unitIdx, lessonTitle });
+      const key = docKey({ teacherId, unitIdx, lessonTitle, panelIdx });
       // Partial update — a save only ever touches ONE freeform field at a
       // time (see FullAgendaBoard.jsx's `save`), and toggling an agenda
       // line touches only checkedAgendaLines, so only $set whichever
@@ -88,6 +92,9 @@ export default async function handler(req, res) {
       }
       if (checkedAgendaLines && typeof checkedAgendaLines === "object") {
         set.checkedAgendaLines = checkedAgendaLines;
+      }
+      if (checkedLearningGoalsLines && typeof checkedLearningGoalsLines === "object") {
+        set.checkedLearningGoalsLines = checkedLearningGoalsLines;
       }
       if (Object.keys(set).length === 0) {
         res.status(400).json({ error: "at least one recognized field is required" });
@@ -117,7 +124,7 @@ export default async function handler(req, res) {
         return;
       }
       const col = await getCollection();
-      await col.deleteOne(docKey({ teacherId, unitIdx, lessonTitle }));
+      await col.deleteOne(docKey({ teacherId, unitIdx, lessonTitle, panelIdx }));
       res.status(204).end();
       return;
     }
@@ -130,7 +137,7 @@ export default async function handler(req, res) {
 }
 
 function toClientShape(doc) {
-  const shape = { checkedAgendaLines: doc.checkedAgendaLines || {} };
+  const shape = { checkedAgendaLines: doc.checkedAgendaLines || {}, checkedLearningGoalsLines: doc.checkedLearningGoalsLines || {} };
   for (const field of TEXT_FIELDS) {
     if (typeof doc[field] === "string") shape[field] = doc[field];
   }

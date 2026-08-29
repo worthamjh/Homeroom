@@ -2938,15 +2938,7 @@ export default function App() {
                         renderLessonSlides()
                       )}
                     </div>
-                  {kamiState !== "fullscreen" && (
-                    <KamiOverlay
-                      url={fullAgendaFields.content.bellRingerKamiUrl || ""}
-                      state={kamiState}
-                      onToggleFullscreen={() => setKamiState(prev => prev === "fullscreen" ? "overlay" : "fullscreen")}
-                      onClose={() => setKamiState(null)}
-                      contained={true}
-                    />
-                  )}
+
                   </div>
                 );
 
@@ -3067,8 +3059,8 @@ export default function App() {
               })()}
             </div>
 
-            {/* Kami Bell Ringer overlay — fullscreen only (overlay mode is contained in the slides column) */}
-            {kamiState === "fullscreen" && (
+            {/* Kami Bell Ringer overlay — floats over the board in overlay mode, fills screen in fullscreen */}
+            {kamiState && (
               <KamiOverlay
                 url={fullAgendaFields.content.bellRingerKamiUrl || ""}
                 state={kamiState}
