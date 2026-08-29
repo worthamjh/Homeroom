@@ -1633,16 +1633,16 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
                   <button title="Move right" onClick={e => { e.stopPropagation(); onMoveUnit(ui, 1); }} disabled={ui === curriculum.length - 1} style={{ background: "transparent", border: "none", cursor: ui === curriculum.length - 1 ? "default" : "pointer", color: "var(--board-secondary-fg)", opacity: ui === curriculum.length - 1 ? 0.15 : 0.5, fontSize: 10, padding: "0 5px", flexShrink: 0 }}>▶</button>
                 )}
                 {isBuildMode && isBlankTeacher && hoveredUnit === ui && (
-                  <div style={{ position: "absolute", top: 0, right: 0, display: "flex", gap: 2, padding: "2px 4px", background: "rgba(0,0,0,0.5)", borderRadius: "0 0 0 4px", zIndex: 10 }}>
+                  <div style={{ position: "absolute", top: 0, right: 0, display: "flex", gap: 2, padding: "2px 4px", background: "rgba(0,0,0,0.72)", borderRadius: "0 0 0 4px", zIndex: 10 }}>
                     {deletingUnit === ui ? (
                       <>
-                        <button title="Confirm delete" onClick={e => { e.stopPropagation(); onDeleteUnit(ui); setDeletingUnit(null); }} style={microBtn({ color: "#ff6868", fontWeight: 600, fontSize: 10 })}>delete?</button>
-                        <button title="Cancel" onClick={e => { e.stopPropagation(); setDeletingUnit(null); }} style={microBtn({ fontSize: 10 })}>cancel</button>
+                        <button title="Confirm delete" onClick={e => { e.stopPropagation(); onDeleteUnit(ui); setDeletingUnit(null); }} style={microBtn({ color: "#ff6868", fontWeight: 600, fontSize: 11 })}>delete?</button>
+                        <button title="Cancel" onClick={e => { e.stopPropagation(); setDeletingUnit(null); }} style={microBtn({ fontSize: 11 })}>cancel</button>
                       </>
                     ) : (
                       <>
-                        <button title={u.hidden ? "Show unit" : "Hide unit"} onClick={e => { e.stopPropagation(); onToggleUnitVisibility(ui); }} style={microBtn({ color: u.hidden ? "#7de87d" : "rgba(255,255,255,0.6)", fontSize: 10, padding: "1px 6px" })}>{u.hidden ? "show" : "hide"}</button>
-                        <button title="Delete unit" onClick={e => { e.stopPropagation(); setDeletingUnit(ui); setRenamingUnit(null); }} style={microBtn({ color: "rgba(255,130,130,0.7)", fontSize: 10, padding: "1px 6px" })}>×</button>
+                        <button title={u.hidden ? "Show unit" : "Hide unit"} onClick={e => { e.stopPropagation(); onToggleUnitVisibility(ui); }} style={microBtn({ color: u.hidden ? "#7de87d" : "rgba(255,255,255,0.88)", fontSize: 11, padding: "2px 7px" })}>{u.hidden ? "show" : "hide"}</button>
+                        <button title="Delete unit" onClick={e => { e.stopPropagation(); setDeletingUnit(ui); setRenamingUnit(null); }} style={microBtn({ color: "#ff8a8a", fontSize: 13, padding: "1px 6px", fontWeight: 500, lineHeight: "1.2" })}>×</button>
                       </>
                     )}
                   </div>
@@ -2066,6 +2066,8 @@ export default function App() {
   // (see the isBuildMode-gated JSX further down).
   const [calendarUrl, setCalendarUrl] = useState(() => readCalendarUrl());
   const [calendarEditing, setCalendarEditing] = useState(false);
+  // Kami Bell Ringer overlay: null = hidden, "overlay" = floating over slides, "fullscreen" = fills viewport
+  const [kamiState, setKamiState] = useState(null);
 
   // Fetch calendar URL from MongoDB on mount so it survives clearing site data
   useEffect(() => {
@@ -2791,6 +2793,11 @@ export default function App() {
                         interactive={isFront && isBuildMode}
                         checkedLines={pf.checkedAgendaLines}
                         onToggleLine={pf.toggleAgendaLine}
+                        {...(key === "bellRinger" ? {
+                          kamiUrl: pf.content.bellRingerKamiUrl || "",
+                          onSaveKamiUrl: val => pf.save("bellRingerKamiUrl", val),
+                          onKamiOpen: () => setKamiState(prev => prev ? null : "overlay"),
+                        } : {})}
                       />
                     );
                   } : null}
@@ -2933,6 +2940,11 @@ export default function App() {
                               interactive={isBuildMode}
                               checkedLines={fullAgendaFields.checkedAgendaLines}
                               onToggleLine={fullAgendaFields.toggleAgendaLine}
+                              {...(key === "bellRinger" ? {
+                                kamiUrl: fullAgendaFields.content.bellRingerKamiUrl || "",
+                                onSaveKamiUrl: val => fullAgendaFields.save("bellRingerKamiUrl", val),
+                                onKamiOpen: () => setKamiState(prev => prev ? null : "overlay"),
+                              } : {})}
                             />
                           );
                         })}
