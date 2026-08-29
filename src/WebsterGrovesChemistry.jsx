@@ -1471,14 +1471,17 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
 
   // Tiny shared style for the micro action-icon buttons in build mode.
   const microBtn = (extra = {}) => ({
-    background: "rgba(0,0,0,0.25)",
-    border: "none",
+    background: "rgba(255,255,255,0.1)",
+    border: "1px solid rgba(255,255,255,0.18)",
     cursor: "pointer",
-    color: "rgba(255,255,255,0.9)",
-    fontSize: 14,
-    padding: "2px 5px",
-    lineHeight: 1,
-    borderRadius: 3,
+    color: "rgba(255,255,255,0.88)",
+    fontSize: 10,
+    fontWeight: 500,
+    letterSpacing: "0.4px",
+    textTransform: "uppercase",
+    padding: "3px 8px",
+    lineHeight: "1.4",
+    borderRadius: 12,
     fontFamily: "Lato, sans-serif",
     flexShrink: 0,
     ...extra,
@@ -1568,19 +1571,21 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
             )}
             {/* Build-mode edit controls: rename, reorder, delete */}
             {isBuildMode && isBlankTeacher && (
-              <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 1, padding: "2px 4px", background: "rgba(0,0,0,0.35)", borderRight: "1px solid rgba(0,0,0,0.2)" }}>
-                <button title="Rename unit" onClick={e => { e.stopPropagation(); setRenameUnitVal(u.unit); setRenamingUnit(ui); setDeletingUnit(null); }} style={microBtn()}>rename</button>
-                <button title="Move left"   onClick={e => { e.stopPropagation(); onMoveUnit(ui, -1); }} disabled={ui === 0} style={microBtn({ opacity: ui === 0 ? 0.3 : 1 })}>◀</button>
-                <button title="Move right"  onClick={e => { e.stopPropagation(); onMoveUnit(ui, 1); }} disabled={ui === curriculum.length - 1} style={microBtn({ opacity: ui === curriculum.length - 1 ? 0.3 : 1 })}>▶</button>
+              <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 4, padding: "5px 8px", background: "rgba(0,0,0,0.22)", borderTop: "1px solid rgba(255,255,255,0.07)" }}>
+                <button title="Rename unit" onClick={e => { e.stopPropagation(); setRenameUnitVal(u.unit); setRenamingUnit(ui); setDeletingUnit(null); }} style={microBtn({ color: "#89c9f5" })}>✎ rename</button>
+                <span style={{ width: 1, height: 13, background: "rgba(255,255,255,0.15)", display: "inline-block", flexShrink: 0 }} />
+                <button title="Move left"   onClick={e => { e.stopPropagation(); onMoveUnit(ui, -1); }} disabled={ui === 0} style={microBtn({ opacity: ui === 0 ? 0.25 : 1 })}>◀</button>
+                <button title="Move right"  onClick={e => { e.stopPropagation(); onMoveUnit(ui, 1); }} disabled={ui === curriculum.length - 1} style={microBtn({ opacity: ui === curriculum.length - 1 ? 0.25 : 1 })}>▶</button>
+                <span style={{ width: 1, height: 13, background: "rgba(255,255,255,0.15)", display: "inline-block", flexShrink: 0 }} />
                 {deletingUnit === ui ? (
                   <>
-                    <button title="Confirm delete" onClick={e => { e.stopPropagation(); onDeleteUnit(ui); setDeletingUnit(null); }} style={microBtn({ color: "#ff6868", fontWeight: 700 })}>Sure?</button>
-                    <button title="Cancel"         onClick={e => { e.stopPropagation(); setDeletingUnit(null); }} style={microBtn()}>cancel</button>
+                    <button title="Confirm delete" onClick={e => { e.stopPropagation(); onDeleteUnit(ui); setDeletingUnit(null); }} style={microBtn({ color: "#ff6868", fontWeight: 700, background: "rgba(255,80,80,0.18)", borderColor: "rgba(255,100,100,0.3)" })}>Sure?</button>
+                    <button title="Cancel"         onClick={e => { e.stopPropagation(); setDeletingUnit(null); }} style={microBtn()}>✕ cancel</button>
                   </>
                 ) : (
                   <>
-                    <button title={u.hidden ? "Show unit on live board" : "Hide unit from live board"} onClick={e => { e.stopPropagation(); onToggleUnitVisibility(ui); }} style={microBtn({ color: u.hidden ? "#90e890" : "rgba(255,255,255,0.75)" })}>{u.hidden ? "show" : "hide"}</button>
-                    <button title="Delete unit" onClick={e => { e.stopPropagation(); setDeletingUnit(ui); setRenamingUnit(null); }} style={microBtn({ color: "#ff9090" })}>delete</button>
+                    <button title={u.hidden ? "Show unit on live board" : "Hide unit from live board"} onClick={e => { e.stopPropagation(); onToggleUnitVisibility(ui); }} style={microBtn({ color: u.hidden ? "#7de87d" : "rgba(255,255,255,0.7)" })}>{u.hidden ? "◉ show" : "◎ hide"}</button>
+                    <button title="Delete unit" onClick={e => { e.stopPropagation(); setDeletingUnit(ui); setRenamingUnit(null); }} style={microBtn({ color: "#ff9090", background: "rgba(255,60,60,0.12)", borderColor: "rgba(255,100,100,0.25)" })}>✕ delete</button>
                   </>
                 )}
               </div>
@@ -1632,17 +1637,19 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
                         </div>
                         {/* Build-mode lesson actions */}
                         {isBuildMode && isBlankTeacher && (
-                          <div style={{ display: "flex", alignItems: "center", gap: 1, paddingRight: 6, flexShrink: 0 }}>
-                            <button title="Rename lesson" onClick={e => { e.stopPropagation(); setRenameLessonVal(lesson.title); setRenamingLesson({ unitIdx: ui, lessonIdx: li }); setDeletingLesson(null); }} style={microBtn()}>rename</button>
-                            <button title="Move up"   onClick={e => { e.stopPropagation(); onMoveLesson(ui, li, -1); }} disabled={li === 0} style={microBtn({ opacity: li === 0 ? 0.3 : 1 })}>▲</button>
-                            <button title="Move down" onClick={e => { e.stopPropagation(); onMoveLesson(ui, li, 1); }} disabled={li === u.lessons.length - 1} style={microBtn({ opacity: li === u.lessons.length - 1 ? 0.3 : 1 })}>▼</button>
+                          <div style={{ display: "flex", alignItems: "center", gap: 4, paddingRight: 8, paddingLeft: 4, flexShrink: 0 }}>
+                            <button title="Rename lesson" onClick={e => { e.stopPropagation(); setRenameLessonVal(lesson.title); setRenamingLesson({ unitIdx: ui, lessonIdx: li }); setDeletingLesson(null); }} style={microBtn({ color: "#89c9f5" })}>✎ rename</button>
+                            <span style={{ width: 1, height: 12, background: "rgba(255,255,255,0.15)", display: "inline-block", flexShrink: 0 }} />
+                            <button title="Move up"   onClick={e => { e.stopPropagation(); onMoveLesson(ui, li, -1); }} disabled={li === 0} style={microBtn({ opacity: li === 0 ? 0.25 : 1 })}>▲</button>
+                            <button title="Move down" onClick={e => { e.stopPropagation(); onMoveLesson(ui, li, 1); }} disabled={li === u.lessons.length - 1} style={microBtn({ opacity: li === u.lessons.length - 1 ? 0.25 : 1 })}>▼</button>
+                            <span style={{ width: 1, height: 12, background: "rgba(255,255,255,0.15)", display: "inline-block", flexShrink: 0 }} />
                             {deletingLesson?.unitIdx === ui && deletingLesson?.lessonIdx === li ? (
                               <>
-                                <button title="Confirm delete" onClick={e => { e.stopPropagation(); onDeleteLesson(ui, li); setDeletingLesson(null); }} style={microBtn({ color: "#ff6868", fontWeight: 700 })}>Sure?</button>
+                                <button title="Confirm delete" onClick={e => { e.stopPropagation(); onDeleteLesson(ui, li); setDeletingLesson(null); }} style={microBtn({ color: "#ff6868", fontWeight: 700, background: "rgba(255,80,80,0.18)", borderColor: "rgba(255,100,100,0.3)" })}>Sure?</button>
                                 <button title="Cancel"         onClick={e => { e.stopPropagation(); setDeletingLesson(null); }} style={microBtn()}>✕</button>
                               </>
                             ) : (
-                              <button title="Delete lesson" onClick={e => { e.stopPropagation(); setDeletingLesson({ unitIdx: ui, lessonIdx: li }); setRenamingLesson(null); }} style={microBtn({ color: "#ff9090" })}>delete</button>
+                              <button title="Delete lesson" onClick={e => { e.stopPropagation(); setDeletingLesson({ unitIdx: ui, lessonIdx: li }); setRenamingLesson(null); }} style={microBtn({ color: "#ff9090", background: "rgba(255,60,60,0.12)", borderColor: "rgba(255,100,100,0.25)" })}>✕ delete</button>
                             )}
                           </div>
                         )}
