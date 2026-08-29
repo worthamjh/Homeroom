@@ -1234,7 +1234,7 @@ export function AssignmentThumb({ label, url, thumb, onRemove }) {
 // (label + file picker) rather than opening a separate modal, since the
 // whole point of this pattern (established by Full Agenda's click-to-edit
 // fields) is keeping edits in place rather than navigating away.
-export function AddAssignmentCard({ open, busy, error, onOpen, onCancel, onSubmit }) {
+export function AddAssignmentCard({ open, busy, error, onOpen, onCancel, onSubmit, onDrivePick }) {
   const [label, setLabel] = useState("");
   const [file, setFile] = useState(null);
   const [driveBusy, setDriveBusy] = useState(false);
@@ -1250,30 +1250,27 @@ export function AddAssignmentCard({ open, busy, error, onOpen, onCancel, onSubmi
   }, [driveReady]);
 
   const handleBrowseDrive = async () => {
-    setDriveError(null);
-    setDriveBusy(true);
+    // NOTE: After the Google Picker closes its SDK does DOM cleanup that
+    // corrupts React's fiber tree inside the iframe. To avoid a black
+    // screen we must NOT call any React state setters after
+    // pickGoogleDriveAssignmentFile() returns. Instead we:
+    //   1. Call onDrivePick (saves to DB without touching React state)
+    //   2. Send postMessage → parent BuildPage reloads the iframe cleanly
     try {
       const result = await pickGoogleDriveAssignmentFile();
-      // null means the teacher opened the Google picker and cancelled —
-      // not an error, just nothing to do.
       if (result) {
-        // Auto-save immediately — no need to click Save separately.
-        // Use whatever label the teacher already typed, falling back to
-        // the file's own Drive name.
         const assignmentLabel = label.trim() || result.name;
-        await onSubmit({ label: assignmentLabel, driveResult: result });
-        // Ask the parent BuildPage to reload the iframe — the Google
-        // Picker SDK does DOM cleanup after the picker closes that can
-        // corrupt React's fiber tree inside the iframe on re-render;
-        // a clean reload avoids the crash (same pattern as AddSlidesCard).
+        if (onDrivePick) {
+          await onDrivePick({ label: assignmentLabel, driveResult: result });
+        }
         if (window.parent !== window) {
           window.parent.postMessage({ type: "homeroom-drive-slides-saved" }, window.location.origin);
         }
       }
     } catch (err) {
-      setDriveError(err.message || "Something went wrong opening Google Drive.");
-    } finally {
-      setDriveBusy(false);
+      // Cannot safely call setDriveError here — DOM may already be
+      // corrupted by the Picker SDK. Log and let the reload handle it.
+      console.error("Drive assignment pick failed:", err);
     }
   };
 
@@ -2121,6 +2118,21 @@ export default function App() {
     }
   };
 
+  // Drive-only save path: called from AddAssignmentCard.onDrivePick.
+  // Intentionally skips ALL React state updates so that no re-render
+  // happens into the Google Picker SDK's corrupted DOM. The iframe is
+  // reloaded by BuildPage immediately after this resolves, so state is
+  // fetched fresh and the new assignment appears automatically.
+  const handleAddAssignmentFromDrive = async ({ label, driveResult }) => {
+    await createExtraAssignment({
+      unitIdx: activeUnitIdx,
+      lessonTitle: activeLesson?.title,
+      label,
+      url: driveResult.viewUrl,
+      thumb: driveResult.thumbUrl,
+    });
+  };
+
   const handleRemoveAssignment = async (id) => {
     const previous = extraAssignments;
     setExtraAssignments(prev => prev.filter(a => a.id !== id));
@@ -2870,6 +2882,7 @@ export default function App() {
                     onOpen={() => { setAddAssignmentError(null); setAddAssignmentOpen(true); }}
                     onCancel={() => { setAddAssignmentOpen(false); setAddAssignmentError(null); }}
                     onSubmit={handleAddAssignment}
+                    onDrivePick={handleAddAssignmentFromDrive}
                   />
                 )}
               </div>
