@@ -319,34 +319,6 @@ export async function pickGoogleDriveAssignmentFile() {
   };
 }
 
-/**
- * Opens the Drive picker for choosing the file every new Bell Ringer is
- * copied from. PDFs as well as Google Docs, deliberately:
- *
- *   - a Doc is right when the bell ringer is typed text, since it reflows
- *     and a teacher can keep editing the template like any document;
- *   - a PDF is right for a fixed page -- looseleaf, graph paper, a lab
- *     write-up form -- because the layout cannot reflow or shift, and Kami
- *     is a PDF annotator, so it is the format it handles most faithfully.
- *
- * Drive's copy endpoint works the same for both, so nothing downstream
- * cares which one a teacher picked.
- *
- * Picking is how this works within `drive.file` scope at all: that scope
- * only reaches files this app created or the teacher explicitly picked, so
- * the picker IS the grant. Homeroom cannot go looking through a Drive for
- * a template by name, and deliberately shouldn't be able to.
- *
- * @returns {Promise<{ fileId: string, name: string } | null>}
- *   null means the teacher cancelled — not an error.
- */
-export async function pickBellRingerTemplate() {
-  await ensureGoogleScriptsLoaded();
-  const accessToken = await requestAccessToken();
-  const doc = await openPicker(accessToken, { mimeTypes: ASSIGNMENT_MIME_TYPES });
-  if (!doc) return null;
-  return { fileId: doc.id, name: doc.name };
-}
 
 // ─── Google Calendar picker ─────────────────────────────────────────────────
 //
@@ -712,23 +684,6 @@ export async function createKamiBellRingerDoc({ title, templateId } = {}) {
       file = await uploadPdfToDrive(accessToken, { name, parents, blob });
     } catch (err) {
       templateError = `Couldn't create that paper: ${err?.message || err}`;
-      console.warn("[bellRinger]", templateError);
-    }
-  } else if (templateId) {
-    try {
-      const copyRes = await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(templateId)}/copy`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ name, ...(parents.length ? { parents } : {}) }),
-      });
-      if (copyRes.ok) file = await copyRes.json();
-      else {
-        const detail = await copyRes.text().catch(() => "");
-        templateError = `Template copy failed (${copyRes.status}). ${detail.slice(0, 300)}`;
-        console.warn("[bellRinger]", templateError);
-      }
-    } catch (err) {
-      templateError = `Template copy failed: ${err?.message || err}`;
       console.warn("[bellRinger]", templateError);
     }
   }

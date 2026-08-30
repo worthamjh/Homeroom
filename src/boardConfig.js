@@ -552,39 +552,6 @@ export const BOARD_SURFACES = {
 export const DEFAULT_BOARD_SURFACE = "chalkboard";
 export const BOARD_SURFACE_STORAGE_KEY = "boardSurface";
 
-// ── Bell Ringer template ────────────────────────────────────────────────
-// The Google Doc every new Bell Ringer is copied from, so a teacher's
-// layout arrives already in the document instead of them rebuilding it
-// each morning. Stored as JSON {fileId, name} in one scoped setting --
-// the name is only there so Settings can show which doc is chosen without
-// another Drive round trip.
-//
-// Empty string means no template: bell ringers are created blank, exactly
-// as they were before this existed.
-export const BELL_RINGER_TEMPLATE_STORAGE_KEY = "bellRingerTemplate";
-export const DEFAULT_BELL_RINGER_TEMPLATE = "";
-
-// Read them outside React. The places that create a bell ringer doc sit
-// several components deep in FullAgendaBoard, and threading a setting down
-// to them would mean touching every layer in between for a value that
-// never changes mid-create.
-//
-// Always returns an array. A teacher keeps one template per paper they
-// use -- plain, looseleaf, graph -- and picks at the moment of creating,
-// because which one they want depends on the lesson, not on a setting
-// they would otherwise have to go and change first.
-export function readBellRingerTemplates() {
-  try {
-    const raw = window.localStorage.getItem(scopedKey(BELL_RINGER_TEMPLATE_STORAGE_KEY));
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    // Stored as a single {fileId,name} object before multiple templates
-    // existed; read those as a one-item list rather than migrating.
-    const list = Array.isArray(parsed) ? parsed : [parsed];
-    return list.filter(t => t && t.fileId);
-  } catch { return []; }
-}
-
 export const SLIDING_BOARDS_ENABLED_KEY = "slidingBoardsEnabled";
 export const DEFAULT_SLIDING_BOARDS_ENABLED = "false";
 export const SLIDING_BOARDS_COUNT_KEY = "slidingBoardsCount";

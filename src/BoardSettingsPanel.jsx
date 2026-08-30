@@ -1,13 +1,5 @@
 import { useState } from "react";
-import { pickBellRingerTemplate, googleDriveConfigured } from "./lib/googleDrive";
 
-// The Bell Ringer template row's buttons -- small and quiet, since this is
-// a set-once setting rather than something touched every lesson.
-const templateBtn = {
-  fontFamily: "Lato, sans-serif", fontSize: 11, padding: "4px 10px",
-  background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.25)",
-  borderRadius: 4, color: "#fff", cursor: "pointer",
-};
 import {
   useScopedSetting,
   BOARD_ARRANGEMENTS, DEFAULT_ARRANGEMENT, ARRANGEMENT_STORAGE_KEY,
@@ -17,7 +9,6 @@ import {
   WALL_COLORS, DEFAULT_WALL_COLOR_BY_TYPE, WALL_COLOR_STORAGE_KEY,
   wallColorSwatch,
   BOARD_SURFACES, DEFAULT_BOARD_SURFACE, BOARD_SURFACE_STORAGE_KEY,
-  BELL_RINGER_TEMPLATE_STORAGE_KEY, DEFAULT_BELL_RINGER_TEMPLATE,
   SLIDING_BOARDS_ENABLED_KEY, DEFAULT_SLIDING_BOARDS_ENABLED,
   SLIDING_BOARDS_COUNT_KEY, DEFAULT_SLIDING_BOARDS_COUNT, SLIDING_BOARDS_COUNT_OPTIONS,
 } from "./boardConfig";
@@ -176,36 +167,6 @@ export default function BoardSettingsPanel({ selected, onSelect, panelCountInfo 
   const [wallTypeKey, setWallTypeKey] = useScopedSetting(WALL_TYPE_STORAGE_KEY, DEFAULT_WALL_TYPE, k => !!WALL_TYPES[k]);
   const [wallColorKey, setWallColorKey] = useScopedSetting(WALL_COLOR_STORAGE_KEY, DEFAULT_WALL_COLOR_BY_TYPE[DEFAULT_WALL_TYPE], null);
   const [boardSurfaceKey, setBoardSurfaceKey] = useScopedSetting(BOARD_SURFACE_STORAGE_KEY, DEFAULT_BOARD_SURFACE, k => !!BOARD_SURFACES[k]);
-  const [bellRingerTemplate, setBellRingerTemplate] = useScopedSetting(BELL_RINGER_TEMPLATE_STORAGE_KEY, DEFAULT_BELL_RINGER_TEMPLATE, null);
-  const [pickingTemplate, setPickingTemplate] = useState(false);
-  const [templateError, setTemplateError] = useState(null);
-  // Always a list; a pre-list value reads as a one-item list (see
-  // readBellRingerTemplates in boardConfig).
-  const templates = (() => {
-    try {
-      const parsed = bellRingerTemplate ? JSON.parse(bellRingerTemplate) : [];
-      const list = Array.isArray(parsed) ? parsed : [parsed];
-      return list.filter(t => t && t.fileId);
-    } catch { return []; }
-  })();
-  const writeTemplates = list => setBellRingerTemplate(list.length ? JSON.stringify(list) : "");
-
-  const handleAddTemplate = async () => {
-    setPickingTemplate(true);
-    setTemplateError(null);
-    try {
-      const picked = await pickBellRingerTemplate();
-      // Re-picking one already saved replaces it rather than duplicating.
-      if (picked) writeTemplates([
-        ...templates.filter(t => t.fileId !== picked.fileId),
-        { fileId: picked.fileId, name: picked.name },
-      ]);
-    } catch (err) {
-      setTemplateError(err.message || "Couldn't open Google Drive.");
-    } finally {
-      setPickingTemplate(false);
-    }
-  };
   const [slidingBoardsEnabled, setSlidingBoardsEnabled] = useScopedSetting(SLIDING_BOARDS_ENABLED_KEY, DEFAULT_SLIDING_BOARDS_ENABLED, k => k === "true" || k === "false");
   const [slidingBoardsCount, setSlidingBoardsCount] = useScopedSetting(SLIDING_BOARDS_COUNT_KEY, DEFAULT_SLIDING_BOARDS_COUNT, k => /^[2-5]$/.test(k));
 
@@ -319,36 +280,6 @@ export default function BoardSettingsPanel({ selected, onSelect, panelCountInfo 
                     Turn any combination on — each has its own space on the board. Drag the ☰ handle to reorder them; this order applies whether Sliding Boards (below) is on or off. Turning one off keeps whatever you've written there; it comes back if you turn it on again.
                   </div>
 
-                  {googleDriveConfigured() && (
-                    <>
-                      <SectionHeading>Bell Ringer Template</SectionHeading>
-                      <div style={{ padding: "0 14px 4px", display: "flex", flexDirection: "column", gap: 5 }}>
-                        {templates.map(t => (
-                          <div key={t.fileId} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                            <span style={{ flex: 1, fontFamily: "Lato, sans-serif", fontSize: 12, color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                              📄 {t.name}
-                            </span>
-                            <button
-                              title={`Remove "${t.name}"`}
-                              onClick={() => writeTemplates(templates.filter(x => x.fileId !== t.fileId))}
-                              style={templateBtn}
-                            >✕</button>
-                          </div>
-                        ))}
-                        <div>
-                          <button onClick={handleAddTemplate} disabled={pickingTemplate} style={templateBtn}>
-                            {pickingTemplate ? "Opening Drive…" : templates.length ? "+ Add another" : "Choose a Doc or PDF"}
-                          </button>
-                        </div>
-                      </div>
-                      {templateError && (
-                        <div style={{ fontFamily: "Lato, sans-serif", fontSize: 11, color: "#ff7b7b", padding: "0 14px 4px" }}>⚠ {templateError}</div>
-                      )}
-                      <div style={{ fontFamily: "Lato, sans-serif", fontSize: 11, color: "rgba(255,255,255,0.4)", padding: "4px 14px 0", lineHeight: 1.5 }}>
-                        Keep one per kind of paper you use — plain, looseleaf, graph — and pick which when you create a bell ringer. A Google Doc suits typed text; a PDF suits a fixed page like looseleaf or graph paper. They can live anywhere in your Drive; copies still land in your Bell Ringers folder. Editing a template changes future bell ringers only; ones you've already made keep what they had. With none saved, bell ringers start blank.
-                      </div>
-                    </>
-                  )}
                 </>
               )}
 

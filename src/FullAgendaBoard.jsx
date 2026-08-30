@@ -1,7 +1,6 @@
 import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { fetchBoardContent, saveBoardContent, deleteBoardContent } from "./lib/boardContentApi";
 import { createKamiBellRingerDoc, googleDriveConfigured, googleDriveSignedIn } from "./lib/googleDrive";
-import { readBellRingerTemplates } from "./boardConfig";
 import { BUILT_IN_PAPERS } from "./lib/paperTemplates";
 
 /**
@@ -330,14 +329,7 @@ function KamiUrlInput({ kamiUrl, onSaveKamiUrl, lessonLabel, surface = DEFAULT_S
   };
 
   const canAutoCreate = googleDriveConfigured();
-  // Built-in papers first and always, so a teacher who has set nothing up
-  // still gets ruled and graph paper; anything they have picked follows.
-  const templates = canAutoCreate
-    ? [
-        ...BUILT_IN_PAPERS.map(p => ({ fileId: p.id, name: p.label })),
-        ...readBellRingerTemplates(),
-      ]
-    : [];
+  const templates = canAutoCreate ? BUILT_IN_PAPERS.map(p => ({ fileId: p.id, name: p.label })) : [];
   const chip = {
     fontFamily: "Lato, sans-serif", fontSize: 11, padding: "4px 10px",
     borderRadius: 4, border: `1px solid ${surface.dividerBorder}`,
@@ -948,7 +940,9 @@ function useAutoCreateKamiDoc({ kamiUrl, onSaveKamiUrl, lessonLabel }) {
     creatingRef.current = true;
     const dateStr = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
     const title = lessonLabel ? `Bell Ringer \u2014 ${lessonLabel} \u2014 ${dateStr}` : undefined;
-    createKamiBellRingerDoc({ title, templateId: readBellRingerTemplates()[0]?.fileId })
+    // No paper choice on this path: it fires on save, with no UI to ask
+    // through, so it makes a blank doc. The button is where papers are picked.
+    createKamiBellRingerDoc({ title })
       // Left latched to true on success on purpose: onSave fires on every
       // blur, and the freshly saved kamiUrl takes a render to come back
       // down as a prop, so releasing the latch here would let a fast
