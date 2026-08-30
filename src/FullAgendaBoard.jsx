@@ -246,7 +246,13 @@ export const FULL_AGENDA_FIELD_META = {
   // ask: agenda items should be individually clickable to check off, and
   // the text itself shouldn't be selectable the way a plain paragraph is.
   agenda: { label: "Agenda", placeholder: "Add an agenda item...", rows: 5, itemized: true },
-  bellRinger: { label: "Bell Ringer", placeholder: "Type a bell ringer...", rows: 2 },
+  // No placeholder on purpose (Jay: remove the "click to add" line). The
+  // body is still click-to-type -- it keeps its minHeight and hover
+  // highlight, so there is a target -- but attaching a doc is now the
+  // advertised path, via the button below. Note this makes the
+  // type-to-attach behaviour in useAutoCreateKamiDoc undiscoverable to a
+  // teacher who has not been shown it.
+  bellRinger: { label: "Bell Ringer", placeholder: "", rows: 2 },
   homeLearning: { label: "Home Learning", placeholder: "Click to add homework / home learning...", rows: 2 },
   // Editable Learning Goals -- for lessons with no curriculum-authored
   // goals at all (see useEditableLearningGoals in WebsterGrovesChemistry
