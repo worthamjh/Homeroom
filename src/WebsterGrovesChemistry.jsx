@@ -1798,26 +1798,52 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
                 )}
                 {isBuildMode && isBlankTeacher ? (
                   <div style={{ position: "relative", flex: 1, minWidth: 0, display: "flex" }}>
-                    <input
-                      key={u.unit + ui}
-                      data-tour={ui === 0 ? "tour-unit-tab" : undefined}
-                      defaultValue={u.unit}
-                      title="Click to rename this unit"
-                      onFocus={() => { handleUnitOverview(ui); setOpenDropdown(ui); }}
-                      onBlur={e => { const v = e.target.value.trim(); if (v && v !== u.unit) onRenameUnit(ui, v); else e.target.value = u.unit; }}
-                      onKeyDown={e => { if (e.key === "Enter") e.target.blur(); if (e.key === "Escape") { e.target.value = u.unit; e.target.blur(); } }}
-                      style={{ flex: 1, minWidth: 0, background: "transparent", color: "var(--board-secondary-fg)", border: "none", borderBottom: "1px dashed rgba(255,255,255,0.4)", padding: `${SPACE.sm}px 18px ${SPACE.sm}px ${SPACE.xs}px`, fontSize: 13, fontFamily: "var(--board-heading-font, 'Oswald', sans-serif)", fontWeight: 600, letterSpacing: 0.5, outline: "none", textAlign: "center", cursor: "text", transition: "border-color 0.15s" }}
-                      onMouseEnter={e => { e.currentTarget.style.borderBottomColor = "rgba(255,255,255,0.75)"; }}
-                      onMouseLeave={e => { if (document.activeElement !== e.currentTarget) e.currentTarget.style.borderBottomColor = "rgba(255,255,255,0.4)"; }}
-                    />
-                    {/* Pencil hint — signals the name itself is editable
-                        without a teacher needing to hover or click first to
-                        discover it (Jay: "isn't obvious enough that you can
-                        edit the name"). Decorative only (pointer-events:
-                        none) so clicks land on the input beneath it, and the
-                        dashed underline above gives the same hint even
-                        before this becomes visible at a glance. */}
-                    <span aria-hidden="true" style={{ position: "absolute", right: 4, top: "50%", transform: "translateY(-50%)", fontSize: 11, color: "var(--board-secondary-fg)", opacity: 0.55, pointerEvents: "none" }}>✎</span>
+                    {/* Two states, because one always-on input did not read as
+                        editable: it was transparent and borderless, so it
+                        looked like a label with a stray underline (Jay: "isn't
+                        very obvious that you can change the name"). Now the
+                        name is plain text that shows a text cursor on hover,
+                        and clicking it swaps in an unmistakable white field.
+                        Clicking still opens the unit too, exactly as before --
+                        renaming is offered, not forced. */}
+                    {renamingUnit === ui ? (
+                      <input
+                        // Select on mount via the ref rather than onFocus:
+                        // autoFocus fires before React's handler is attached,
+                        // so onFocus never ran and the teacher had to clear
+                        // the old name by hand before typing a new one.
+                        ref={el => { if (el) { el.focus(); el.select(); } }}
+                        value={renameUnitVal}
+                        onChange={e => setRenameUnitVal(e.target.value)}
+                        onBlur={() => { const v = renameUnitVal.trim(); if (v && v !== u.unit) onRenameUnit(ui, v); setRenamingUnit(null); }}
+                        onKeyDown={e => {
+                          if (e.key === "Enter") e.target.blur();
+                          if (e.key === "Escape") { setRenameUnitVal(u.unit); setRenamingUnit(null); }
+                        }}
+                        onClick={e => e.stopPropagation()}
+                        style={{ flex: 1, minWidth: 0, background: "#fff", color: "#1a1a1a", border: "2px solid var(--board-secondary-accent)", borderRadius: 4, padding: `${SPACE.xs}px ${SPACE.sm}px`, margin: 2, fontSize: 13, fontFamily: "var(--board-heading-font, 'Oswald', sans-serif)", fontWeight: 600, letterSpacing: 0.5, outline: "none", textAlign: "center", boxShadow: "0 2px 10px rgba(0,0,0,0.45)" }}
+                      />
+                    ) : (
+                      <button
+                        data-tour={ui === 0 ? "tour-unit-tab" : undefined}
+                        title={`Open "${u.unit}" — click the name to rename it`}
+                        onClick={() => { handleUnitOverview(ui); setOpenDropdown(ui); setRenameUnitVal(u.unit); setRenamingUnit(ui); }}
+                        style={{ flex: 1, minWidth: 0, background: "transparent", color: "var(--board-secondary-fg)", border: "none", borderRadius: 4, padding: `${SPACE.sm}px 18px ${SPACE.sm}px ${SPACE.xs}px`, fontSize: 13, fontFamily: "var(--board-heading-font, 'Oswald', sans-serif)", fontWeight: 600, letterSpacing: 0.5, textAlign: "center",
+                          // Text cursor, not a pointer: the I-beam is the part
+                          // that says "this word is editable" before any click.
+                          cursor: "text", transition: "background 0.15s" }}
+                        onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.14)"; const pen = e.currentTarget.parentElement.querySelector(".uPen"); if (pen) pen.style.opacity = 1; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = "transparent"; const pen = e.currentTarget.parentElement.querySelector(".uPen"); if (pen) pen.style.opacity = 0.55; }}
+                      >
+                        {u.unit}
+                      </button>
+                    )}
+                    {/* Pencil hint — the name is editable even before hover.
+                        Decorative (pointer-events: none) so clicks land on the
+                        control beneath it. */}
+                    {renamingUnit !== ui && (
+                      <span className="uPen" aria-hidden="true" style={{ position: "absolute", right: 4, top: "50%", transform: "translateY(-50%)", fontSize: 11, color: "var(--board-secondary-fg)", opacity: 0.55, pointerEvents: "none", transition: "opacity 0.15s" }}>✎</span>
+                    )}
                   </div>
                 ) : (
                   <button
