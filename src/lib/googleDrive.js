@@ -19,6 +19,8 @@
 // recommended integration path for both), same "fetch straight from the
 // vendor, no SDK" spirit as cloudinary.js.
 
+import { isBuiltInPaper, buildBuiltInPaperPdf } from "./paperTemplates";
+
 const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 const API_KEY = import.meta.env.VITE_GOOGLE_PICKER_API_KEY;
 const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.file";
@@ -637,6 +639,39 @@ async function getOrCreateBellRingerFolder(accessToken) {
   return folder.id;
 }
 
+// Drive multipart upload: one request carrying the metadata and the bytes.
+// FormData can't be used -- Drive wants multipart/related, and FormData
+// always sends multipart/form-data.
+async function uploadPdfToDrive(accessToken, { name, parents, blob }) {
+  const boundary = `homeroom-${Math.random().toString(36).slice(2)}`;
+  const metadata = JSON.stringify({ name, mimeType: "application/pdf", ...(parents?.length ? { parents } : {}) });
+  const body = new Blob([
+    `--${boundary}
+Content-Type: application/json; charset=UTF-8
+
+${metadata}
+`,
+    `--${boundary}
+Content-Type: application/pdf
+
+`,
+    blob,
+    `
+--${boundary}--
+`,
+  ]);
+  const res = await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": `multipart/related; boundary=${boundary}` },
+    body,
+  });
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    throw new Error(`Upload failed (${res.status}). ${detail.slice(0, 300)}`);
+  }
+  return res.json();
+}
+
 export async function createKamiBellRingerDoc({ title, templateId } = {}) {
   await ensureGoogleScriptsLoaded();
   const accessToken = await requestAccessToken();
@@ -666,7 +701,20 @@ export async function createKamiBellRingerDoc({ title, templateId } = {}) {
   // a teacher being unable to make a bell ringer at all.
   let file = null;
   let templateError = null;
-  if (templateId) {
+
+  // A built-in paper is generated here and uploaded, not copied: the app
+  // owns files it creates, so this needs no picker and no per-file grant --
+  // it works for a teacher who has set nothing up at all.
+  if (isBuiltInPaper(templateId)) {
+    try {
+      const blob = buildBuiltInPaperPdf(templateId);
+      if (!blob) throw new Error(`Unknown built-in paper: ${templateId}`);
+      file = await uploadPdfToDrive(accessToken, { name, parents, blob });
+    } catch (err) {
+      templateError = `Couldn't create that paper: ${err?.message || err}`;
+      console.warn("[bellRinger]", templateError);
+    }
+  } else if (templateId) {
     try {
       const copyRes = await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(templateId)}/copy`, {
         method: "POST",

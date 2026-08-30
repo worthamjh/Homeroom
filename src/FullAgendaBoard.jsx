@@ -2,6 +2,7 @@ import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { fetchBoardContent, saveBoardContent, deleteBoardContent } from "./lib/boardContentApi";
 import { createKamiBellRingerDoc, googleDriveConfigured, googleDriveSignedIn } from "./lib/googleDrive";
 import { readBellRingerTemplates } from "./boardConfig";
+import { BUILT_IN_PAPERS } from "./lib/paperTemplates";
 
 /**
  * FullAgendaBoard
@@ -329,7 +330,14 @@ function KamiUrlInput({ kamiUrl, onSaveKamiUrl, lessonLabel, surface = DEFAULT_S
   };
 
   const canAutoCreate = googleDriveConfigured();
-  const templates = canAutoCreate ? readBellRingerTemplates() : [];
+  // Built-in papers first and always, so a teacher who has set nothing up
+  // still gets ruled and graph paper; anything they have picked follows.
+  const templates = canAutoCreate
+    ? [
+        ...BUILT_IN_PAPERS.map(p => ({ fileId: p.id, name: p.label })),
+        ...readBellRingerTemplates(),
+      ]
+    : [];
   const chip = {
     fontFamily: "Lato, sans-serif", fontSize: 11, padding: "4px 10px",
     borderRadius: 4, border: `1px solid ${surface.dividerBorder}`,
@@ -389,8 +397,11 @@ function KamiUrlInput({ kamiUrl, onSaveKamiUrl, lessonLabel, surface = DEFAULT_S
                     📄 {t.name}
                   </button>
                 ))}
+                {/* Distinct from the Plain paper above it: that is a blank
+                    PDF to annotate, this is a Google Doc a teacher can type
+                    into in Docs. */}
                 <button onClick={() => handleAutoCreate(undefined)} style={{ ...chip, textAlign: "left" }}>
-                  Blank page
+                  Blank Google Doc
                 </button>
               </div>
             )}
