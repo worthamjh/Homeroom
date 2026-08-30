@@ -1812,7 +1812,15 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
                         // autoFocus fires before React's handler is attached,
                         // so onFocus never ran and the teacher had to clear
                         // the old name by hand before typing a new one.
-                        ref={el => { if (el) { el.focus(); el.select(); } }}
+                        ref={el => {
+                          // Once, on mount. A ref callback runs on EVERY
+                          // render, so selecting unconditionally re-selected
+                          // the text after each keystroke and the next letter
+                          // replaced the whole title -- typing only ever went
+                          // one character deep. The flag lives on the DOM node
+                          // so it resets naturally when the input unmounts.
+                          if (el && !el.dataset.armed) { el.dataset.armed = "1"; el.focus(); el.select(); }
+                        }}
                         value={renameUnitVal}
                         onChange={e => setRenameUnitVal(e.target.value)}
                         onBlur={() => { const v = renameUnitVal.trim(); if (v && v !== u.unit) onRenameUnit(ui, v); setRenamingUnit(null); }}
@@ -1955,7 +1963,15 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
                         {isBuildMode && isBlankTeacher ? (
                           renamingLesson?.unitIdx === ui && renamingLesson?.lessonIdx === li ? (
                             <input
-                              ref={el => { if (el) { el.focus(); el.select(); } }}
+                              ref={el => {
+                          // Once, on mount. A ref callback runs on EVERY
+                          // render, so selecting unconditionally re-selected
+                          // the text after each keystroke and the next letter
+                          // replaced the whole title -- typing only ever went
+                          // one character deep. The flag lives on the DOM node
+                          // so it resets naturally when the input unmounts.
+                          if (el && !el.dataset.armed) { el.dataset.armed = "1"; el.focus(); el.select(); }
+                        }}
                               value={renameLessonVal}
                               onChange={e => setRenameLessonVal(e.target.value)}
                               onBlur={() => { const v = renameLessonVal.trim(); if (v && v !== lesson.title) onRenameLesson(ui, li, v); setRenamingLesson(null); }}
