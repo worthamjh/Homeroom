@@ -1588,7 +1588,7 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
   const [renamingLesson, setRenamingLesson] = useState(null); // { unitIdx, lessonIdx }
   const [renameLessonVal, setRenameLessonVal] = useState("");
   const [deletingLesson, setDeletingLesson] = useState(null); // { unitIdx, lessonIdx }
-  const [hoveredUnit, setHoveredUnit] = useState(null);
+  const [unitMenuOpen, setUnitMenuOpen] = useState(null); // unitIdx whose options menu (hide/delete) is open
   const [dragLessonTitle, setDragLessonTitle] = useState(null); // { unitIdx, title } — stable key during drag
   const [draggingOrder, setDraggingOrder] = useState(null);    // { unitIdx, lessons } — live order while dragging
 
@@ -1656,41 +1656,63 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
       </div>
 
       {/* Unit nav */}
-      <div style={{ display: "flex", borderTop: "1px solid #333" }} onClick={e => e.stopPropagation()}>
+      <div style={{ display: "flex", gap: 6, padding: "6px 6px 0", borderTop: "1px solid #333" }} onClick={e => e.stopPropagation()}>
         {curriculum.map((u, ui) => (
           (!isBuildMode && u.hidden) ? null : (
           <div key={ui} style={{ position: "relative", flex: 1 }}
-            onMouseEnter={() => { (u.lessons.length > 0 || (isBuildMode && isBlankTeacher)) && setOpenDropdown(ui); if (isBuildMode && isBlankTeacher) setHoveredUnit(ui); }}
-            onMouseLeave={() => { setOpenDropdown(prev => (prev === ui ? null : prev)); setHoveredUnit(null); }}
+            onMouseEnter={() => { (u.lessons.length > 0 || (isBuildMode && isBlankTeacher)) && setOpenDropdown(ui); }}
+            onMouseLeave={() => { setOpenDropdown(prev => (prev === ui ? null : prev)); setUnitMenuOpen(prev => (prev === ui ? null : prev)); }}
           >
             {/* Opacity wrapper: applied only to the tab button content so the dropdown
                 (which follows) is NOT inside an opacity < 1 stacking context — opacity
                 on a parent creates a new stacking context that traps z-index and causes
                 the dropdown to render behind the bulletin board. */}
             <div style={{ opacity: (isBuildMode && u.hidden) ? 0.45 : 1 }}>
-            {/* Unit name — inline editable in build mode */}
-              <div style={{ position: "relative", display: "flex", alignItems: "stretch", borderRight: "1px solid rgba(0,0,0,0.2)" }}>
+            {/* Unit name — inline editable in build mode. The whole row
+                shares one solid background (var(--board-secondary)) so the
+                reorder arrows and options menu read as part of one
+                continuous tab pill instead of separate boxes breaking up
+                the bar (Jay: "left and right buttons... look better"). */}
+              <div style={{ position: "relative", display: "flex", alignItems: "stretch", background: "var(--board-secondary)", borderRadius: 6 }}>
                 {isBuildMode && isBlankTeacher && (
-                  <button title="Move left" onClick={e => { e.stopPropagation(); onMoveUnit(ui, -1); }} disabled={ui === 0} style={{ background: "transparent", border: "none", cursor: ui === 0 ? "default" : "pointer", color: "var(--board-secondary-fg)", opacity: ui === 0 ? 0.15 : 0.5, fontSize: 10, padding: "0 5px", flexShrink: 0 }}>◀</button>
+                  <button
+                    title="Move left"
+                    onClick={e => { e.stopPropagation(); onMoveUnit(ui, -1); }}
+                    disabled={ui === 0}
+                    style={{ background: "transparent", border: "none", cursor: ui === 0 ? "default" : "pointer", color: "var(--board-secondary-fg)", opacity: ui === 0 ? 0.2 : 0.55, fontSize: 11, width: 20, flexShrink: 0, borderRadius: "6px 0 0 6px", transition: "background 0.15s, opacity 0.15s" }}
+                    onMouseEnter={e => { if (ui !== 0) { e.currentTarget.style.background = "rgba(0,0,0,0.18)"; e.currentTarget.style.opacity = 1; } }}
+                    onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.opacity = ui === 0 ? 0.2 : 0.55; }}
+                  >‹</button>
                 )}
                 {isBuildMode && isBlankTeacher ? (
-                  <input
-                    key={u.unit + ui}
-                    data-tour={ui === 0 ? "tour-unit-tab" : undefined}
-                    defaultValue={u.unit}
-                    onFocus={() => { handleUnitOverview(ui); setOpenDropdown(ui); }}
-                    onBlur={e => { const v = e.target.value.trim(); if (v && v !== u.unit) onRenameUnit(ui, v); else e.target.value = u.unit; }}
-                    onKeyDown={e => { if (e.key === "Enter") e.target.blur(); if (e.key === "Escape") { e.target.value = u.unit; e.target.blur(); } }}
-                    style={{ flex: 1, minWidth: 0, background: "var(--board-secondary)", color: "var(--board-secondary-fg)", border: "none", borderBottom: "1px solid transparent", padding: `${SPACE.sm}px ${SPACE.xs}px`, fontSize: 13, fontFamily: "var(--board-heading-font, 'Oswald', sans-serif)", fontWeight: 600, letterSpacing: 0.5, outline: "none", textAlign: "center", cursor: "text", transition: "border-color 0.15s" }}
-                    onMouseEnter={e => { e.currentTarget.style.borderBottomColor = "rgba(255,255,255,0.35)"; }}
-                    onMouseLeave={e => { if (document.activeElement !== e.currentTarget) e.currentTarget.style.borderBottomColor = "transparent"; }}
-                  />
+                  <div style={{ position: "relative", flex: 1, minWidth: 0, display: "flex" }}>
+                    <input
+                      key={u.unit + ui}
+                      data-tour={ui === 0 ? "tour-unit-tab" : undefined}
+                      defaultValue={u.unit}
+                      title="Click to rename this unit"
+                      onFocus={() => { handleUnitOverview(ui); setOpenDropdown(ui); }}
+                      onBlur={e => { const v = e.target.value.trim(); if (v && v !== u.unit) onRenameUnit(ui, v); else e.target.value = u.unit; }}
+                      onKeyDown={e => { if (e.key === "Enter") e.target.blur(); if (e.key === "Escape") { e.target.value = u.unit; e.target.blur(); } }}
+                      style={{ flex: 1, minWidth: 0, background: "transparent", color: "var(--board-secondary-fg)", border: "none", borderBottom: "1px dashed rgba(255,255,255,0.4)", padding: `${SPACE.sm}px 18px ${SPACE.sm}px ${SPACE.xs}px`, fontSize: 13, fontFamily: "var(--board-heading-font, 'Oswald', sans-serif)", fontWeight: 600, letterSpacing: 0.5, outline: "none", textAlign: "center", cursor: "text", transition: "border-color 0.15s" }}
+                      onMouseEnter={e => { e.currentTarget.style.borderBottomColor = "rgba(255,255,255,0.75)"; }}
+                      onMouseLeave={e => { if (document.activeElement !== e.currentTarget) e.currentTarget.style.borderBottomColor = "rgba(255,255,255,0.4)"; }}
+                    />
+                    {/* Pencil hint — signals the name itself is editable
+                        without a teacher needing to hover or click first to
+                        discover it (Jay: "isn't obvious enough that you can
+                        edit the name"). Decorative only (pointer-events:
+                        none) so clicks land on the input beneath it, and the
+                        dashed underline above gives the same hint even
+                        before this becomes visible at a glance. */}
+                    <span aria-hidden="true" style={{ position: "absolute", right: 4, top: "50%", transform: "translateY(-50%)", fontSize: 11, color: "var(--board-secondary-fg)", opacity: 0.55, pointerEvents: "none" }}>✎</span>
+                  </div>
                 ) : (
                   <button
                     data-tour={ui === 0 ? "tour-unit-tab" : undefined}
                     data-tour-clicked={ui === 0 && activeUnitIdx === ui && isOverview ? "true" : undefined}
                     onClick={() => { handleUnitOverview(ui); setOpenDropdown(ui); }}
-                    style={{ flex: 1, background: activeUnitIdx === ui && isOverview ? "#fff" : "var(--board-secondary)", color: activeUnitIdx === ui && isOverview ? "var(--board-secondary-accent)" : "var(--board-secondary-fg)", border: "none", padding: `${SPACE.sm}px ${SPACE.xs}px`, fontSize: 13, fontFamily: "var(--board-heading-font, 'Oswald', sans-serif)", cursor: "pointer", letterSpacing: 0.5, fontWeight: 600, transition: "all 0.15s" }}
+                    style={{ flex: 1, background: activeUnitIdx === ui && isOverview ? "#fff" : "var(--board-secondary)", color: activeUnitIdx === ui && isOverview ? "var(--board-secondary-accent)" : "var(--board-secondary-fg)", border: "none", borderRadius: 6, padding: `${SPACE.sm}px ${SPACE.xs}px`, fontSize: 13, fontFamily: "var(--board-heading-font, 'Oswald', sans-serif)", cursor: "pointer", letterSpacing: 0.5, fontWeight: 600, transition: "all 0.15s" }}
                     onMouseEnter={e => { if (!(activeUnitIdx === ui && isOverview)) { e.currentTarget.style.background = "#fff"; e.currentTarget.style.color = "var(--board-secondary-accent)"; }}}
                     onMouseLeave={e => { if (!(activeUnitIdx === ui && isOverview)) { e.currentTarget.style.background = "var(--board-secondary)"; e.currentTarget.style.color = "var(--board-secondary-fg)"; }}}
                   >
@@ -1698,20 +1720,44 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
                   </button>
                 )}
                 {isBuildMode && isBlankTeacher && (
-                  <button title="Move right" onClick={e => { e.stopPropagation(); onMoveUnit(ui, 1); }} disabled={ui === curriculum.length - 1} style={{ background: "transparent", border: "none", cursor: ui === curriculum.length - 1 ? "default" : "pointer", color: "var(--board-secondary-fg)", opacity: ui === curriculum.length - 1 ? 0.15 : 0.5, fontSize: 10, padding: "0 5px", flexShrink: 0 }}>▶</button>
+                  <button
+                    title="Move right"
+                    onClick={e => { e.stopPropagation(); onMoveUnit(ui, 1); }}
+                    disabled={ui === curriculum.length - 1}
+                    style={{ background: "transparent", border: "none", cursor: ui === curriculum.length - 1 ? "default" : "pointer", color: "var(--board-secondary-fg)", opacity: ui === curriculum.length - 1 ? 0.2 : 0.55, fontSize: 11, width: 20, flexShrink: 0, transition: "background 0.15s, opacity 0.15s" }}
+                    onMouseEnter={e => { if (ui !== curriculum.length - 1) { e.currentTarget.style.background = "rgba(0,0,0,0.18)"; e.currentTarget.style.opacity = 1; } }}
+                    onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.opacity = ui === curriculum.length - 1 ? 0.2 : 0.55; }}
+                  >›</button>
                 )}
-                {isBuildMode && isBlankTeacher && hoveredUnit === ui && (
-                  <div style={{ position: "absolute", top: 0, right: 0, display: "flex", gap: 2, padding: "2px 4px", background: "rgba(0,0,0,0.72)", borderRadius: "0 0 0 4px", zIndex: 10 }}>
-                    {deletingUnit === ui ? (
-                      <>
-                        <button title="Confirm delete" onClick={e => { e.stopPropagation(); onDeleteUnit(ui); setDeletingUnit(null); }} style={microBtn({ color: "#ff6868", fontWeight: 600, fontSize: 11 })}>delete?</button>
-                        <button title="Cancel" onClick={e => { e.stopPropagation(); setDeletingUnit(null); }} style={microBtn({ fontSize: 11 })}>cancel</button>
-                      </>
-                    ) : (
-                      <>
-                        <button title={u.hidden ? "Show unit" : "Hide unit"} onClick={e => { e.stopPropagation(); onToggleUnitVisibility(ui); }} style={microBtn({ color: u.hidden ? "#7de87d" : "rgba(255,255,255,0.88)", fontSize: 11, padding: "2px 7px" })}>{u.hidden ? "show" : "hide"}</button>
-                        <button title="Delete unit" onClick={e => { e.stopPropagation(); setDeletingUnit(ui); setRenamingUnit(null); }} style={microBtn({ color: "#ff8a8a", fontSize: 13, padding: "1px 6px", fontWeight: 500, lineHeight: "1.2" })}>×</button>
-                      </>
+                {isBuildMode && isBlankTeacher && (
+                  <div style={{ position: "relative", flexShrink: 0 }}>
+                    {/* Unit options — click-to-open menu, replacing the old
+                        hover-triggered corner overlay that used to sit on
+                        top of (and cover) the move-right arrow and part of
+                        the unit name (Jay: "hide delete buttons get in the
+                        way"). Reserves a fixed 20px at all times, so nothing
+                        shifts or gets covered when it opens. */}
+                    <button
+                      title="Unit options"
+                      onClick={e => { e.stopPropagation(); setUnitMenuOpen(prev => prev === ui ? null : ui); setDeletingUnit(null); }}
+                      style={{ background: unitMenuOpen === ui ? "rgba(0,0,0,0.18)" : "transparent", border: "none", cursor: "pointer", color: "var(--board-secondary-fg)", opacity: unitMenuOpen === ui ? 1 : 0.55, fontSize: 14, width: 20, height: "100%", borderRadius: "0 6px 6px 0", transition: "background 0.15s, opacity 0.15s" }}
+                      onMouseEnter={e => { e.currentTarget.style.background = "rgba(0,0,0,0.18)"; e.currentTarget.style.opacity = 1; }}
+                      onMouseLeave={e => { if (unitMenuOpen !== ui) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.opacity = 0.55; } }}
+                    >⋮</button>
+                    {unitMenuOpen === ui && (
+                      <div style={{ position: "absolute", top: "100%", right: 0, marginTop: 4, background: "#1a1a1a", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 6, overflow: "hidden", zIndex: 6000, minWidth: 130, boxShadow: "0 6px 18px rgba(0,0,0,0.45)", display: "flex", flexDirection: "column" }}>
+                        {deletingUnit === ui ? (
+                          <>
+                            <button onClick={e => { e.stopPropagation(); onDeleteUnit(ui); setDeletingUnit(null); setUnitMenuOpen(null); }} style={{ background: "transparent", border: "none", borderBottom: "1px solid rgba(255,255,255,0.1)", cursor: "pointer", color: "#ff6868", fontWeight: 600, fontSize: 12, fontFamily: "Lato, sans-serif", padding: "8px 12px", textAlign: "left" }} onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.06)"; }} onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}>Confirm delete</button>
+                            <button onClick={e => { e.stopPropagation(); setDeletingUnit(null); }} style={{ background: "transparent", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.7)", fontSize: 12, fontFamily: "Lato, sans-serif", padding: "8px 12px", textAlign: "left" }} onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.06)"; }} onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}>Cancel</button>
+                          </>
+                        ) : (
+                          <>
+                            <button onClick={e => { e.stopPropagation(); onToggleUnitVisibility(ui); setUnitMenuOpen(null); }} style={{ background: "transparent", border: "none", borderBottom: "1px solid rgba(255,255,255,0.1)", cursor: "pointer", color: u.hidden ? "#7de87d" : "rgba(255,255,255,0.85)", fontSize: 12, fontFamily: "Lato, sans-serif", padding: "8px 12px", textAlign: "left" }} onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.06)"; }} onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}>{u.hidden ? "Show unit" : "Hide unit"}</button>
+                            <button onClick={e => { e.stopPropagation(); setDeletingUnit(ui); }} style={{ background: "transparent", border: "none", cursor: "pointer", color: "#ff8a8a", fontSize: 12, fontFamily: "Lato, sans-serif", padding: "8px 12px", textAlign: "left" }} onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.06)"; }} onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}>Delete unit</button>
+                          </>
+                        )}
+                      </div>
                     )}
                   </div>
                 )}
