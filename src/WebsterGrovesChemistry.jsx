@@ -1694,6 +1694,21 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
   const [renamingLesson, setRenamingLesson] = useState(null); // { unitIdx, lessonIdx }
   const [renameLessonVal, setRenameLessonVal] = useState("");
   const [deletingLesson, setDeletingLesson] = useState(null); // { unitIdx, lessonIdx }
+
+  // Renaming commits on blur as well as on Enter -- a teacher should never
+  // have to press Enter to keep what they typed. Blur is enough now that
+  // the lesson list is held open while a rename is in progress (see the
+  // tab's onMouseLeave); before that the input could be unmounted by the
+  // list closing, and React does not fire onBlur on unmount. The ref holds
+  // the latest value so the commit does not depend on a state read.
+  const lessonRenameRef = useRef(null);
+  const commitLessonRename = (unitIdx, lessonIdx, currentTitle) => {
+    const pending = lessonRenameRef.current;
+    lessonRenameRef.current = null;
+    const v = (pending?.value ?? "").trim();
+    if (v && v !== currentTitle) onRenameLesson(unitIdx, lessonIdx, v);
+    setRenamingLesson(null);
+  };
   // Escape disarms a pending unit delete, same as moving the pointer off it.
   useEffect(() => {
     if (deletingUnit === null) return undefined;
@@ -1773,7 +1788,11 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
           (!isBuildMode && u.hidden) ? null : (
           <div key={ui} style={{ position: "relative", flex: 1 }}
             onMouseEnter={() => { (u.lessons.length > 0 || (isBuildMode && isBlankTeacher)) && setOpenDropdown(ui); }}
-            onMouseLeave={() => { setOpenDropdown(prev => (prev === ui ? null : prev)); }}
+            // Don't close the lesson list out from under an open rename box:
+            // closing unmounts the input, and React does not fire onBlur on
+            // unmount, so the teacher's typing was simply lost when the
+            // pointer left the tab.
+            onMouseLeave={() => { if (renamingLesson?.unitIdx === ui) return; setOpenDropdown(prev => (prev === ui ? null : prev)); }}
           >
             {/* Opacity wrapper: applied only to the tab button content so the dropdown
                 (which follows) is NOT inside an opacity < 1 stacking context — opacity
@@ -1925,7 +1944,7 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
             {/* Dropdown — also opens (empty except the add-lesson row) for a
                 zero-lesson unit while in Build mode, so a freshly-added
                 unit is actually reachable to add its first lesson. */}
-            {openDropdown === ui && (u.lessons.length > 0 || (isBuildMode && isBlankTeacher)) && (
+            {(openDropdown === ui || renamingLesson?.unitIdx === ui) && (u.lessons.length > 0 || (isBuildMode && isBlankTeacher)) && (
               // Deliberately `width: "100%"` rather than the old fixed
               // `minWidth: 210` — this div's parent is the same `flex: 1`
               // column as the unit's own button above, so `100%` makes the
@@ -1973,11 +1992,11 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
                           if (el && !el.dataset.armed) { el.dataset.armed = "1"; el.focus(); el.select(); }
                         }}
                               value={renameLessonVal}
-                              onChange={e => setRenameLessonVal(e.target.value)}
-                              onBlur={() => { const v = renameLessonVal.trim(); if (v && v !== lesson.title) onRenameLesson(ui, li, v); setRenamingLesson(null); }}
+                              onChange={e => { setRenameLessonVal(e.target.value); lessonRenameRef.current = { value: e.target.value }; }}
+                              onBlur={() => { commitLessonRename(ui, li, lesson.title); }}
                               onKeyDown={e => {
                                 if (e.key === "Enter") e.target.blur();
-                                if (e.key === "Escape") { setRenameLessonVal(lesson.title); setRenamingLesson(null); }
+                                if (e.key === "Escape") { lessonRenameRef.current = null; setRenameLessonVal(lesson.title); setRenamingLesson(null); }
                               }}
                               onClick={e => e.stopPropagation()}
                               style={{ flex: 1, minWidth: 0, background: "#fff", color: "#1a1a1a", border: "2px solid var(--board-secondary-accent)", borderRadius: 4, margin: 3, padding: `${SPACE.xs}px ${SPACE.sm}px`, fontSize: 13, fontFamily: "Lato, sans-serif", fontWeight: 700, outline: "none", boxShadow: "0 2px 10px rgba(0,0,0,0.45)" }}
