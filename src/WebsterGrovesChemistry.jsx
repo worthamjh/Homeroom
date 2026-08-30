@@ -1530,6 +1530,31 @@ function InlineAddButton({ label, placeholder, defaultValue, onAdd, style, input
 //
 // Uses position:fixed so it escapes every overflow:hidden ancestor and
 // always layers on top of the projected board regardless of board layout.
+//
+// Presentation mode hides Kami's own UI. Kami runs in a cross-origin
+// iframe (web.kamihq.com), so we cannot hide its toolbars with CSS or
+// JS from here, and its embedding API has no documented "viewer only"
+// URL parameter (its docs explicitly say not to hand-edit the viewer
+// URL). So we clip instead: the iframe is sized LARGER than its visible
+// window and offset by these amounts, pushing Kami's header, left tool
+// rail, bottom zoom bar and scrollbars outside the clip. What's left on
+// the SmartBoard is just the document — the bell ringer question, which
+// is the only thing a class needs to see.
+//
+// Full Screen renders the iframe untouched so the teacher gets the real
+// Kami tools for marking up.
+//
+// These are Kami's chrome dimensions in CSS pixels. They are fixed
+// regardless of container size, so they're absolute px, not percentages.
+// If a Kami redesign shifts its layout, retune here — that's the known
+// cost of clipping a third-party UI we don't control.
+const KAMI_CHROME = {
+  top: 48,     // Kami header: logo, doc name, Share, account avatar
+  left: 56,    // left vertical tool rail
+  right: 16,   // vertical scrollbar
+  bottom: 56,  // floating zoom/page controls + horizontal scrollbar
+};
+
 function KamiOverlay({ url, state, onToggleFullscreen, onClose, contained = false }) {
   if (!url || !state) return null;
   const isFullscreen = state === "fullscreen";
@@ -1573,13 +1598,26 @@ function KamiOverlay({ url, state, onToggleFullscreen, onClose, contained = fals
           ✕ Close
         </button>
       </div>
-      {/* Kami iframe */}
-      <iframe
-        src={url}
-        style={{ flex: 1, border: "none", width: "100%", display: "block" }}
-        allow="fullscreen; clipboard-read; clipboard-write"
-        title="Bell Ringer — Kami"
-      />
+      {/* Kami iframe. Fullscreen shows it whole (tools and all); the
+          contained board view clips Kami's chrome away — see KAMI_CHROME. */}
+      <div style={{ flex: 1, position: "relative", overflow: "hidden", background: "#fff" }}>
+        <iframe
+          src={url}
+          style={isFullscreen
+            ? { border: "none", width: "100%", height: "100%", display: "block" }
+            : {
+                border: "none",
+                display: "block",
+                position: "absolute",
+                top: -KAMI_CHROME.top,
+                left: -KAMI_CHROME.left,
+                width: `calc(100% + ${KAMI_CHROME.left + KAMI_CHROME.right}px)`,
+                height: `calc(100% + ${KAMI_CHROME.top + KAMI_CHROME.bottom}px)`,
+              }}
+          allow="fullscreen; clipboard-read; clipboard-write"
+          title="Bell Ringer — Kami"
+        />
+      </div>
     </div>
   );
 }
