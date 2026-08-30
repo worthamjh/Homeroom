@@ -35,11 +35,17 @@ export async function deleteExtraAssignment(id) {
   if (!res.ok) throw new Error(`Failed to remove assignment (${res.status})`);
 }
 
-export async function updateExtraAssignment(id, { label }) {
+// Patch one assignment. Send only the fields you mean to change: a rename
+// passes { label }, the hide/show toggle passes { hidden }. Sending an
+// undefined field would blank the other one out server-side.
+export async function updateExtraAssignment(id, { label, hidden } = {}) {
+  const body = { teacherId: getActiveTeacherId() };
+  if (label !== undefined) body.label = label;
+  if (hidden !== undefined) body.hidden = hidden;
   const res = await fetch(`/api/assignments?id=${encodeURIComponent(id)}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ label, teacherId: getActiveTeacherId() }),
+    body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error(`Failed to update assignment (${res.status})`);
   return res.json();

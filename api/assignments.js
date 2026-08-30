@@ -85,6 +85,10 @@ export default async function handler(req, res) {
         url: String(url),
         thumb: thumb ? String(thumb) : null,
         cloudinaryPublicId: cloudinaryPublicId ? String(cloudinaryPublicId) : null,
+        // Hidden lives on the assignment document itself, so a teacher
+        // hiding one hides it everywhere it appears -- the lesson page and
+        // the unit overview both read these same docs.
+        hidden: false,
         createdAt: new Date(),
       };
       const col = await getCollection();
@@ -95,16 +99,22 @@ export default async function handler(req, res) {
 
     if (req.method === "PATCH") {
       const { id } = req.query;
-      const { label, teacherId } = req.body || {};
-      if (!id || !label) {
-        res.status(400).json({ error: "id (query param) and label (body) are required" });
+      const { label, hidden, teacherId } = req.body || {};
+      // Either field may be patched on its own -- rename sends label,
+      // the hide/show toggle sends hidden. Build $set from whatever was
+      // actually provided so a rename can't blank out hidden, or vice versa.
+      const updates = {};
+      if (label !== undefined) updates.label = String(label);
+      if (hidden !== undefined) updates.hidden = Boolean(hidden);
+      if (!id || Object.keys(updates).length === 0) {
+        res.status(400).json({ error: "id (query param) and at least one of label or hidden (body) are required" });
         return;
       }
       const { ObjectId } = await import("mongodb");
       const col = await getCollection();
       const result = await col.findOneAndUpdate(
         { _id: new ObjectId(id), teacherId: teacherId ? String(teacherId) : DEFAULT_TEACHER_ID },
-        { $set: { label: String(label) } },
+        { $set: updates },
         { returnDocument: "after" }
       );
       if (!result) { res.status(404).json({ error: "Assignment not found" }); return; }
@@ -140,5 +150,8 @@ function toClientShape(doc) {
     label: doc.label,
     url: doc.url,
     thumb: doc.thumb || undefined,
+    // Documents created before the hide/show toggle existed have no
+    // `hidden` field at all -- treat those as visible.
+    hidden: !!doc.hidden,
   };
 }

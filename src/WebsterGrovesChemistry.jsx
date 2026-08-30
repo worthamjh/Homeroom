@@ -1196,16 +1196,24 @@ function BuildEditableSlot({ children, onChange, onRemove, label }) {
 // assignments — the hardcoded curriculum ones aren't deletable this way),
 // shows a small "×" in the corner on hover, matching the hover-reveal
 // pattern used elsewhere in Build mode.
-export function AssignmentThumb({ label, url, thumb, onRemove, onRename }) {
+export function AssignmentThumb({ label, url, thumb, hidden, onRemove, onRename, onToggleHidden }) {
   const [renaming, setRenaming] = useState(false);
   const [draft, setDraft] = useState(label);
   const inputRef = useRef(null);
+  // The rename input commits on Enter AND on blur, and Enter unmounts the
+  // input -- which fires blur. Without this latch the same rename was sent
+  // twice, and worse, Escape (which also unmounts) fell through to the blur
+  // handler and saved the draft the teacher had just cancelled.
+  const settledRef = useRef(false);
 
-  const startRename = (e) => { e.preventDefault(); e.stopPropagation(); setDraft(label); setRenaming(true); };
+  const startRename = (e) => { e.preventDefault(); e.stopPropagation(); settledRef.current = false; setDraft(label); setRenaming(true); };
   const commitRename = () => {
+    if (settledRef.current) return;
+    settledRef.current = true;
     setRenaming(false);
     if (draft.trim() && draft.trim() !== label) onRename?.(draft.trim());
   };
+  const cancelRename = () => { settledRef.current = true; setRenaming(false); };
 
   if (renaming) {
     return (
@@ -1223,7 +1231,7 @@ export function AssignmentThumb({ label, url, thumb, onRemove, onRename }) {
             autoFocus
             value={draft}
             onChange={e => setDraft(e.target.value)}
-            onKeyDown={e => { if (e.key === "Enter") commitRename(); if (e.key === "Escape") setRenaming(false); }}
+            onKeyDown={e => { if (e.key === "Enter") commitRename(); if (e.key === "Escape") cancelRename(); }}
             onBlur={commitRename}
             style={{ flex: 1, background: "rgba(255,255,255,0.2)", border: "none", borderRadius: 2, color: "white", fontSize: 10, fontFamily: "Oswald, sans-serif", padding: "2px 4px", outline: "none", letterSpacing: 0.5 }}
           />
@@ -1234,9 +1242,12 @@ export function AssignmentThumb({ label, url, thumb, onRemove, onRename }) {
 
   return (
     <a href={url} target="_blank" rel="noreferrer"
-      style={{ background: "white", borderRadius: 3, overflow: "hidden", cursor: "pointer", position: "relative", border: "2px solid transparent", transition: "all 0.15s", aspectRatio: "8.5/11", textDecoration: "none", display: "block" }}
-      onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--board-secondary)"; e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.querySelector(".aLabel").style.opacity = 1; const r = e.currentTarget.querySelector(".aRemove"); if (r) r.style.opacity = 1; const rn = e.currentTarget.querySelector(".aRename"); if (rn) rn.style.opacity = 1; }}
-      onMouseLeave={e => { e.currentTarget.style.borderColor = "transparent"; e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.querySelector(".aLabel").style.opacity = 0; const r = e.currentTarget.querySelector(".aRemove"); if (r) r.style.opacity = 0; const rn = e.currentTarget.querySelector(".aRename"); if (rn) rn.style.opacity = 0; }}
+      style={{ background: "white", borderRadius: 3, overflow: "hidden", cursor: "pointer", position: "relative", border: "2px solid transparent", transition: "all 0.15s", aspectRatio: "8.5/11", textDecoration: "none", display: "block",
+        // Only ever dimmed in Build mode: the live board filters hidden
+        // assignments out entirely rather than showing a faded one.
+        opacity: hidden ? 0.4 : 1 }}
+      onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--board-secondary)"; e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.querySelector(".aLabel").style.opacity = 1; const r = e.currentTarget.querySelector(".aRemove"); if (r) r.style.opacity = 1; const rn = e.currentTarget.querySelector(".aRename"); if (rn) rn.style.opacity = 1; const h = e.currentTarget.querySelector(".aHide"); if (h) h.style.opacity = 1; }}
+      onMouseLeave={e => { e.currentTarget.style.borderColor = "transparent"; e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.querySelector(".aLabel").style.opacity = 0; const r = e.currentTarget.querySelector(".aRemove"); if (r) r.style.opacity = 0; const rn = e.currentTarget.querySelector(".aRename"); if (rn) rn.style.opacity = 0; const h = e.currentTarget.querySelector(".aHide"); if (h && !hidden) h.style.opacity = 0; }}
     >
       {thumb ? (
         <img src={thumb} alt={label} style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "top", display: "block" }} />
@@ -1246,6 +1257,19 @@ export function AssignmentThumb({ label, url, thumb, onRemove, onRename }) {
           <div style={{ height: 4 }} />
           {[80, 60, 95, 70, 55, 90].map((w, i) => <div key={i} style={{ height: 3, background: "#ccc", borderRadius: 1, width: `${w}%` }} />)}
         </div>
+      )}
+      {onToggleHidden && (
+        <button
+          className="aHide"
+          onClick={e => { e.preventDefault(); e.stopPropagation(); onToggleHidden(); }}
+          title={hidden ? "Show on the board" : "Hide from the board"}
+          // Unlike the rename/remove buttons this one does NOT fade out when
+          // unhovered while the assignment is hidden -- a hidden card has to
+          // announce itself, or a teacher has no way to find what to unhide.
+          style={{ position: "absolute", top: 4, left: 4, height: 26, padding: "0 9px", borderRadius: 13, border: "2px solid rgba(255,255,255,0.4)", background: hidden ? "rgba(40,40,40,0.92)" : "rgba(60,120,60,0.92)", color: "white", fontSize: 12, lineHeight: "22px", cursor: "pointer", opacity: hidden ? 1 : 0, transition: "opacity 0.15s", boxShadow: "0 2px 6px rgba(0,0,0,0.4)", display: "flex", alignItems: "center", gap: 4 }}
+        >
+          {hidden ? "🚫 Hidden" : "👁"}
+        </button>
       )}
       {onRename && (
         <button
@@ -1630,7 +1654,23 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
   const [renamingLesson, setRenamingLesson] = useState(null); // { unitIdx, lessonIdx }
   const [renameLessonVal, setRenameLessonVal] = useState("");
   const [deletingLesson, setDeletingLesson] = useState(null); // { unitIdx, lessonIdx }
-  const [unitMenuOpen, setUnitMenuOpen] = useState(null); // unitIdx whose options menu (hide/delete) is open
+  const [unitMenuOpen, setUnitMenuOpen] = useState(null); // unitIdx whose options menu is open
+
+  // The options menu used to close on the unit tab's own mouseLeave, which
+  // is what made it feel unresponsive: the lesson dropdown opens on hover
+  // over the same strip below the tab, so moving toward the menu could take
+  // the pointer out of the tab and close the menu before it was clicked.
+  // Close on a genuine outside click or Escape instead. Clicks landing
+  // inside the menu (or on the ⋮ that toggles it) are ignored here so the
+  // menu's own buttons still receive their click.
+  useEffect(() => {
+    if (unitMenuOpen === null) return undefined;
+    const onDown = (e) => { if (!e.target.closest?.("[data-unit-menu]")) setUnitMenuOpen(null); };
+    const onKey = (e) => { if (e.key === "Escape") setUnitMenuOpen(null); };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => { document.removeEventListener("mousedown", onDown); document.removeEventListener("keydown", onKey); };
+  }, [unitMenuOpen]);
   const [dragLessonTitle, setDragLessonTitle] = useState(null); // { unitIdx, title } — stable key during drag
   const [draggingOrder, setDraggingOrder] = useState(null);    // { unitIdx, lessons } — live order while dragging
 
@@ -1703,7 +1743,7 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
           (!isBuildMode && u.hidden) ? null : (
           <div key={ui} style={{ position: "relative", flex: 1 }}
             onMouseEnter={() => { (u.lessons.length > 0 || (isBuildMode && isBlankTeacher)) && setOpenDropdown(ui); }}
-            onMouseLeave={() => { setOpenDropdown(prev => (prev === ui ? null : prev)); setUnitMenuOpen(prev => (prev === ui ? null : prev)); }}
+            onMouseLeave={() => { setOpenDropdown(prev => (prev === ui ? null : prev)); }}
           >
             {/* Opacity wrapper: applied only to the tab button content so the dropdown
                 (which follows) is NOT inside an opacity < 1 stacking context — opacity
@@ -1775,6 +1815,24 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
                   >›</button>
                 )}
                 {isBuildMode && isBlankTeacher && (
+                  /* Hide/show — promoted out of the options menu and onto the
+                     tab itself. It was the one control teachers reach for
+                     often, and burying it behind ⋮ meant a click, a menu, and
+                     a second click to do something that should be one press
+                     (Jay: "not responsive... needs to be visible and easy to
+                     see"). Sized to match the reorder arrows so it reads as
+                     part of the same pill rather than a badge stuck on it.
+                     A hidden unit's button stays lit so it is obvious which
+                     units are hidden without opening anything. */
+                  <button
+                    title={u.hidden ? `Show "${u.unit}" on the board` : `Hide "${u.unit}" from the board`}
+                    onClick={e => { e.stopPropagation(); onToggleUnitVisibility(ui); }}
+                    style={{ background: u.hidden ? "rgba(0,0,0,0.28)" : "transparent", border: "none", cursor: "pointer", color: "var(--board-secondary-fg)", opacity: u.hidden ? 1 : 0.55, fontSize: 11, width: 22, flexShrink: 0, transition: "background 0.15s, opacity 0.15s" }}
+                    onMouseEnter={e => { e.currentTarget.style.background = "rgba(0,0,0,0.18)"; e.currentTarget.style.opacity = 1; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = u.hidden ? "rgba(0,0,0,0.28)" : "transparent"; e.currentTarget.style.opacity = u.hidden ? 1 : 0.55; }}
+                  >{u.hidden ? "🚫" : "👁"}</button>
+                )}
+                {isBuildMode && isBlankTeacher && (
                   <div style={{ position: "relative", flexShrink: 0 }}>
                     {/* Unit options — click-to-open menu, replacing the old
                         hover-triggered corner overlay that used to sit on
@@ -1784,13 +1842,15 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
                         shifts or gets covered when it opens. */}
                     <button
                       title="Unit options"
+                      data-unit-menu=""
                       onClick={e => { e.stopPropagation(); setUnitMenuOpen(prev => prev === ui ? null : ui); setDeletingUnit(null); }}
                       style={{ background: unitMenuOpen === ui ? "rgba(0,0,0,0.18)" : "transparent", border: "none", cursor: "pointer", color: "var(--board-secondary-fg)", opacity: unitMenuOpen === ui ? 1 : 0.55, fontSize: 14, width: 20, height: "100%", borderRadius: "0 6px 6px 0", transition: "background 0.15s, opacity 0.15s" }}
                       onMouseEnter={e => { e.currentTarget.style.background = "rgba(0,0,0,0.18)"; e.currentTarget.style.opacity = 1; }}
                       onMouseLeave={e => { if (unitMenuOpen !== ui) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.opacity = 0.55; } }}
                     >⋮</button>
                     {unitMenuOpen === ui && (
-                      <div style={{ position: "absolute", top: "100%", right: 0, marginTop: 4, background: "#1a1a1a", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 6, overflow: "hidden", zIndex: 6000, minWidth: 130, boxShadow: "0 6px 18px rgba(0,0,0,0.45)", display: "flex", flexDirection: "column" }}>
+                      <div data-unit-menu="" style={{ position: "absolute", top: "100%", right: 0, marginTop: 4, background: "#1a1a1a", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 6, overflow: "hidden", zIndex: 6000, minWidth: 130, boxShadow: "0 6px 18px rgba(0,0,0,0.45)", display: "flex", flexDirection: "column" }}>
+                        {/* Delete-only now that hide/show is a button on the tab. */}
                         {deletingUnit === ui ? (
                           <>
                             <button onClick={e => { e.stopPropagation(); onDeleteUnit(ui); setDeletingUnit(null); setUnitMenuOpen(null); }} style={{ background: "transparent", border: "none", borderBottom: "1px solid rgba(255,255,255,0.1)", cursor: "pointer", color: "#ff6868", fontWeight: 600, fontSize: 12, fontFamily: "Lato, sans-serif", padding: "8px 12px", textAlign: "left" }} onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.06)"; }} onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}>Confirm delete</button>
@@ -1798,7 +1858,7 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
                           </>
                         ) : (
                           <>
-                            <button onClick={e => { e.stopPropagation(); onToggleUnitVisibility(ui); setUnitMenuOpen(null); }} style={{ background: "transparent", border: "none", borderBottom: "1px solid rgba(255,255,255,0.1)", cursor: "pointer", color: u.hidden ? "#7de87d" : "rgba(255,255,255,0.85)", fontSize: 12, fontFamily: "Lato, sans-serif", padding: "8px 12px", textAlign: "left" }} onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.06)"; }} onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}>{u.hidden ? "Show unit" : "Hide unit"}</button>
+                            
                             <button onClick={e => { e.stopPropagation(); setDeletingUnit(ui); }} style={{ background: "transparent", border: "none", cursor: "pointer", color: "#ff8a8a", fontSize: 12, fontFamily: "Lato, sans-serif", padding: "8px 12px", textAlign: "left" }} onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.06)"; }} onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}>Delete unit</button>
                           </>
                         )}
@@ -2428,14 +2488,52 @@ export default function App() {
     });
   };
 
+  // An uploaded assignment shows up in two places: the lesson page
+  // (extraAssignments) and the unit overview (unitExtraAssignments, keyed
+  // by lesson title). Both are views of the SAME Mongo document, so an
+  // edit has to land in both or the two screens disagree until the next
+  // refetch -- which is what made renames look like they hadn't saved.
+  const findAssignmentById = (id) =>
+    extraAssignments.find(a => a.id === id) ||
+    Object.values(unitExtraAssignments).flat().find(a => a.id === id);
+
+  const patchAssignmentLocally = (id, fields) => {
+    const apply = list => list.map(a => (a.id === id ? { ...a, ...fields } : a));
+    setExtraAssignments(prev => apply(prev));
+    setUnitExtraAssignments(prev => {
+      const next = {};
+      for (const title of Object.keys(prev)) next[title] = apply(prev[title]);
+      return next;
+    });
+  };
+
   const handleRenameAssignment = async (id, newLabel) => {
-    setExtraAssignments(prev => prev.map(a => a.id === id ? { ...a, label: newLabel } : a));
+    // Captured BEFORE the optimistic write so the revert has something real
+    // to go back to (the previous version read a.label off the already-
+    // updated item, so a failed rename silently kept the new name).
+    const previousLabel = findAssignmentById(id)?.label;
+    patchAssignmentLocally(id, { label: newLabel });
     try {
       await updateExtraAssignment(id, { label: newLabel });
     } catch (err) {
       console.error("Failed to rename assignment", err);
-      // Revert optimistic update on failure
-      setExtraAssignments(prev => prev.map(a => a.id === id ? { ...a, label: a.label } : a));
+      if (previousLabel !== undefined) patchAssignmentLocally(id, { label: previousLabel });
+    }
+  };
+
+  // Hidden is stored on the assignment document, so hiding one from either
+  // screen hides it on both -- and on the live board, which filters them
+  // out at render.
+  const handleToggleAssignmentHidden = async (id) => {
+    const current = findAssignmentById(id);
+    if (!current) return;
+    const nextHidden = !current.hidden;
+    patchAssignmentLocally(id, { hidden: nextHidden });
+    try {
+      await updateExtraAssignment(id, { hidden: nextHidden });
+    } catch (err) {
+      console.error("Failed to change assignment visibility", err);
+      patchAssignmentLocally(id, { hidden: current.hidden });
     }
   };
 
@@ -3215,8 +3313,9 @@ export default function App() {
                       {lesson.assignments.map((a, ai) => (
                         <AssignmentThumb key={ai} {...a} />
                       ))}
-                      {(unitExtraAssignments[lesson.title] || []).map((a) => (
-                        <AssignmentThumb key={a.id} {...a} />
+                      {(unitExtraAssignments[lesson.title] || []).filter(a => isBuildMode || !a.hidden).map((a) => (
+                        <AssignmentThumb key={a.id} {...a}
+                          onToggleHidden={isBuildMode ? () => handleToggleAssignmentHidden(a.id) : undefined} />
                       ))}
                     </div>
                   </div>
@@ -3229,14 +3328,17 @@ export default function App() {
                     otherwise the live board, which could be projected in
                     front of a class, so it stays a read-only display of
                     whatever's already been added. */}
-                {!isBuildMode && activeLesson?.assignments.length === 0 && extraAssignments.length === 0 && (
+                {!isBuildMode && activeLesson?.assignments.length === 0 && extraAssignments.every(a => a.hidden) && (
                   <div style={{ gridColumn: "1 / -1", color: "rgba(255,255,255,0.3)", fontSize: 13, padding: 20, textAlign: "center", fontStyle: "italic" }}>No assignments yet for this lesson.</div>
                 )}
                 {activeLesson?.assignments.map((a, ai) => (
                   <AssignmentThumb key={`base-${ai}`} {...a} />
                 ))}
-                {extraAssignments.map((a) => (
-                  <AssignmentThumb key={a.id} {...a} onRemove={isBuildMode ? () => handleRemoveAssignment(a.id) : undefined} onRename={isBuildMode ? (newLabel) => handleRenameAssignment(a.id, newLabel) : undefined} />
+                {extraAssignments.filter(a => isBuildMode || !a.hidden).map((a) => (
+                  <AssignmentThumb key={a.id} {...a}
+                    onRemove={isBuildMode ? () => handleRemoveAssignment(a.id) : undefined}
+                    onRename={isBuildMode ? (newLabel) => handleRenameAssignment(a.id, newLabel) : undefined}
+                    onToggleHidden={isBuildMode ? () => handleToggleAssignmentHidden(a.id) : undefined} />
                 ))}
                 {isBuildMode && (
                   <AddAssignmentCard
