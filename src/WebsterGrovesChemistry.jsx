@@ -2006,7 +2006,11 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
                             {lesson.title}
                           </div>
                         )}
-                        {isBuildMode && isBlankTeacher && renamingLesson?.lessonIdx !== li && (
+                        {/* Both halves of the identity, not just lessonIdx:
+                            lesson 0 of every unit shares an index, so renaming
+                            one made the controls vanish from the first lesson
+                            of every other unit too. */}
+                        {isBuildMode && isBlankTeacher && !(renamingLesson?.unitIdx === ui && renamingLesson?.lessonIdx === li) && (
                           /* Rename / hide / delete, in the same vocabulary as
                              the unit tabs and assignment cards. */
                           <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "0 7px", flexShrink: 0 }}>
