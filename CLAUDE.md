@@ -35,8 +35,7 @@ Rules:
   gitignored `.env.local`, and `npm install`, since worktrees do not
   share `node_modules`):
 
-      .\scripts
-ew-bot-worktree.ps1 <name>    # PowerShell (Jay)
+      .\scripts\new-bot-worktree.ps1 <name>    # PowerShell (Jay)
       ./scripts/new-bot-worktree.sh <name>      # bash (agents)
 
   Two scripts, same behaviour. PowerShell cannot run a `.sh` file -- it
