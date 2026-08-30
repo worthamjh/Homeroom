@@ -2071,11 +2071,19 @@ export default function App() {
           const raw = sessionStorage.getItem("homeroom-build-reload-restore");
           if (raw) {
             sessionStorage.removeItem("homeroom-build-reload-restore");
-            const v = resolveView(JSON.parse(raw), activeCurriculum);
-            // For blank-shell teachers the curriculum is empty here — stash parsed
-            // raw so the re-resolve effect below can use it once units load.
-            if (v.unitIdx !== null) return v;
-            // curriculum not loaded yet; put the key back for the re-resolve effect
+            const parsed = JSON.parse(raw);
+            const v = resolveView(parsed, activeCurriculum);
+            // Only treat the restore as satisfied if we got what was asked
+            // for. A blank-shell teacher's units can be present from the
+            // localStorage cache while that copy's lessons are still stale,
+            // so the unit resolves and the lesson does not -- and consuming
+            // the key on that partial match stranded the teacher on the unit
+            // page with nothing left for the effect below to retry with.
+            // That is the reported bug: saving slides landed on the unit
+            // instead of the lesson just edited.
+            if (v.unitIdx !== null && (!parsed.lessonTitle || v.lesson)) return v;
+            // Not resolved (or only half resolved) — put it back so the
+            // re-resolve effect can try again once the real units load.
             sessionStorage.setItem("homeroom-build-reload-restore", raw);
           }
         } catch {}
@@ -2102,19 +2110,36 @@ export default function App() {
   useEffect(() => {
     if (!isBlankTeacher) return;
     if (blankUnits.length === 0) return; // still loading or truly empty
-    if (activeUnitIdx !== null) return;  // already navigated somewhere
     let saved = null;
+    let pendingRaw = null;
     try {
-      const raw = sessionStorage.getItem("homeroom-build-reload-restore");
-      if (raw) { sessionStorage.removeItem("homeroom-build-reload-restore"); saved = JSON.parse(raw); }
+      pendingRaw = sessionStorage.getItem("homeroom-build-reload-restore");
+      if (pendingRaw) saved = JSON.parse(pendingRaw);
     } catch {}
-    if (!saved) saved = (isPreviewMode || isBuildMode) ? readCurrentView() : readViewFromUrlParams();
+    // A pending restore wins even when we have already landed somewhere.
+    // Build mode never calls writeCurrentView (see the effect above), so
+    // the first render -- which resolves against a still-empty curriculum
+    // -- falls back to readCurrentView(), i.e. whatever the REAL board tab
+    // was looking at, typically a unit page. That set activeUnitIdx, and
+    // the old `activeUnitIdx !== null` guard here then bailed out and
+    // threw the restore away: saving slides from the Drive picker reloaded
+    // Build onto a unit page instead of the lesson just edited.
+    if (!saved) {
+      if (activeUnitIdx !== null) return;  // already navigated somewhere
+      saved = (isPreviewMode || isBuildMode) ? readCurrentView() : readViewFromUrlParams();
+    }
     if (!saved) return;
     const view = resolveView(saved, blankUnits);
-    if (view.unitIdx !== null) {
-      setActiveUnitIdx(view.unitIdx);
-      setActiveLesson(view.lesson);
-    }
+    // Same partial-match rule as initialView: blankUnits can arrive with
+    // the unit present but its lessons not yet filled in, and applying
+    // that half-answer (unit, no lesson) while clearing the key left the
+    // teacher on the unit page for good. Hold the key until the lesson
+    // actually resolves; a later blankUnits update retries.
+    const fullyResolved = view.unitIdx !== null && (!saved.lessonTitle || view.lesson);
+    if (!fullyResolved) return;
+    if (pendingRaw) { try { sessionStorage.removeItem("homeroom-build-reload-restore"); } catch {} }
+    setActiveUnitIdx(view.unitIdx);
+    setActiveLesson(view.lesson);
   }, [blankUnits]); // eslint-disable-line react-hooks/exhaustive-deps
   // Only meaningful in preview mode — which category Settings currently
   // has expanded, so the matching region of the board can get the same
@@ -2574,8 +2599,16 @@ export default function App() {
     const report = () => {
       clearTimeout(timer);
       timer = setTimeout(() => {
+        // Measure the app root, NOT documentElement. The Google Picker
+        // appends its dialog and backdrop to document.body, outside
+        // #root, and those are tall -- reporting documentElement's
+        // scrollHeight let the picker balloon the iframe, which BuildPage
+        // dutifully grew to match. That is the slab of black space under
+        // the footer when a teacher opens "Browse Google Drive", and it
+        // outlived the picker because the SDK leaves DOM behind on close.
+        const root = document.getElementById("root");
         window.parent?.postMessage(
-          { type: "homeroom-build-content-height", height: document.documentElement.scrollHeight },
+          { type: "homeroom-build-content-height", height: (root || document.documentElement).scrollHeight },
           window.location.origin
         );
       }, 250);
