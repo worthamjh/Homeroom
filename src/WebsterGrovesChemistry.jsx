@@ -1196,6 +1196,32 @@ function BuildEditableSlot({ children, onChange, onRemove, label }) {
 // assignments — the hardcoded curriculum ones aren't deletable this way),
 // shows a small "×" in the corner on hover, matching the hover-reveal
 // pattern used elsewhere in Build mode.
+// One visual vocabulary for the three things a teacher does to anything in
+// Build mode, so the same verb looks the same wherever it appears (Jay:
+// "make those buttons standard across all applications"):
+//
+//   green eye    -> show / hide      red ×  -> remove      orange ✎ -> edit
+//
+// Circular, white hairline border, drop shadow. Size varies by host -- 26px
+// floating over an assignment thumbnail, 20px inside the tighter unit tab
+// pill -- but colour and shape never do.
+export function buildActionStyle(kind, { size = 26, active = false } = {}) {
+  const background =
+    kind === "remove" ? "rgba(210,40,40,0.92)" :
+    kind === "edit"   ? "rgba(232,119,34,0.92)" :
+    active            ? "rgba(40,40,40,0.92)" : "rgba(60,120,60,0.92)";
+  return {
+    width: size, height: size, borderRadius: "50%",
+    border: "2px solid rgba(255,255,255,0.4)",
+    background, color: "white",
+    fontSize: Math.round(size * 0.52),
+    lineHeight: 1, padding: 0, cursor: "pointer", flexShrink: 0,
+    display: "flex", alignItems: "center", justifyContent: "center",
+    boxShadow: "0 2px 6px rgba(0,0,0,0.4)",
+    transition: "opacity 0.15s, background 0.15s",
+  };
+}
+
 export function AssignmentThumb({ label, url, thumb, hidden, onRemove, onRename, onToggleHidden }) {
   const [renaming, setRenaming] = useState(false);
   const [draft, setDraft] = useState(label);
@@ -1276,7 +1302,7 @@ export function AssignmentThumb({ label, url, thumb, hidden, onRemove, onRename,
           className="aRename"
           onClick={startRename}
           title="Rename assignment"
-          style={{ position: "absolute", top: 4, right: onRemove ? 34 : 4, width: 26, height: 26, borderRadius: "50%", border: "2px solid rgba(255,255,255,0.4)", background: "rgba(232,119,34,0.92)", color: "white", fontSize: 14, lineHeight: "22px", textAlign: "center", padding: 0, cursor: "pointer", opacity: 0, transition: "opacity 0.15s", boxShadow: "0 2px 6px rgba(0,0,0,0.4)" }}
+          style={{ ...buildActionStyle("edit"), position: "absolute", top: 4, right: onRemove ? 34 : 4, opacity: 0 }}
         >
           ✎
         </button>
@@ -1286,7 +1312,7 @@ export function AssignmentThumb({ label, url, thumb, hidden, onRemove, onRename,
           className="aRemove"
           onClick={e => { e.preventDefault(); e.stopPropagation(); onRemove(); }}
           title="Remove assignment"
-          style={{ position: "absolute", top: 4, right: 4, width: 26, height: 26, borderRadius: "50%", border: "2px solid rgba(255,255,255,0.4)", background: "rgba(210,40,40,0.92)", color: "white", fontSize: 16, lineHeight: "22px", textAlign: "center", padding: 0, cursor: "pointer", opacity: 0, transition: "opacity 0.15s", boxShadow: "0 2px 6px rgba(0,0,0,0.4)" }}
+          style={{ ...buildActionStyle("remove"), position: "absolute", top: 4, right: 4, opacity: 0 }}
         >
           ×
         </button>
@@ -1654,23 +1680,13 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
   const [renamingLesson, setRenamingLesson] = useState(null); // { unitIdx, lessonIdx }
   const [renameLessonVal, setRenameLessonVal] = useState("");
   const [deletingLesson, setDeletingLesson] = useState(null); // { unitIdx, lessonIdx }
-  const [unitMenuOpen, setUnitMenuOpen] = useState(null); // unitIdx whose options menu is open
-
-  // The options menu used to close on the unit tab's own mouseLeave, which
-  // is what made it feel unresponsive: the lesson dropdown opens on hover
-  // over the same strip below the tab, so moving toward the menu could take
-  // the pointer out of the tab and close the menu before it was clicked.
-  // Close on a genuine outside click or Escape instead. Clicks landing
-  // inside the menu (or on the ⋮ that toggles it) are ignored here so the
-  // menu's own buttons still receive their click.
+  // Escape disarms a pending unit delete, same as moving the pointer off it.
   useEffect(() => {
-    if (unitMenuOpen === null) return undefined;
-    const onDown = (e) => { if (!e.target.closest?.("[data-unit-menu]")) setUnitMenuOpen(null); };
-    const onKey = (e) => { if (e.key === "Escape") setUnitMenuOpen(null); };
-    document.addEventListener("mousedown", onDown);
+    if (deletingUnit === null) return undefined;
+    const onKey = (e) => { if (e.key === "Escape") setDeletingUnit(null); };
     document.addEventListener("keydown", onKey);
-    return () => { document.removeEventListener("mousedown", onDown); document.removeEventListener("keydown", onKey); };
-  }, [unitMenuOpen]);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [deletingUnit]);
   const [dragLessonTitle, setDragLessonTitle] = useState(null); // { unitIdx, title } — stable key during drag
   const [draggingOrder, setDraggingOrder] = useState(null);    // { unitIdx, lessons } — live order while dragging
 
@@ -1815,54 +1831,42 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
                   >›</button>
                 )}
                 {isBuildMode && isBlankTeacher && (
-                  /* Hide/show — promoted out of the options menu and onto the
-                     tab itself. It was the one control teachers reach for
-                     often, and burying it behind ⋮ meant a click, a menu, and
-                     a second click to do something that should be one press
-                     (Jay: "not responsive... needs to be visible and easy to
-                     see"). Sized to match the reorder arrows so it reads as
-                     part of the same pill rather than a badge stuck on it.
-                     A hidden unit's button stays lit so it is obvious which
-                     units are hidden without opening anything. */
-                  <button
-                    title={u.hidden ? `Show "${u.unit}" on the board` : `Hide "${u.unit}" from the board`}
-                    onClick={e => { e.stopPropagation(); onToggleUnitVisibility(ui); }}
-                    style={{ background: u.hidden ? "rgba(0,0,0,0.28)" : "transparent", border: "none", cursor: "pointer", color: "var(--board-secondary-fg)", opacity: u.hidden ? 1 : 0.55, fontSize: 11, width: 22, flexShrink: 0, transition: "background 0.15s, opacity 0.15s" }}
-                    onMouseEnter={e => { e.currentTarget.style.background = "rgba(0,0,0,0.18)"; e.currentTarget.style.opacity = 1; }}
-                    onMouseLeave={e => { e.currentTarget.style.background = u.hidden ? "rgba(0,0,0,0.28)" : "transparent"; e.currentTarget.style.opacity = u.hidden ? 1 : 0.55; }}
-                  >{u.hidden ? "🚫" : "👁"}</button>
-                )}
-                {isBuildMode && isBlankTeacher && (
-                  <div style={{ position: "relative", flexShrink: 0 }}>
-                    {/* Unit options — click-to-open menu, replacing the old
-                        hover-triggered corner overlay that used to sit on
-                        top of (and cover) the move-right arrow and part of
-                        the unit name (Jay: "hide delete buttons get in the
-                        way"). Reserves a fixed 20px at all times, so nothing
-                        shifts or gets covered when it opens. */}
+                  /* Hide/show and delete, using the same vocabulary as the
+                     assignment cards (buildActionStyle): green eye to show
+                     or hide, red × to remove. Both sit right on the tab --
+                     the ⋮ menu they replaced meant a click, a menu, and a
+                     second click for one-press actions, and its dropdown
+                     was the thing Jay reported as unresponsive.
+                     A hidden unit's eye stays lit so it is obvious at a
+                     glance which units are hidden. */
+                  <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "0 6px 0 2px", flexShrink: 0 }}>
                     <button
-                      title="Unit options"
-                      data-unit-menu=""
-                      onClick={e => { e.stopPropagation(); setUnitMenuOpen(prev => prev === ui ? null : ui); setDeletingUnit(null); }}
-                      style={{ background: unitMenuOpen === ui ? "rgba(0,0,0,0.18)" : "transparent", border: "none", cursor: "pointer", color: "var(--board-secondary-fg)", opacity: unitMenuOpen === ui ? 1 : 0.55, fontSize: 14, width: 20, height: "100%", borderRadius: "0 6px 6px 0", transition: "background 0.15s, opacity 0.15s" }}
-                      onMouseEnter={e => { e.currentTarget.style.background = "rgba(0,0,0,0.18)"; e.currentTarget.style.opacity = 1; }}
-                      onMouseLeave={e => { if (unitMenuOpen !== ui) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.opacity = 0.55; } }}
-                    >⋮</button>
-                    {unitMenuOpen === ui && (
-                      <div data-unit-menu="" style={{ position: "absolute", top: "100%", right: 0, marginTop: 4, background: "#1a1a1a", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 6, overflow: "hidden", zIndex: 6000, minWidth: 130, boxShadow: "0 6px 18px rgba(0,0,0,0.45)", display: "flex", flexDirection: "column" }}>
-                        {/* Delete-only now that hide/show is a button on the tab. */}
-                        {deletingUnit === ui ? (
-                          <>
-                            <button onClick={e => { e.stopPropagation(); onDeleteUnit(ui); setDeletingUnit(null); setUnitMenuOpen(null); }} style={{ background: "transparent", border: "none", borderBottom: "1px solid rgba(255,255,255,0.1)", cursor: "pointer", color: "#ff6868", fontWeight: 600, fontSize: 12, fontFamily: "Lato, sans-serif", padding: "8px 12px", textAlign: "left" }} onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.06)"; }} onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}>Confirm delete</button>
-                            <button onClick={e => { e.stopPropagation(); setDeletingUnit(null); }} style={{ background: "transparent", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.7)", fontSize: 12, fontFamily: "Lato, sans-serif", padding: "8px 12px", textAlign: "left" }} onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.06)"; }} onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}>Cancel</button>
-                          </>
-                        ) : (
-                          <>
-                            
-                            <button onClick={e => { e.stopPropagation(); setDeletingUnit(ui); }} style={{ background: "transparent", border: "none", cursor: "pointer", color: "#ff8a8a", fontSize: 12, fontFamily: "Lato, sans-serif", padding: "8px 12px", textAlign: "left" }} onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.06)"; }} onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}>Delete unit</button>
-                          </>
-                        )}
-                      </div>
+                      title={u.hidden ? `Show "${u.unit}" on the board` : `Hide "${u.unit}" from the board`}
+                      onClick={e => { e.stopPropagation(); onToggleUnitVisibility(ui); }}
+                      style={{ ...buildActionStyle("hide", { size: 20, active: u.hidden }), opacity: u.hidden ? 1 : 0.75 }}
+                      onMouseEnter={e => { e.currentTarget.style.opacity = 1; }}
+                      onMouseLeave={e => { e.currentTarget.style.opacity = u.hidden ? 1 : 0.75; }}
+                    >{u.hidden ? "🚫" : "👁"}</button>
+
+                    {/* Two-step, unlike the assignment ×: deleting a unit
+                        takes every lesson in it, so one stray click should
+                        not do it. Arming widens into a "Delete?" pill; moving
+                        the pointer away disarms. */}
+                    {deletingUnit === ui ? (
+                      <button
+                        title={`Delete "${u.unit}" and all of its lessons`}
+                        onClick={e => { e.stopPropagation(); onDeleteUnit(ui); setDeletingUnit(null); }}
+                        onMouseLeave={() => setDeletingUnit(null)}
+                        style={{ ...buildActionStyle("remove", { size: 20 }), width: "auto", borderRadius: 10, padding: "0 8px", fontSize: 10, fontFamily: "Lato, sans-serif", letterSpacing: 0.3 }}
+                      >Delete?</button>
+                    ) : (
+                      <button
+                        title={`Delete "${u.unit}"`}
+                        onClick={e => { e.stopPropagation(); setDeletingUnit(ui); }}
+                        style={{ ...buildActionStyle("remove", { size: 20 }), opacity: 0.75 }}
+                        onMouseEnter={e => { e.currentTarget.style.opacity = 1; }}
+                        onMouseLeave={e => { e.currentTarget.style.opacity = 0.75; }}
+                      >×</button>
                     )}
                   </div>
                 )}
