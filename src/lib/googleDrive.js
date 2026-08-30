@@ -648,6 +648,7 @@ export async function createKamiBellRingerDoc({ title, templateId } = {}) {
   // re-picked elsewhere). Losing the layout is a far smaller problem than
   // a teacher being unable to make a bell ringer at all.
   let file = null;
+  let templateError = null;
   if (templateId) {
     try {
       const copyRes = await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(templateId)}/copy`, {
@@ -656,9 +657,14 @@ export async function createKamiBellRingerDoc({ title, templateId } = {}) {
         body: JSON.stringify({ name, ...(parents.length ? { parents } : {}) }),
       });
       if (copyRes.ok) file = await copyRes.json();
-      else console.warn("[bellRinger] template copy failed, falling back to a blank doc", copyRes.status);
+      else {
+        const detail = await copyRes.text().catch(() => "");
+        templateError = `Template copy failed (${copyRes.status}). ${detail.slice(0, 300)}`;
+        console.warn("[bellRinger]", templateError);
+      }
     } catch (err) {
-      console.warn("[bellRinger] template copy threw, falling back to a blank doc", err);
+      templateError = `Template copy failed: ${err?.message || err}`;
+      console.warn("[bellRinger]", templateError);
     }
   }
 
@@ -693,5 +699,9 @@ export async function createKamiBellRingerDoc({ title, templateId } = {}) {
     JSON.stringify({ id: file.id, action: "open", from: "google-drive" })
   )}`;
 
-  return { kamiUrl, fileId: file.id, name: file.name };
+  // templateError is non-null when the copy failed and this fell back to a
+  // blank doc. Returned rather than swallowed so the UI can say so: a
+  // silent fallback looks exactly like the template not working at all,
+  // with nothing on screen to explain why.
+  return { kamiUrl, fileId: file.id, name: file.name, templateError };
 }

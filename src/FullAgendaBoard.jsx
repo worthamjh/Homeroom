@@ -316,7 +316,10 @@ function KamiUrlInput({ kamiUrl, onSaveKamiUrl, lessonLabel, surface = DEFAULT_S
     try {
       const dateStr = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
       const title = lessonLabel ? `Bell Ringer — ${lessonLabel} — ${dateStr}` : undefined;
-      const { kamiUrl: newUrl } = await createKamiBellRingerDoc({ title, templateId });
+      const { kamiUrl: newUrl, templateError } = await createKamiBellRingerDoc({ title, templateId });
+      // The doc was still made, just without the template -- say so rather
+      // than handing back a blank page with no explanation.
+      if (templateError) setCreateError(templateError);
       onSaveKamiUrl(newUrl);
     } catch (err) {
       setCreateError(err.message || "Couldn't create the file.");
