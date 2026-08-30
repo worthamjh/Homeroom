@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import ChalkboardBoardRow, { toGoalPanels } from "./ChalkboardBoardRow";
 import { useFullAgendaFields, ObjectivesChecklist, EditableField, ResetBoardButton } from "./FullAgendaBoard";
-import { fetchExtraAssignments, createExtraAssignment, deleteExtraAssignment } from "./lib/extraAssignments";
+import { fetchExtraAssignments, createExtraAssignment, deleteExtraAssignment, updateExtraAssignment } from "./lib/extraAssignments";
 import { uploadAssignmentPdf } from "./lib/cloudinary";
 import { googleDriveConfigured, ensureGoogleScriptsLoaded, pickGoogleSlidesEmbed, pickGoogleDriveAssignmentFile, pickGoogleCalendar } from "./lib/googleDrive";
 import { fetchProfile } from "./lib/profileApi";
