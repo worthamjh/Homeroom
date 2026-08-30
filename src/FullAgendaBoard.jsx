@@ -246,13 +246,13 @@ export const FULL_AGENDA_FIELD_META = {
   // ask: agenda items should be individually clickable to check off, and
   // the text itself shouldn't be selectable the way a plain paragraph is.
   agenda: { label: "Agenda", placeholder: "Add an agenda item...", rows: 5, itemized: true },
-  // No placeholder on purpose (Jay: remove the "click to add" line). The
-  // body is still click-to-type -- it keeps its minHeight and hover
-  // highlight, so there is a target -- but attaching a doc is now the
-  // advertised path, via the button below. Note this makes the
-  // type-to-attach behaviour in useAutoCreateKamiDoc undiscoverable to a
-  // teacher who has not been shown it.
-  bellRinger: { label: "Bell Ringer", placeholder: "", rows: 2 },
+  // docOnly: the Bell Ringer has no text body at all -- the attached Kami
+  // doc IS the bell ringer (Jay: "the doc/pdf is the bellringer"). Section
+  // renders its heading and the doc controls and nothing in between, so
+  // there is no empty white box sitting on the board waiting to be typed
+  // into. Any bellRinger TEXT saved before this still lives in the record;
+  // it just is not shown or editable here any more.
+  bellRinger: { label: "Bell Ringer", placeholder: "", rows: 2, docOnly: true },
   homeLearning: { label: "Home Learning", placeholder: "Click to add homework / home learning...", rows: 2 },
   // Editable Learning Goals -- for lessons with no curriculum-authored
   // goals at all (see useEditableLearningGoals in WebsterGrovesChemistry
@@ -402,7 +402,7 @@ function KamiUrlInput({ kamiUrl, onSaveKamiUrl, lessonLabel, surface = DEFAULT_S
   );
 }
 
-function Section({ label, value, placeholder, editing, onStartEdit, onSave, rows = 3, minHeight, surface, itemized, checkedLines, onToggleLine, quickAddOptions, interactive = true, kamiUrl, onSaveKamiUrl, onKamiOpen, lessonLabel }) {
+function Section({ label, value, placeholder, editing, onStartEdit, onSave, rows = 3, minHeight, surface, itemized, checkedLines, onToggleLine, quickAddOptions, interactive = true, kamiUrl, onSaveKamiUrl, onKamiOpen, lessonLabel, docOnly = false }) {
   const ref = useRef(null);
   const [draft, setDraft] = useState(value);
 
@@ -559,7 +559,7 @@ function Section({ label, value, placeholder, editing, onStartEdit, onSave, rows
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
       <SectionHeader label={label} surface={surface} onClick={!interactive && onKamiOpen && kamiUrl ? onKamiOpen : undefined} />
-      {itemized ? (
+      {docOnly ? null : itemized ? (
         editable ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
             {(draggingItems ?? items.map((text, i) => ({ id: i, text }))).map((item, displayIdx) => {
@@ -854,6 +854,7 @@ export function FullAgendaFields({
       onToggleLine={key === "agenda" ? onToggleAgendaLine : undefined}
       quickAddOptions={interactive && key === "agenda" ? agendaQuickAddOptions : undefined}
       interactive={interactive}
+      docOnly={opts.docOnly}
     />
   );
 
@@ -958,6 +959,7 @@ export function EditableField({ fieldKey, content, editingKey, onStartEdit, onSa
       onSaveKamiUrl={onSaveKamiUrl}
       onKamiOpen={onKamiOpen}
       lessonLabel={lessonLabel}
+      docOnly={meta.docOnly}
     />
   );
 }
