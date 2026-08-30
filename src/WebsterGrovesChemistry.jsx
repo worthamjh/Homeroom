@@ -1302,8 +1302,12 @@ export function AddAssignmentCard({ open, busy, error, onOpen, onCancel, onSubmi
     // pickGoogleDriveAssignmentFile() returns. Instead we:
     //   1. Call onDrivePick (saves to DB without touching React state)
     //   2. Send postMessage → parent BuildPage reloads the iframe cleanly
+    // Declared outside the try so the catch below can still read it —
+    // its whole job is deciding whether to reload, and a try-scoped
+    // `const` would make that a ReferenceError instead.
+    let result = null;
     try {
-      const result = await pickGoogleDriveAssignmentFile();
+      result = await pickGoogleDriveAssignmentFile();
       if (result) {
         const assignmentLabel = label.trim() || result.name;
         if (onDrivePick) {
@@ -1325,7 +1329,7 @@ export function AddAssignmentCard({ open, busy, error, onOpen, onCancel, onSubmi
       // corrupted state; the assignment save may not have completed
       // but the board will at least render again.
       console.error("Drive assignment pick failed:", err);
-      if (!result.noReload) window.location.reload();
+      if (!result?.noReload) window.location.reload();
     }
   };
 
