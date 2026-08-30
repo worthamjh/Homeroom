@@ -325,20 +325,16 @@ export default function BuildPage() {
 
   return (
     <div style={{ ...themeVars, minHeight: "100vh", background: "#141414", fontFamily: "Lato, sans-serif" }}>
-      {/* Deliberately compact: every pixel this bar costs is a pixel off
-          the live board below, which is the thing a teacher is actually
-          here to look at. The old version carried a 20px title with the
-          raw teacher id appended and a four-sentence paragraph; the id
-          was debug output that meant nothing to a teacher, and the
-          paragraph said at length what the board itself demonstrates on
-          sight. Keep any additions here to one short line. */}
-      <div style={{ background: "var(--board-primary)", borderBottom: "2px solid var(--board-secondary)", padding: "7px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
-        <div style={{ display: "flex", alignItems: "baseline", gap: 12, minWidth: 0 }}>
+      {/* Title and controls only. Every pixel this bar costs is a pixel off
+          the live board below, which is the thing a teacher is here to look
+          at, and the explanatory text that used to sit here described what
+          the board demonstrates on sight. It went from four sentences to
+          one line to none. Don't put prose back -- if something genuinely
+          needs explaining, it belongs next to the control it explains. */}
+      <div style={{ background: "var(--board-primary)", borderBottom: "2px solid var(--board-secondary)", padding: "5px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", minWidth: 0 }}>
           <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 16, color: "var(--board-primary-fg)", letterSpacing: 1, flexShrink: 0 }}>
             🛠 Build
-          </div>
-          <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            Your real board — click a "+" to add content, or use the panel at right to restyle. Saves immediately; never project this page.
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 20, flexShrink: 0 }}>
