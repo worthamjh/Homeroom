@@ -2167,7 +2167,7 @@ export default function App() {
   const [wallColorKey] = useScopedSetting(WALL_COLOR_STORAGE_KEY, DEFAULT_WALL_COLOR_BY_TYPE[DEFAULT_WALL_TYPE], null);
   const [boardSurfaceKey] = useScopedSetting(BOARD_SURFACE_STORAGE_KEY, DEFAULT_BOARD_SURFACE, k => !!BOARD_SURFACES[k]);
   const [slidingBoardsEnabled] = useScopedSetting(SLIDING_BOARDS_ENABLED_KEY, DEFAULT_SLIDING_BOARDS_ENABLED, k => k === "true" || k === "false");
-  const [slidingBoardsCount] = useScopedSetting(SLIDING_BOARDS_COUNT_KEY, DEFAULT_SLIDING_BOARDS_COUNT, k => /^[2-9]$/.test(k));
+  const [slidingBoardsCount] = useScopedSetting(SLIDING_BOARDS_COUNT_KEY, DEFAULT_SLIDING_BOARDS_COUNT, k => /^[2-5]$/.test(k));
 
   useEffect(() => {
     window.localStorage.setItem(scopedKey(GOALS_STORAGE_KEY), JSON.stringify(checkedGoals));
@@ -2907,12 +2907,20 @@ export default function App() {
     scopedKey(`fullAgenda:${lessonKey}`), flatMongoKey
   );
 
-  // Per-panel hooks — one per possible panel slot (always 4, unconditional,
-  // so hooks are never called conditionally). Each panel's Agenda / Bell
-  // Ringer / Home Learning / Learning Goals is stored under its own key,
-  // so sliding board 1 and board 2 always carry their own independent
-  // content regardless of which panel is currently in front.
-  const MAX_PANELS = 4;
+  // Per-panel hooks — one per possible panel slot, always the same number
+  // and unconditional, so hooks are never called conditionally. Each
+  // panel's Agenda / Bell Ringer / Home Learning / Learning Goals is
+  // stored under its own key, so sliding board 1 and board 2 always carry
+  // their own independent content regardless of which panel is in front.
+  //
+  // MAX_PANELS must be >= the largest count SLIDING_BOARDS_COUNT_OPTIONS
+  // offers (boardConfig.js), because the lookups below clamp with
+  // Math.min(panelIdx, MAX_PANELS - 1). This was 4 while the settings
+  // panel offered 5: board 5 clamped onto board 4's record, so the two
+  // shared one set of Learning Goals / Agenda and editing either showed
+  // up on both (Jay: "added to slide 4 it duplicated those to slide 5").
+  // If a new option is added there, add a matching hook here.
+  const MAX_PANELS = 5;
   const slidingPanelMongoBase = activeLesson && activeUnitIdx != null
     ? { teacherId: activeTeacherId, unitIdx: activeUnitIdx, lessonTitle: activeLesson.title }
     : null;
@@ -2920,7 +2928,22 @@ export default function App() {
   const p1Fields = useFullAgendaFields(scopedKey(`fullAgenda:${lessonKey}:panel:1`), slidingPanelMongoBase ? { ...slidingPanelMongoBase, panelIdx: 1 } : null);
   const p2Fields = useFullAgendaFields(scopedKey(`fullAgenda:${lessonKey}:panel:2`), slidingPanelMongoBase ? { ...slidingPanelMongoBase, panelIdx: 2 } : null);
   const p3Fields = useFullAgendaFields(scopedKey(`fullAgenda:${lessonKey}:panel:3`), slidingPanelMongoBase ? { ...slidingPanelMongoBase, panelIdx: 3 } : null);
-  const allPanelFields = [p0Fields, p1Fields, p2Fields, p3Fields];
+  const p4Fields = useFullAgendaFields(scopedKey(`fullAgenda:${lessonKey}:panel:4`), slidingPanelMongoBase ? { ...slidingPanelMongoBase, panelIdx: 4 } : null);
+  const allPanelFields = [p0Fields, p1Fields, p2Fields, p3Fields, p4Fields];
+
+  // Every panel lookup goes through here rather than clamping inline, so
+  // that running off the end of allPanelFields SAYS SO instead of silently
+  // aliasing two boards onto one record -- the exact failure mode of the
+  // old MAX_PANELS = 4 (see its comment above). A lesson may author its
+  // own goalPanels (toGoalPanels) with no regard for the setting's range,
+  // so this can still be hit by curriculum data; the clamp keeps the board
+  // rendering, and the warning says a hook is missing.
+  const panelFieldsAt = (panelIdx) => {
+    if (panelIdx >= MAX_PANELS && import.meta.env.DEV) {
+      console.warn(`[Homeroom] Board ${panelIdx + 1} has no content slot of its own (MAX_PANELS=${MAX_PANELS}) and is sharing board ${MAX_PANELS}'s. Add a p${MAX_PANELS}Fields hook.`);
+    }
+    return allPanelFields[Math.min(panelIdx, MAX_PANELS - 1)];
+  };
 
   // Merge a panel's fields with the unit-level Essential Question.
   const mergePanelWithUnit = (pf) => ({
@@ -2942,7 +2965,7 @@ export default function App() {
   // onKamiOpen, below) this reads that panel's link instead of always
   // falling back to the flat layout's fullAgendaFields.
   const kamiOverlayUrl = (kamiSourcePanelIdx != null
-    ? mergePanelWithUnit(allPanelFields[Math.min(kamiSourcePanelIdx, MAX_PANELS - 1)]).content.bellRingerKamiUrl
+    ? mergePanelWithUnit(panelFieldsAt(kamiSourcePanelIdx)).content.bellRingerKamiUrl
     : fullAgendaFields.content.bellRingerKamiUrl) || "";
 
   const goHome = () => { setActiveUnitIdx(null); setActiveLesson(null); setOpenDropdown(null); };
@@ -3066,14 +3089,14 @@ export default function App() {
                   // sequence regardless of what's been dragged where.
                   contentOrder={boardContentOrder}
                   renderReset={anyExtraContentOn ? (isFront, panelIdx) => {
-                    const pf = mergePanelWithUnit(allPanelFields[Math.min(panelIdx, MAX_PANELS - 1)]);
+                    const pf = mergePanelWithUnit(panelFieldsAt(panelIdx));
                     return <ResetBoardButton onReset={pf.resetToDefaults} surface={surface} interactive={isFront && isBuildMode} />;
                   } : null}
                   extraContent={anyExtraContentOn ? (key, isFront, panelIdx) => {
                     // Each panel bakes in its OWN content, keyed by panelIdx,
                     // so board 1's text stays on board 1 while it slides away
                     // and board 2's own content is revealed underneath.
-                    const pf = mergePanelWithUnit(allPanelFields[Math.min(panelIdx, MAX_PANELS - 1)]);
+                    const pf = mergePanelWithUnit(panelFieldsAt(panelIdx));
                     if (key === "learningGoals") {
                       if (!useEditableLearningGoals || !learningGoalsIsOn) return null;
                       return (
