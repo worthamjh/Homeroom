@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import ChalkboardBoardRow, { toGoalPanels } from "./ChalkboardBoardRow";
 import { useFullAgendaFields, ObjectivesChecklist, EditableField, ResetBoardButton } from "./FullAgendaBoard";
-import { fetchExtraAssignments, createExtraAssignment, deleteExtraAssignment, updateExtraAssignment } from "./lib/extraAssignments";
+import { fetchExtraAssignments, createExtraAssignment, deleteExtraAssignment, updateExtraAssignment, reorderExtraAssignments } from "./lib/extraAssignments";
 import { uploadAssignmentPdf } from "./lib/cloudinary";
 import { googleDriveConfigured, ensureGoogleScriptsLoaded, pickGoogleSlidesEmbed, pickGoogleDriveAssignmentFile, pickGoogleCalendar } from "./lib/googleDrive";
 import { fetchProfile } from "./lib/profileApi";
@@ -1207,9 +1207,12 @@ function BuildEditableSlot({ children, onChange, onRemove, label }) {
 // pill -- but colour and shape never do.
 export function buildActionStyle(kind, { size = 26, active = false } = {}) {
   const background =
-    kind === "remove" ? "rgba(210,40,40,0.92)" :
-    kind === "edit"   ? "rgba(232,119,34,0.92)" :
-    active            ? "rgba(40,40,40,0.92)" : "rgba(60,120,60,0.92)";
+    kind === "remove"  ? "rgba(210,40,40,0.92)" :
+    kind === "edit"    ? "rgba(232,119,34,0.92)" :
+    // Grey on purpose: reordering is not one of the three coloured verbs,
+    // it is a grip. Colouring it would imply it does something to the item.
+    kind === "reorder" ? "rgba(50,50,50,0.92)" :
+    active             ? "rgba(40,40,40,0.92)" : "rgba(60,120,60,0.92)";
   return {
     width: size, height: size, borderRadius: "50%",
     border: "2px solid rgba(255,255,255,0.4)",
@@ -1222,7 +1225,7 @@ export function buildActionStyle(kind, { size = 26, active = false } = {}) {
   };
 }
 
-export function AssignmentThumb({ label, url, thumb, hidden, onRemove, onRename, onToggleHidden }) {
+export function AssignmentThumb({ label, url, thumb, hidden, onRemove, onRename, onToggleHidden, dragProps }) {
   const [renaming, setRenaming] = useState(false);
   const [draft, setDraft] = useState(label);
   const inputRef = useRef(null);
@@ -1268,12 +1271,13 @@ export function AssignmentThumb({ label, url, thumb, hidden, onRemove, onRename,
 
   return (
     <a href={url} target="_blank" rel="noreferrer"
+      {...(dragProps || {})}
       style={{ background: "white", borderRadius: 3, overflow: "hidden", cursor: "pointer", position: "relative", border: "2px solid transparent", transition: "all 0.15s", aspectRatio: "8.5/11", textDecoration: "none", display: "block",
         // Only ever dimmed in Build mode: the live board filters hidden
         // assignments out entirely rather than showing a faded one.
         opacity: hidden ? 0.4 : 1 }}
-      onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--board-secondary)"; e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.querySelector(".aLabel").style.opacity = 1; const r = e.currentTarget.querySelector(".aRemove"); if (r) r.style.opacity = 1; const rn = e.currentTarget.querySelector(".aRename"); if (rn) rn.style.opacity = 1; const h = e.currentTarget.querySelector(".aHide"); if (h) h.style.opacity = 1; }}
-      onMouseLeave={e => { e.currentTarget.style.borderColor = "transparent"; e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.querySelector(".aLabel").style.opacity = 0; const r = e.currentTarget.querySelector(".aRemove"); if (r) r.style.opacity = 0; const rn = e.currentTarget.querySelector(".aRename"); if (rn) rn.style.opacity = 0; const h = e.currentTarget.querySelector(".aHide"); if (h && !hidden) h.style.opacity = 0; }}
+      onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--board-secondary)"; e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.querySelector(".aLabel").style.opacity = 1; const r = e.currentTarget.querySelector(".aRemove"); if (r) r.style.opacity = 1; const rn = e.currentTarget.querySelector(".aRename"); if (rn) rn.style.opacity = 1; const h = e.currentTarget.querySelector(".aHide"); if (h) h.style.opacity = 1; const g = e.currentTarget.querySelector(".aDrag"); if (g) g.style.opacity = 1; }}
+      onMouseLeave={e => { e.currentTarget.style.borderColor = "transparent"; e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.querySelector(".aLabel").style.opacity = 0; const r = e.currentTarget.querySelector(".aRemove"); if (r) r.style.opacity = 0; const rn = e.currentTarget.querySelector(".aRename"); if (rn) rn.style.opacity = 0; const h = e.currentTarget.querySelector(".aHide"); if (h && !hidden) h.style.opacity = 0; const g = e.currentTarget.querySelector(".aDrag"); if (g) g.style.opacity = 0; }}
     >
       {thumb ? (
         <img src={thumb} alt={label} style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "top", display: "block" }} />
@@ -1283,6 +1287,16 @@ export function AssignmentThumb({ label, url, thumb, hidden, onRemove, onRename,
           <div style={{ height: 4 }} />
           {[80, 60, 95, 70, 55, 90].map((w, i) => <div key={i} style={{ height: 3, background: "#ccc", borderRadius: 1, width: `${w}%` }} />)}
         </div>
+      )}
+      {dragProps && (
+        <span
+          className="aDrag"
+          title="Drag to reorder"
+          aria-hidden="true"
+          style={{ ...buildActionStyle("reorder", { size: 22 }), position: "absolute", bottom: 26, left: 4, cursor: "grab", opacity: 0, fontSize: 12 }}
+        >
+          ☰
+        </span>
       )}
       {onToggleHidden && (
         <button
@@ -2553,6 +2567,53 @@ export default function App() {
   // Hidden is stored on the assignment document, so hiding one from either
   // screen hides it on both -- and on the live board, which filters them
   // out at render.
+  // Drag-to-reorder for the lesson page's assignment grid. Mirrors the
+  // lesson reorder in TopBar: a live copy of the list is shuffled while the
+  // pointer moves so the teacher sees the result before dropping, and only
+  // the drop writes anything.
+  const [dragAssignmentId, setDragAssignmentId] = useState(null);
+  const [dragAssignmentOrder, setDragAssignmentOrder] = useState(null);
+
+  const assignmentDragProps = (a, list) => ({
+    draggable: true,
+    onDragStart: e => { e.stopPropagation(); setDragAssignmentId(a.id); setDragAssignmentOrder(list); e.dataTransfer.effectAllowed = "move"; },
+    onDragOver: e => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      if (!dragAssignmentId || !dragAssignmentOrder || a.id === dragAssignmentId) return;
+      const next = [...dragAssignmentOrder];
+      const from = next.findIndex(x => x.id === dragAssignmentId);
+      const to = next.findIndex(x => x.id === a.id);
+      if (from === -1 || to === -1) return;
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      setDragAssignmentOrder(next);
+    },
+    onDrop: e => { e.preventDefault(); commitAssignmentOrder(); },
+    // Covers dropping outside any card, which fires dragend but never drop.
+    onDragEnd: () => commitAssignmentOrder(),
+  });
+
+  const commitAssignmentOrder = async () => {
+    const finalOrder = dragAssignmentOrder;
+    setDragAssignmentId(null);
+    setDragAssignmentOrder(null);
+    if (!finalOrder) return;
+    const previous = extraAssignments;
+    setExtraAssignments(finalOrder);
+    // Keep the unit overview's copy in step so both screens agree before
+    // either refetches -- same reason renames update both.
+    if (activeLesson?.title) {
+      setUnitExtraAssignments(prev => (prev[activeLesson.title] ? { ...prev, [activeLesson.title]: finalOrder } : prev));
+    }
+    try {
+      await reorderExtraAssignments(finalOrder.map(x => x.id));
+    } catch (err) {
+      console.error("Failed to save assignment order", err);
+      setExtraAssignments(previous);
+    }
+  };
+
   const handleToggleAssignmentHidden = async (id) => {
     const current = findAssignmentById(id);
     if (!current) return;
@@ -3394,11 +3455,12 @@ export default function App() {
                 {activeLesson?.assignments.map((a, ai) => (
                   <AssignmentThumb key={`base-${ai}`} {...a} />
                 ))}
-                {extraAssignments.filter(a => isBuildMode || !a.hidden).map((a) => (
+                {(dragAssignmentOrder ?? extraAssignments).filter(a => isBuildMode || !a.hidden).map((a) => (
                   <AssignmentThumb key={a.id} {...a}
                     onRemove={isBuildMode ? () => handleRemoveAssignment(a.id) : undefined}
                     onRename={isBuildMode ? (newLabel) => handleRenameAssignment(a.id, newLabel) : undefined}
-                    onToggleHidden={isBuildMode ? () => handleToggleAssignmentHidden(a.id) : undefined} />
+                    onToggleHidden={isBuildMode ? () => handleToggleAssignmentHidden(a.id) : undefined}
+                    dragProps={isBuildMode ? assignmentDragProps(a, dragAssignmentOrder ?? extraAssignments) : undefined} />
                 ))}
                 {isBuildMode && (
                   <AddAssignmentCard

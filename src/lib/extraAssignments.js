@@ -50,3 +50,16 @@ export async function updateExtraAssignment(id, { label, hidden } = {}) {
   if (!res.ok) throw new Error(`Failed to update assignment (${res.status})`);
   return res.json();
 }
+
+// Persist a whole new order in one request -- see the PUT branch in
+// api/assignments.js. `ids` is every assignment in the list, in the order
+// they should appear.
+export async function reorderExtraAssignments(ids) {
+  const res = await fetch("/api/assignments", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ids, teacherId: getActiveTeacherId() }),
+  });
+  if (!res.ok) throw new Error(`Failed to reorder assignments (${res.status})`);
+  return res.json();
+}

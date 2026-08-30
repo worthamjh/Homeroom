@@ -65,7 +65,12 @@ export default async function handler(req, res) {
       const col = await getCollection();
       const docs = await col
         .find({ teacherId: teacherId ? String(teacherId) : DEFAULT_TEACHER_ID, unitIdx: Number(unitIdx), lessonTitle: String(lessonTitle) })
-        .sort({ createdAt: 1 })
+        // `order` is what drag-to-reorder writes. Documents created before
+        // it existed have none; Mongo sorts missing ahead of numbers, so
+        // they stay in their original createdAt sequence at the front until
+        // a teacher drags something, which stamps an explicit order on all
+        // of them at once.
+        .sort({ order: 1, createdAt: 1 })
         .toArray();
       res.status(200).json(docs.map(toClientShape));
       return;
@@ -89,6 +94,9 @@ export default async function handler(req, res) {
         // hiding one hides it everywhere it appears -- the lesson page and
         // the unit overview both read these same docs.
         hidden: false,
+        // Timestamp rather than a count: no extra query, and it keeps new
+        // assignments landing at the end where a teacher expects them.
+        order: Date.now(),
         createdAt: new Date(),
       };
       const col = await getCollection();
@@ -119,6 +127,31 @@ export default async function handler(req, res) {
       );
       if (!result) { res.status(404).json({ error: "Assignment not found" }); return; }
       res.status(200).json(toClientShape(result));
+      return;
+    }
+
+    // Bulk reorder: one request for the whole list, rather than a PATCH per
+    // card. The client sends the ids in their new order and each gets its
+    // index stamped as `order`, so a drag is atomic from the UI's point of
+    // view and cannot leave a half-applied sequence behind.
+    if (req.method === "PUT") {
+      const { ids, teacherId } = req.body || {};
+      if (!Array.isArray(ids) || ids.length === 0) {
+        res.status(400).json({ error: "ids (non-empty array) is required" });
+        return;
+      }
+      const { ObjectId } = await import("mongodb");
+      const col = await getCollection();
+      const scopedTeacher = teacherId ? String(teacherId) : DEFAULT_TEACHER_ID;
+      await col.bulkWrite(ids.map((id, index) => ({
+        updateOne: {
+          // teacherId in the filter so a stray id from another teacher's
+          // board cannot be reordered through this endpoint.
+          filter: { _id: new ObjectId(String(id)), teacherId: scopedTeacher },
+          update: { $set: { order: index } },
+        },
+      })));
+      res.status(200).json({ ok: true, count: ids.length });
       return;
     }
 
@@ -153,5 +186,6 @@ function toClientShape(doc) {
     // Documents created before the hide/show toggle existed have no
     // `hidden` field at all -- treat those as visible.
     hidden: !!doc.hidden,
+    order: typeof doc.order === "number" ? doc.order : null,
   };
 }
