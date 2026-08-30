@@ -1995,6 +1995,17 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
 // `lessons` (which shifts if lessons are ever reordered). unitIdx null or
 // lessonTitle null both mean "no lesson" — a unit overview only sets
 // unitIdx, the homepage sets neither.
+// Where this tab's Build/Preview page currently is. Tab-local by design --
+// see the effect that writes it.
+const BUILD_VIEW_STORAGE_KEY = "homeroom-build-view";
+
+function readBuildView() {
+  try {
+    const raw = sessionStorage.getItem(BUILD_VIEW_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
 function resolveView(view, curriculumData) {
   if (!view || view.unitIdx == null) return { unitIdx: null, lesson: null };
   const unit = curriculumData[view.unitIdx];
@@ -2118,7 +2129,7 @@ export default function App() {
             sessionStorage.setItem("homeroom-build-reload-restore", raw);
           }
         } catch {}
-        return resolveView(readCurrentView(), activeCurriculum);
+        return resolveView(readBuildView() || readCurrentView(), activeCurriculum);
       })()
     : resolveView(readViewFromUrlParams(), activeCurriculum);
   const initialView = initialViewRef.current;
@@ -2158,7 +2169,7 @@ export default function App() {
     // Build onto a unit page instead of the lesson just edited.
     if (!saved) {
       if (activeUnitIdx !== null) return;  // already navigated somewhere
-      saved = (isPreviewMode || isBuildMode) ? readCurrentView() : readViewFromUrlParams();
+      saved = (isPreviewMode || isBuildMode) ? (readBuildView() || readCurrentView()) : readViewFromUrlParams();
     }
     if (!saved) return;
     const view = resolveView(saved, blankUnits);
@@ -2286,6 +2297,33 @@ export default function App() {
       unitIdx: activeUnitIdx,
       lessonTitle: activeLesson?.title || null,
     }, window.location.origin);
+  }, [activeUnitIdx, activeLesson]);
+
+  // Build/Preview keep a tab-local record of where they are, so ANY reload
+  // comes back to the same lesson.
+  //
+  // Several controls reload the page after talking to Google (slides,
+  // calendar, and assignments all do it, to escape the Picker SDK's DOM
+  // cleanup). Only the slides handler remembered to stash the view first,
+  // so adding an assignment or a calendar reloaded into the fallback --
+  // readCurrentView(), which is the REAL board tab's view, usually a unit
+  // page. Rather than patch each handler and wait for the next one to
+  // forget, the view is recorded here whenever it changes.
+  //
+  // sessionStorage, not localStorage, and deliberately NOT writeCurrentView:
+  // this is "where is THIS tab's Build page", which must not leak into the
+  // shared "what is the real board looking at" value -- that is exactly the
+  // distinction the writeCurrentView effect above is protecting.
+  useEffect(() => {
+    if (!isPreviewMode && !isBuildMode) return;
+    if (activeUnitIdx === null) return; // home; nothing worth restoring
+    try {
+      sessionStorage.setItem(BUILD_VIEW_STORAGE_KEY, JSON.stringify({
+        unitIdx: activeUnitIdx,
+        lessonTitle: activeLesson?.title || null,
+      }));
+    } catch {}
+    // isPreviewMode/isBuildMode are route-derived module scope, not state.
   }, [activeUnitIdx, activeLesson]);
 
   // Preview-mode-only: follow the real board tab's navigation live, so if
