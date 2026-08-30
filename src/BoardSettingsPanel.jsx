@@ -7,7 +7,7 @@ import {
   BOARD_COMPONENTS, useBoardContentOrder,
   WALL_TYPES, DEFAULT_WALL_TYPE, WALL_TYPE_STORAGE_KEY,
   WALL_COLORS, DEFAULT_WALL_COLOR_BY_TYPE, WALL_COLOR_STORAGE_KEY,
-  wallColorSwatch,
+  wallColorSwatch, isCustomWallColor,
   BOARD_SURFACES, DEFAULT_BOARD_SURFACE, BOARD_SURFACE_STORAGE_KEY,
   SLIDING_BOARDS_ENABLED_KEY, DEFAULT_SLIDING_BOARDS_ENABLED,
   SLIDING_BOARDS_COUNT_KEY, DEFAULT_SLIDING_BOARDS_COUNT, SLIDING_BOARDS_COUNT_OPTIONS,
@@ -220,8 +220,9 @@ export default function BoardSettingsPanel({ selected, onSelect, panelCountInfo 
                   {Object.values(WALL_TYPES).map(t => (
                     <RadioRow key={t.id} selected={wallTypeKey === t.id} onClick={() => selectWallType(t.id)} label={t.label} />
                   ))}
+                  {/* One palette for both wall types -- see WALL_COLORS. */}
                   <SectionHeading>Wall Color</SectionHeading>
-                  {WALL_COLORS[WALL_TYPES[wallTypeKey] ? wallTypeKey : DEFAULT_WALL_TYPE].map(c => (
+                  {WALL_COLORS.map(c => (
                     <RadioRow
                       key={c.id}
                       selected={wallColorSwatch(wallTypeKey, wallColorKey).id === c.id}
@@ -230,6 +231,21 @@ export default function BoardSettingsPanel({ selected, onSelect, panelCountInfo 
                       swatch={<span style={{ width: 16, height: 16, borderRadius: 3, flexShrink: 0, background: c.base, border: `2px solid ${wallColorSwatch(wallTypeKey, wallColorKey).id === c.id ? "var(--board-secondary)" : "rgba(255,255,255,0.3)"}` }} />}
                     />
                   ))}
+                  {/* Anything the six presets don't cover. Stored as the hex
+                      itself rather than a preset id, which is how
+                      wallColorSwatch tells the two apart. */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 14px 2px" }}>
+                    <input
+                      type="color"
+                      value={wallColorSwatch(wallTypeKey, wallColorKey).base}
+                      onChange={e => setWallColorKey(e.target.value)}
+                      title="Pick any wall color"
+                      style={{ width: 26, height: 26, padding: 0, border: `2px solid ${isCustomWallColor(wallColorKey) ? "var(--board-secondary)" : "rgba(255,255,255,0.3)"}`, borderRadius: 4, background: "transparent", cursor: "pointer", flexShrink: 0 }}
+                    />
+                    <span style={{ fontFamily: "Lato, sans-serif", fontSize: 12, color: isCustomWallColor(wallColorKey) ? "#fff" : "rgba(255,255,255,0.55)" }}>
+                      {isCustomWallColor(wallColorKey) ? `Custom ${wallColorKey.toUpperCase()}` : "Custom color…"}
+                    </span>
+                  </div>
                 </>
               )}
 

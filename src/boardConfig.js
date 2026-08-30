@@ -486,19 +486,39 @@ export const WALL_TYPES = {
 export const DEFAULT_WALL_TYPE = "cinderblock";
 export const WALL_TYPE_STORAGE_KEY = "wallType";
 
-export const WALL_COLORS = {
-  cinderblock: [
-    { id: "tan", label: "Tan (Classic)", base: "#ded6c0", line: "#c2b89e" },
-    { id: "gray", label: "Gray", base: "#c9c9c9", line: "#a8a8a8" },
-    { id: "blueGray", label: "Blue-Gray", base: "#c3cdd4", line: "#a3b0b9" },
-  ],
-  drywall: [
-    { id: "white", label: "White", base: "#f0ede6" },
-    { id: "lightGray", label: "Light Gray", base: "#d9d9d6" },
-    { id: "cream", label: "Cream", base: "#eee3cf" },
-  ],
-};
+// One palette for both wall types. Colour and texture are independent
+// properties of a wall -- a cinderblock wall and a drywall wall can be the
+// same shade -- so keeping separate lists meant maintaining the same
+// neutrals twice and losing your colour whenever you switched type.
+export const WALL_COLORS = [
+  { id: "tan", label: "Tan (Classic)", base: "#ded6c0" },
+  { id: "cream", label: "Cream", base: "#eee3cf" },
+  { id: "white", label: "White", base: "#f0ede6" },
+  { id: "lightGray", label: "Light Gray", base: "#d9d9d6" },
+  { id: "blueGray", label: "Blue-Gray", base: "#c3cdd4" },
+  { id: "sage", label: "Sage", base: "#ccd3c4" },
+];
+export const DEFAULT_WALL_COLOR = "tan";
+// Kept so older saved settings still resolve; both now point at the shared
+// palette rather than at a per-type one.
 export const DEFAULT_WALL_COLOR_BY_TYPE = { cinderblock: "tan", drywall: "white" };
+
+// Mortar lines are derived from the base rather than hand-picked, so a
+// custom colour gets sensible ones too -- there is no list to extend when
+// a teacher chooses their own shade.
+function darken(hex, amount = 0.13) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(String(hex).trim());
+  if (!m) return "#b0aa98";
+  const n = parseInt(m[1], 16);
+  const ch = [(n >> 16) & 255, (n >> 8) & 255, n & 255]
+    .map(v => Math.max(0, Math.round(v * (1 - amount))));
+  return `#${ch.map(v => v.toString(16).padStart(2, "0")).join("")}`;
+}
+
+export function isCustomWallColor(value) {
+  return /^#[0-9a-f]{6}$/i.test(String(value || "").trim());
+}
+
 export const WALL_COLOR_STORAGE_KEY = "wallColor";
 
 function cinderblockTileSvg(lineColor) {
@@ -512,9 +532,16 @@ function cinderblockTileSvg(lineColor) {
 }
 
 export function wallColorSwatch(wallTypeKey, wallColorKey) {
-  const type = WALL_COLORS[wallTypeKey] ? wallTypeKey : DEFAULT_WALL_TYPE;
-  const palette = WALL_COLORS[type];
-  return palette.find(s => s.id === wallColorKey) || palette.find(s => s.id === DEFAULT_WALL_COLOR_BY_TYPE[type]) || palette[0];
+  // A custom colour is stored as the hex itself, so anything that is not a
+  // preset id and looks like a colour is taken at face value.
+  if (isCustomWallColor(wallColorKey)) {
+    const base = wallColorKey.trim();
+    return { id: base, label: "Custom", base, line: darken(base) };
+  }
+  const preset = WALL_COLORS.find(c => c.id === wallColorKey)
+    || WALL_COLORS.find(c => c.id === DEFAULT_WALL_COLOR)
+    || WALL_COLORS[0];
+  return { ...preset, line: darken(preset.base) };
 }
 
 // Returns a ready-to-spread style object (background/backgroundImage/
