@@ -1,6 +1,6 @@
 import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { fetchBoardContent, saveBoardContent, deleteBoardContent } from "./lib/boardContentApi";
-import { createKamiBellRingerDoc, googleDriveConfigured } from "./lib/googleDrive";
+import { createKamiBellRingerDoc, googleDriveConfigured, googleDriveSignedIn } from "./lib/googleDrive";
 
 /**
  * FullAgendaBoard
@@ -845,7 +845,47 @@ export function FullAgendaFields({
 // edit mode, or clicking one would flip every mounted copy into edit mode
 // in the same render. The flat (non-sliding) column only ever mounts one
 // copy of each field, so it never needs to pass this.
+// Auto-attaches a Kami doc to the Bell Ringer the first time a teacher
+// actually types one, so the common case needs no button press at all.
+// Deliberately conservative about when it fires:
+//   - only for a Bell Ringer that has TEXT and no doc yet, so we never
+//     litter a teacher's Drive with blank docs for sections they merely
+//     looked at (a lesson can have 4 sliding panels, each its own Bell
+//     Ringer -- auto-creating on open would mean 4 junk files per lesson);
+//   - only when a Drive token is already cached (googleDriveSignedIn).
+//     createKamiBellRingerDoc otherwise needs Google's consent popup, and
+//     that popup only survives if it opens synchronously inside a real
+//     click -- this runs on save/blur, so a not-signed-in teacher would
+//     just get a silently blocked popup. They keep the explicit
+//     "Auto-create Kami doc" button in KamiUrlInput instead, which IS a
+//     click and can therefore prompt.
+// Failures are swallowed for the same reason: the button is still sitting
+// right there as the fallback, so a dead network shouldn't throw an error
+// at someone who was only trying to type a bell ringer.
+function useAutoCreateKamiDoc({ kamiUrl, onSaveKamiUrl, lessonLabel }) {
+  const creatingRef = useRef(false);
+  return (text) => {
+    if (kamiUrl || !onSaveKamiUrl) return;
+    if (!text || !text.trim()) return;
+    if (creatingRef.current) return;
+    if (!googleDriveConfigured() || !googleDriveSignedIn()) return;
+    creatingRef.current = true;
+    const dateStr = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    const title = lessonLabel ? `Bell Ringer \u2014 ${lessonLabel} \u2014 ${dateStr}` : undefined;
+    createKamiBellRingerDoc({ title })
+      // Left latched to true on success on purpose: onSave fires on every
+      // blur, and the freshly saved kamiUrl takes a render to come back
+      // down as a prop, so releasing the latch here would let a fast
+      // second blur create a duplicate doc. Only a FAILURE unlatches, so
+      // the teacher's next edit can retry.
+      .then(({ kamiUrl: newUrl }) => { onSaveKamiUrl(newUrl); })
+      .catch(() => { creatingRef.current = false; /* button in KamiUrlInput remains the fallback */ });
+  };
+}
+
 export function EditableField({ fieldKey, content, editingKey, onStartEdit, onSave, surface = DEFAULT_SURFACE, interactive = true, checkedLines, onToggleLine, kamiUrl, onSaveKamiUrl, onKamiOpen, lessonLabel }) {
+  // Before the early return -- hooks can't run conditionally.
+  const autoCreateKamiDoc = useAutoCreateKamiDoc({ kamiUrl, onSaveKamiUrl, lessonLabel });
   const meta = FULL_AGENDA_FIELD_META[fieldKey];
   if (!meta) return null;
   // Same Agenda-only quick-add chips as FullAgendaFields' section() helper
@@ -863,7 +903,10 @@ export function EditableField({ fieldKey, content, editingKey, onStartEdit, onSa
       placeholder={meta.placeholder}
       editing={interactive && editingKey === fieldKey}
       onStartEdit={interactive ? () => onStartEdit(fieldKey) : undefined}
-      onSave={val => onSave(fieldKey, val)}
+      onSave={val => {
+        onSave(fieldKey, val);
+        if (fieldKey === "bellRinger") autoCreateKamiDoc(val);
+      }}
       rows={meta.rows}
       surface={surface}
       itemized={meta.itemized}

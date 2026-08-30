@@ -27,6 +27,17 @@ export function googleDriveConfigured() {
   return Boolean(CLIENT_ID && API_KEY);
 }
 
+// True when we already hold a live Drive token, i.e. a Drive call can be
+// made right now WITHOUT opening Google's consent popup. The distinction
+// matters for anything that wants to touch Drive outside a click handler:
+// requestAccessToken below has to run synchronously inside a real click
+// or the popup gets blocked, so a background/automatic Drive action must
+// check this first and quietly skip (leaving the teacher a button to
+// press) rather than firing a popup that the browser will swallow.
+export function googleDriveSignedIn() {
+  return Boolean(readCachedToken());
+}
+
 // Both scripts are loaded once and cached on the module (not per-card),
 // so re-opening AddSlidesCard on a different lesson doesn't re-fetch or
 // re-init anything. Kicked off eagerly on AddSlidesCard mount (see its
