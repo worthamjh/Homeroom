@@ -218,16 +218,18 @@ export function useFullAgendaFields(storageKey, mongoKey) {
 // than each having its own copy of the same style object, specifically so
 // they can never visually drift apart from each other again (Jay caught a
 // case where Objectives' heading looked different from the others').
-function SectionHeader({ label, surface, onClick, kamiIndicator }) {
+// Note: when a section has a Kami doc attached, the header AND the body
+// text are both click-to-open (see the onClick/title on the body div
+// below) -- there is deliberately NO "tap to open" badge or button next
+// to the label. Jay asked for that badge to be removed: clicking the
+// Bell Ringer itself is the whole affordance. Don't re-add one.
+function SectionHeader({ label, surface, onClick }) {
   return (
     <div
       onClick={onClick}
       style={{ fontFamily: "Oswald, sans-serif", fontSize: 12, color: surface.accent, letterSpacing: 2, textTransform: "uppercase", borderBottom: `1px solid ${surface.dividerBorder}`, paddingBottom: 6, display: "flex", alignItems: "center", gap: 6, cursor: onClick ? "pointer" : "default" }}
     >
       <span style={{ flex: 1 }}>{label}</span>
-      {kamiIndicator && (
-        <span style={{ fontSize: 9, background: "rgba(255,255,255,0.15)", borderRadius: 3, padding: "2px 7px", letterSpacing: 0.5, color: surface.accent, fontFamily: "Lato, sans-serif" }}>📄 tap to open</span>
-      )}
     </div>
   );
 }
@@ -508,7 +510,7 @@ function Section({ label, value, placeholder, editing, onStartEdit, onSave, rows
     if (isEmpty) {
       return (
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          <SectionHeader label={label} surface={surface} onClick={!interactive && onKamiOpen && kamiUrl ? onKamiOpen : undefined} kamiIndicator={!interactive && !!kamiUrl && !!onKamiOpen} />
+          <SectionHeader label={label} surface={surface} onClick={!interactive && onKamiOpen && kamiUrl ? onKamiOpen : undefined} />
         </div>
       );
     }
@@ -516,7 +518,7 @@ function Section({ label, value, placeholder, editing, onStartEdit, onSave, rows
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-      <SectionHeader label={label} surface={surface} onClick={!interactive && onKamiOpen && kamiUrl ? onKamiOpen : undefined} kamiIndicator={!interactive && !!kamiUrl && !!onKamiOpen} />
+      <SectionHeader label={label} surface={surface} onClick={!interactive && onKamiOpen && kamiUrl ? onKamiOpen : undefined} />
       {itemized ? (
         editable ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
