@@ -506,6 +506,15 @@ export const DEFAULT_WALL_COLOR_BY_TYPE = { cinderblock: "tan", drywall: "white"
 // Mortar lines are derived from the base rather than hand-picked, so a
 // custom colour gets sensible ones too -- there is no list to extend when
 // a teacher chooses their own shade.
+function lighten(hex, amount = 0.10) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(String(hex).trim());
+  if (!m) return "#ffffff";
+  const n = parseInt(m[1], 16);
+  const ch = [(n >> 16) & 255, (n >> 8) & 255, n & 255]
+    .map(v => Math.min(255, Math.round(v + (255 - v) * amount)));
+  return `#${ch.map(v => v.toString(16).padStart(2, "0")).join("")}`;
+}
+
 function darken(hex, amount = 0.13) {
   const m = /^#?([0-9a-f]{6})$/i.exec(String(hex).trim());
   if (!m) return "#b0aa98";
@@ -521,13 +530,35 @@ export function isCustomWallColor(value) {
 
 export const WALL_COLOR_STORAGE_KEY = "wallColor";
 
-function cinderblockTileSvg(lineColor) {
-  return `<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'>
-    <line x1='0' y1='0' x2='0' y2='80' stroke='${lineColor}' stroke-width='2'/>
-    <line x1='160' y1='0' x2='160' y2='80' stroke='${lineColor}' stroke-width='2'/>
-    <line x1='0' y1='80' x2='160' y2='80' stroke='${lineColor}' stroke-width='2'/>
-    <line x1='80' y1='80' x2='80' y2='160' stroke='${lineColor}' stroke-width='2'/>
-    <line x1='0' y1='160' x2='160' y2='160' stroke='${lineColor}' stroke-width='2'/>
+// A real concrete block face is nominally 16" x 8" -- 2:1 -- laid in
+// running bond with mortar joints about 3/8" wide. This draws that:
+// mortar as the tile's fill, block faces as rects sitting on top of it, so
+// the joints are actual gaps rather than hairlines drawn over a flat wall.
+//
+// The tile is one block wide and TWO courses tall, because running bond
+// only repeats after two rows. The second course is offset half a block,
+// drawn as two rects whose overhang clips at the tile edges and meets up
+// again when the tile repeats.
+//
+// Previously this same 160x160 artwork was squashed into a 160x80
+// background tile, which halved every block's height and rendered 4:1
+// slivers instead of blocks -- the reason the wall never read as masonry.
+const BLOCK_W = 160;          // 16" at 10px/inch
+const BLOCK_H = 80;           // 8"
+const MORTAR = 5;             // ~3/8"
+
+function cinderblockTileSvg(mortarColor, faceColor, highlightColor) {
+  const j = MORTAR / 2;
+  const w = BLOCK_W - MORTAR;
+  const h = BLOCK_H - MORTAR;
+  const face = (x, y) => `
+    <rect x='${x + j}' y='${y + j}' width='${w}' height='${h}' rx='1.5' fill='${faceColor}'/>
+    <line x1='${x + j + 2}' y1='${y + j + 1}' x2='${x + j + w - 2}' y2='${y + j + 1}' stroke='${highlightColor}' stroke-width='1'/>`;
+  return `<svg xmlns='http://www.w3.org/2000/svg' width='${BLOCK_W}' height='${BLOCK_H * 2}'>
+    <rect width='${BLOCK_W}' height='${BLOCK_H * 2}' fill='${mortarColor}'/>
+    ${face(0, 0)}
+    ${face(-BLOCK_W / 2, BLOCK_H)}
+    ${face(BLOCK_W / 2, BLOCK_H)}
   </svg>`;
 }
 
@@ -536,12 +567,12 @@ export function wallColorSwatch(wallTypeKey, wallColorKey) {
   // preset id and looks like a colour is taken at face value.
   if (isCustomWallColor(wallColorKey)) {
     const base = wallColorKey.trim();
-    return { id: base, label: "Custom", base, line: darken(base) };
+    return { id: base, label: "Custom", base, line: darken(base), highlight: lighten(base) };
   }
   const preset = WALL_COLORS.find(c => c.id === wallColorKey)
     || WALL_COLORS.find(c => c.id === DEFAULT_WALL_COLOR)
     || WALL_COLORS[0];
-  return { ...preset, line: darken(preset.base) };
+  return { ...preset, line: darken(preset.base), highlight: lighten(preset.base) };
 }
 
 // Returns a ready-to-spread style object (background/backgroundImage/
@@ -553,8 +584,10 @@ export function wallBackgroundStyle(wallTypeKey, wallColorKey) {
   if (type === "cinderblock") {
     return {
       background: swatch.base,
-      backgroundImage: `url("data:image/svg+xml,${encodeURIComponent(cinderblockTileSvg(swatch.line))}")`,
-      backgroundSize: "160px 80px",
+      // Tile drawn and displayed at the same size -- no squashing, so a
+      // block stays 2:1 the way a real one is.
+      backgroundImage: `url("data:image/svg+xml,${encodeURIComponent(cinderblockTileSvg(swatch.line, swatch.base, swatch.highlight))}")`,
+      backgroundSize: `${BLOCK_W}px ${BLOCK_H * 2}px`,
     };
   }
   return { background: swatch.base, backgroundImage: "none", backgroundSize: undefined };
