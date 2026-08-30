@@ -19,9 +19,8 @@ const WIDE_RULE = (11 / 32) * PT_PER_INCH;    // 24.75
 const COLLEGE_RULE = (9 / 32) * PT_PER_INCH;  // 20.25
 const GRID = 0.25 * PT_PER_INCH;              // 18 — quarter-inch squares
 
-const MARGIN_X = 0.75 * PT_PER_INCH;
-const RULE_TOP = PAGE_H - 1.25 * PT_PER_INCH;   // room for a name/date row
-const RULE_BOTTOM = 0.75 * PT_PER_INCH;
+const RULE_TOP = PAGE_H - 1.0 * PT_PER_INCH;    // the header space filler paper has
+const RULE_BOTTOM = 0;
 const VERTICAL_MARGIN_X = 1.25 * PT_PER_INCH;   // the red line down the left
 
 const BLUE = "0.62 0.76 0.90";
@@ -30,22 +29,25 @@ const GREY = "0.80 0.84 0.88";
 
 function ruledContent(pitch) {
   const ops = [`${BLUE} RG`, "0.7 w"];
+  // Edge to edge, like a real sheet of filler paper.
   for (let y = RULE_TOP; y >= RULE_BOTTOM; y -= pitch) {
-    ops.push(`${MARGIN_X.toFixed(2)} ${y.toFixed(2)} m ${(PAGE_W - MARGIN_X).toFixed(2)} ${y.toFixed(2)} l S`);
+    ops.push(`0 ${y.toFixed(2)} m ${PAGE_W} ${y.toFixed(2)} l S`);
   }
-  // Vertical margin rule, the full height of the text area.
+  // Vertical margin rule, top edge to bottom edge.
   ops.push(`${RED} RG`, "0.9 w");
-  ops.push(`${VERTICAL_MARGIN_X.toFixed(2)} ${(PAGE_H - 0.5 * PT_PER_INCH).toFixed(2)} m ${VERTICAL_MARGIN_X.toFixed(2)} ${RULE_BOTTOM.toFixed(2)} l S`);
+  ops.push(`${VERTICAL_MARGIN_X.toFixed(2)} ${PAGE_H} m ${VERTICAL_MARGIN_X.toFixed(2)} 0 l S`);
   return ops.join("\n");
 }
 
+// Squared paper: the grid covers the whole sheet corner to corner, rather
+// than sitting as a chart area printed on a page.
 function gridContent() {
   const ops = [`${GREY} RG`, "0.5 w"];
-  for (let x = MARGIN_X; x <= PAGE_W - MARGIN_X + 0.01; x += GRID) {
-    ops.push(`${x.toFixed(2)} ${RULE_BOTTOM.toFixed(2)} m ${x.toFixed(2)} ${RULE_TOP.toFixed(2)} l S`);
+  for (let x = 0; x <= PAGE_W + 0.01; x += GRID) {
+    ops.push(`${x.toFixed(2)} 0 m ${x.toFixed(2)} ${PAGE_H} l S`);
   }
-  for (let y = RULE_BOTTOM; y <= RULE_TOP + 0.01; y += GRID) {
-    ops.push(`${MARGIN_X.toFixed(2)} ${y.toFixed(2)} m ${(PAGE_W - MARGIN_X).toFixed(2)} ${y.toFixed(2)} l S`);
+  for (let y = 0; y <= PAGE_H + 0.01; y += GRID) {
+    ops.push(`0 ${y.toFixed(2)} m ${PAGE_W} ${y.toFixed(2)} l S`);
   }
   return ops.join("\n");
 }
