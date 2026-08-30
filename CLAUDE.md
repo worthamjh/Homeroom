@@ -30,15 +30,24 @@ Rules:
   and that refusal is correct. Make a new branch instead.
 - `main` belongs to Jay. Agents commit to their own branch and tell Jay
   what is ready; he reviews and merges.
-- Adding a worktree for a new bot:
+- Adding a worktree for a new bot -- use the script, which also does the
+  two things a fresh worktree needs and is easy to forget (copying the
+  gitignored `.env.local`, and `npm install`, since worktrees do not
+  share `node_modules`):
 
-      git worktree add C:/Users/Worth/homeroom-worktrees/<name> -b <name>
+      ./scripts/new-bot-worktree.sh <name>
 
-  Then copy `.env.local` into it (gitignored, so a fresh worktree has no
-  env vars) and run `npm install` there -- worktrees do not share
-  `node_modules`. Keep them out of the OneDrive folder so a second
+  It keeps worktrees outside the OneDrive folder on purpose, so a second
   `node_modules` is not sync'd.
+- Keeping a bot branch current, so it is not building on a stale `main`:
+
+      git -C <path> merge main
+
 - Removing one once its work is merged: `git worktree remove <path>`.
+  On Windows that often deletes the checkout but fails on the admin dir
+  with "Permission denied". Follow up with `git worktree prune`, and if
+  `.git/worktrees/<name>` is still there, `rm -rf` it -- the branch is
+  deleted separately with `git branch -d <name>`.
 
 Note that this file is shared by every worktree, so these rules reach
 whichever agent reads it.
