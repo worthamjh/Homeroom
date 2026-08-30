@@ -1712,9 +1712,12 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
                     data-tour={ui === 0 ? "tour-unit-tab" : undefined}
                     data-tour-clicked={ui === 0 && activeUnitIdx === ui && isOverview ? "true" : undefined}
                     onClick={() => { handleUnitOverview(ui); setOpenDropdown(ui); }}
-                    style={{ flex: 1, background: activeUnitIdx === ui && isOverview ? "#fff" : "var(--board-secondary)", color: activeUnitIdx === ui && isOverview ? "var(--board-secondary-accent)" : "var(--board-secondary-fg)", border: "none", borderRadius: 6, padding: `${SPACE.sm}px ${SPACE.xs}px`, fontSize: 13, fontFamily: "var(--board-heading-font, 'Oswald', sans-serif)", cursor: "pointer", letterSpacing: 0.5, fontWeight: 600, transition: "all 0.15s" }}
-                    onMouseEnter={e => { if (!(activeUnitIdx === ui && isOverview)) { e.currentTarget.style.background = "#fff"; e.currentTarget.style.color = "var(--board-secondary-accent)"; }}}
-                    onMouseLeave={e => { if (!(activeUnitIdx === ui && isOverview)) { e.currentTarget.style.background = "var(--board-secondary)"; e.currentTarget.style.color = "var(--board-secondary-fg)"; }}}
+                    // Hover-only highlight now (Jay: "id rather it not be
+                    // highlighted if nothing is over it") -- no longer stays
+                    // white just because this is the currently-viewed unit.
+                    style={{ flex: 1, background: "var(--board-secondary)", color: "var(--board-secondary-fg)", border: "none", borderRadius: 6, padding: `${SPACE.sm}px ${SPACE.xs}px`, fontSize: 13, fontFamily: "var(--board-heading-font, 'Oswald', sans-serif)", cursor: "pointer", letterSpacing: 0.5, fontWeight: 600, transition: "all 0.15s" }}
+                    onMouseEnter={e => { e.currentTarget.style.background = "#fff"; e.currentTarget.style.color = "var(--board-secondary-accent)"; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = "var(--board-secondary)"; e.currentTarget.style.color = "var(--board-secondary-fg)"; }}
                   >
                     {u.unit}
                   </button>
