@@ -39,6 +39,9 @@ function sanitizeUnits(units) {
         .filter(l => l && typeof l.title === "string")
         .map(l => ({
           title: l.title,
+          // Same as a unit's: `undefined` when not hidden, so the field is
+          // simply absent rather than stored as false on every lesson.
+          hidden: l.hidden === true ? true : undefined,
           slides: typeof l.slides === "string" ? l.slides : null,
           goals: Array.isArray(l.goals) ? l.goals : [],
           assignments: Array.isArray(l.assignments) ? l.assignments : [],

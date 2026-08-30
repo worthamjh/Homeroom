@@ -1686,7 +1686,7 @@ function KamiOverlay({ url, state, onToggleFullscreen, onClose, contained = fals
   );
 }
 
-function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropdown, setOpenDropdown, handleUnitOverview, handleLessonClick, goHome, titleMain, titleAccent, isBlankTeacher, onAddUnit, onAddLesson, onRenameUnit, onDeleteUnit, onMoveUnit, onRenameLesson, onDeleteLesson, onMoveLesson, onReorderLesson, onSetLessonOrder, onToggleUnitVisibility }) {
+function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropdown, setOpenDropdown, handleUnitOverview, handleLessonClick, goHome, titleMain, titleAccent, isBlankTeacher, onAddUnit, onAddLesson, onRenameUnit, onDeleteUnit, onMoveUnit, onRenameLesson, onDeleteLesson, onMoveLesson, onReorderLesson, onSetLessonOrder, onToggleUnitVisibility, onToggleLessonVisibility }) {
   // Build-mode-only local state for inline rename and two-step delete.
   const [renamingUnit, setRenamingUnit] = useState(null);   // unitIdx being renamed
   const [renameUnitVal, setRenameUnitVal] = useState("");
@@ -1928,10 +1928,17 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
               // title wrap onto a second line instead of overflowing past
               // that width when a unit segment is narrow.
               <div style={{ position: "absolute", top: "100%", left: 0, width: "100%", background: "var(--board-primary)", border: "1px solid var(--board-secondary)", borderTop: "none", borderRadius: "0 0 4px 4px", zIndex: 5000, overflow: "hidden" }}>
-                {(draggingOrder?.unitIdx === ui ? draggingOrder.lessons : u.lessons).map((lesson, li) => (
+                {/* Build sees hidden lessons (dimmed, so they can be brought
+                    back); the live board does not see them at all. Indexes
+                    come from the unfiltered list so rename/delete/reorder
+                    still address the right lesson. */}
+                {(draggingOrder?.unitIdx === ui ? draggingOrder.lessons : u.lessons)
+                  .map((lesson, li) => ({ lesson, li }))
+                  .filter(({ lesson }) => isBuildMode || !lesson.hidden)
+                  .map(({ lesson, li }) => (
                   <div key={li}
                     data-tour={ui === 0 && li === 0 ? "tour-lesson-item" : undefined}
-                    style={{ borderBottom: "1px solid #2a2a2a", borderLeft: activeLesson?.title === lesson.title ? "3px solid var(--board-secondary-accent)" : "3px solid transparent", opacity: dragLessonTitle?.unitIdx === ui && dragLessonTitle?.title === lesson.title ? 0.4 : 1 }}
+                    style={{ borderBottom: "1px solid #2a2a2a", borderLeft: activeLesson?.title === lesson.title ? "3px solid var(--board-secondary-accent)" : "3px solid transparent", opacity: (dragLessonTitle?.unitIdx === ui && dragLessonTitle?.title === lesson.title) ? 0.4 : (lesson.hidden ? 0.5 : 1) }}
                     onDragOver={isBuildMode && isBlankTeacher ? (e => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; if (dragLessonTitle && dragLessonTitle.unitIdx === ui && dragLessonTitle.title !== lesson.title && draggingOrder) { const ls = [...draggingOrder.lessons]; const from = ls.findIndex(l => l.title === dragLessonTitle.title); const to = ls.findIndex(l => l.title === lesson.title); if (from !== -1 && to !== -1) { const [mv] = ls.splice(from, 1); ls.splice(to, 0, mv); setDraggingOrder({ unitIdx: ui, lessons: ls }); } } }) : undefined}
                   >
                     {/* Lesson row — inline editable in build mode */}
@@ -1946,16 +1953,33 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
                           >≡</div>
                         )}
                         {isBuildMode && isBlankTeacher ? (
-                          <input
-                            key={lesson.title + li}
-                            defaultValue={lesson.title}
-                            onFocus={() => handleLessonClick(ui, lesson)}
-                            onBlur={e => { const v = e.target.value.trim(); if (v && v !== lesson.title) onRenameLesson(ui, li, v); else e.target.value = lesson.title; }}
-                            onKeyDown={e => { if (e.key === "Enter") e.target.blur(); if (e.key === "Escape") { e.target.value = lesson.title; e.target.blur(); } }}
-                            style={{ flex: 1, minWidth: 0, background: "transparent", color: activeLesson?.title === lesson.title ? "var(--board-secondary-accent)" : "#ccc", border: "none", borderBottom: "1px solid transparent", padding: `${SPACE.sm}px ${SPACE.md}px`, fontSize: 13, fontFamily: "Lato, sans-serif", fontWeight: 700, outline: "none", cursor: "pointer", transition: "border-color 0.15s", whiteSpace: "normal" }}
-                            onMouseEnter={e => { e.currentTarget.style.borderBottomColor = "rgba(255,255,255,0.25)"; e.currentTarget.style.background = "var(--board-secondary)"; e.currentTarget.style.color = "var(--board-secondary-fg)"; }}
-                            onMouseLeave={e => { if (document.activeElement !== e.currentTarget) { e.currentTarget.style.borderBottomColor = "transparent"; e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = activeLesson?.title === lesson.title ? "var(--board-secondary-accent)" : "#ccc"; } }}
-                          />
+                          renamingLesson?.unitIdx === ui && renamingLesson?.lessonIdx === li ? (
+                            <input
+                              ref={el => { if (el) { el.focus(); el.select(); } }}
+                              value={renameLessonVal}
+                              onChange={e => setRenameLessonVal(e.target.value)}
+                              onBlur={() => { const v = renameLessonVal.trim(); if (v && v !== lesson.title) onRenameLesson(ui, li, v); setRenamingLesson(null); }}
+                              onKeyDown={e => {
+                                if (e.key === "Enter") e.target.blur();
+                                if (e.key === "Escape") { setRenameLessonVal(lesson.title); setRenamingLesson(null); }
+                              }}
+                              onClick={e => e.stopPropagation()}
+                              style={{ flex: 1, minWidth: 0, background: "#fff", color: "#1a1a1a", border: "2px solid var(--board-secondary-accent)", borderRadius: 4, margin: 3, padding: `${SPACE.xs}px ${SPACE.sm}px`, fontSize: 13, fontFamily: "Lato, sans-serif", fontWeight: 700, outline: "none", boxShadow: "0 2px 10px rgba(0,0,0,0.45)" }}
+                            />
+                          ) : (
+                            /* Plain text that navigates, same as the live board.
+                               Renaming is the pencil now, not a click on the
+                               title -- a lesson row is narrow and clicking it
+                               to open the lesson is the far commoner action. */
+                            <div
+                              onClick={() => handleLessonClick(ui, lesson)}
+                              style={{ flex: 1, minWidth: 0, padding: `${SPACE.sm}px ${SPACE.md}px`, fontSize: 13, fontFamily: "Lato, sans-serif", fontWeight: 700, color: activeLesson?.title === lesson.title ? "var(--board-secondary-accent)" : "#ccc", cursor: "pointer", transition: "all 0.12s", whiteSpace: "normal" }}
+                              onMouseEnter={e => { e.currentTarget.style.background = "var(--board-secondary)"; e.currentTarget.style.color = "var(--board-secondary-fg)"; }}
+                              onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = activeLesson?.title === lesson.title ? "var(--board-secondary-accent)" : "#ccc"; }}
+                            >
+                              {lesson.title}
+                            </div>
+                          )
                         ) : (
                           <div
                             onClick={() => handleLessonClick(ui, lesson)}
@@ -1966,15 +1990,41 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
                             {lesson.title}
                           </div>
                         )}
-                        {isBuildMode && isBlankTeacher && (
-                          deletingLesson?.unitIdx === ui && deletingLesson?.lessonIdx === li ? (
-                            <div style={{ display: "flex", gap: 3, paddingRight: 6, flexShrink: 0 }}>
-                              <button title="Confirm delete" onClick={e => { e.stopPropagation(); onDeleteLesson(ui, li); setDeletingLesson(null); }} style={microBtn({ color: "#ff6868", fontWeight: 600, fontSize: 10 })}>delete?</button>
-                              <button title="Cancel" onClick={e => { e.stopPropagation(); setDeletingLesson(null); }} style={microBtn({ fontSize: 10 })}>cancel</button>
-                            </div>
-                          ) : (
-                            <button title="Delete lesson" onClick={e => { e.stopPropagation(); setDeletingLesson({ unitIdx: ui, lessonIdx: li }); setRenamingLesson(null); }} style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(255,120,120,0.35)", fontSize: 15, paddingRight: 8, paddingLeft: 2, flexShrink: 0, lineHeight: 1 }}>×</button>
-                          )
+                        {isBuildMode && isBlankTeacher && renamingLesson?.lessonIdx !== li && (
+                          /* Rename / hide / delete, in the same vocabulary as
+                             the unit tabs and assignment cards. */
+                          <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "0 7px", flexShrink: 0 }}>
+                            <button
+                              title={`Rename "${lesson.title}"`}
+                              onClick={e => { e.stopPropagation(); setRenameLessonVal(lesson.title); setRenamingLesson({ unitIdx: ui, lessonIdx: li }); setDeletingLesson(null); }}
+                              style={{ ...buildActionStyle("edit", { size: 18 }), opacity: 0.75 }}
+                              onMouseEnter={e => { e.currentTarget.style.opacity = 1; }}
+                              onMouseLeave={e => { e.currentTarget.style.opacity = 0.75; }}
+                            >✎</button>
+                            <button
+                              title={lesson.hidden ? `Show "${lesson.title}" on the board` : `Hide "${lesson.title}" from the board`}
+                              onClick={e => { e.stopPropagation(); onToggleLessonVisibility(ui, li); }}
+                              style={{ ...buildActionStyle("hide", { size: 18, active: lesson.hidden }), opacity: lesson.hidden ? 1 : 0.75 }}
+                              onMouseEnter={e => { e.currentTarget.style.opacity = 1; }}
+                              onMouseLeave={e => { e.currentTarget.style.opacity = lesson.hidden ? 1 : 0.75; }}
+                            >{lesson.hidden ? "🚫" : "👁"}</button>
+                            {deletingLesson?.unitIdx === ui && deletingLesson?.lessonIdx === li ? (
+                              <button
+                                title={`Delete "${lesson.title}"`}
+                                onClick={e => { e.stopPropagation(); onDeleteLesson(ui, li); setDeletingLesson(null); }}
+                                onMouseLeave={() => setDeletingLesson(null)}
+                                style={{ ...buildActionStyle("remove", { size: 18 }), width: "auto", borderRadius: 9, padding: "0 7px", fontSize: 9, fontFamily: "Lato, sans-serif" }}
+                              >Delete?</button>
+                            ) : (
+                              <button
+                                title={`Delete "${lesson.title}"`}
+                                onClick={e => { e.stopPropagation(); setDeletingLesson({ unitIdx: ui, lessonIdx: li }); setRenamingLesson(null); }}
+                                style={{ ...buildActionStyle("remove", { size: 18 }), opacity: 0.75 }}
+                                onMouseEnter={e => { e.currentTarget.style.opacity = 1; }}
+                                onMouseLeave={e => { e.currentTarget.style.opacity = 0.75; }}
+                              >×</button>
+                            )}
+                          </div>
                         )}
                       </div>
                   </div>
@@ -2883,6 +2933,15 @@ export default function App() {
     saveCurriculum(activeTeacherId, next).catch(() => {});
   };
 
+  const handleToggleLessonVisibility = (unitIdx, lessonIdx) => {
+    const next = blankUnits.map((u, i) => i !== unitIdx ? u : {
+      ...u,
+      lessons: u.lessons.map((l, j) => j === lessonIdx ? { ...l, hidden: !l.hidden } : l),
+    });
+    setBlankUnits(next);
+    saveCurriculum(activeTeacherId, next).catch(() => {});
+  };
+
   const handleToggleUnitVisibility = (unitIdx) => {
     const next = blankUnits.map((u, i) => i === unitIdx ? { ...u, hidden: !u.hidden } : u);
     setBlankUnits(next);
@@ -3152,6 +3211,7 @@ export default function App() {
     onRenameUnit: handleRenameUnit, onDeleteUnit: handleDeleteUnit, onMoveUnit: handleMoveUnit,
     onRenameLesson: handleRenameLesson, onDeleteLesson: handleDeleteLesson, onMoveLesson: handleMoveLesson, onReorderLesson: handleReorderLesson, onSetLessonOrder: handleSetLessonOrder,
     onToggleUnitVisibility: handleToggleUnitVisibility,
+    onToggleLessonVisibility: handleToggleLessonVisibility,
   };
 
   // On a real board tab, "one screen" legitimately means the teacher's
@@ -3503,7 +3563,7 @@ export default function App() {
               activeUnit.lessons.length === 0 ? (
                 <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 13, padding: 20, textAlign: "center", fontStyle: "italic" }}>Content coming soon...</div>
               ) : (
-                activeUnit.lessons.map((lesson, li) => (
+                activeUnit.lessons.filter(lesson => isBuildMode || !lesson.hidden).map((lesson, li) => (
                   <div key={li}>
                     <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 12, color: "var(--board-secondary-accent)", letterSpacing: 1, textTransform: "uppercase", padding: li === 0 ? `0 0 ${SPACE.xs}px` : `${SPACE.sm}px 0 ${SPACE.xs}px`, borderTop: li === 0 ? "none" : "1px solid #333" }}>
                       {lesson.title}
