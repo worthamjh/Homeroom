@@ -564,17 +564,25 @@ export const BOARD_SURFACE_STORAGE_KEY = "boardSurface";
 export const BELL_RINGER_TEMPLATE_STORAGE_KEY = "bellRingerTemplate";
 export const DEFAULT_BELL_RINGER_TEMPLATE = "";
 
-// Read it outside React. The two places that create a bell ringer doc sit
+// Read them outside React. The places that create a bell ringer doc sit
 // several components deep in FullAgendaBoard, and threading a setting down
 // to them would mean touching every layer in between for a value that
 // never changes mid-create.
-export function readBellRingerTemplate() {
+//
+// Always returns an array. A teacher keeps one template per paper they
+// use -- plain, looseleaf, graph -- and picks at the moment of creating,
+// because which one they want depends on the lesson, not on a setting
+// they would otherwise have to go and change first.
+export function readBellRingerTemplates() {
   try {
     const raw = window.localStorage.getItem(scopedKey(BELL_RINGER_TEMPLATE_STORAGE_KEY));
-    if (!raw) return null;
+    if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return parsed && parsed.fileId ? parsed : null;
-  } catch { return null; }
+    // Stored as a single {fileId,name} object before multiple templates
+    // existed; read those as a one-item list rather than migrating.
+    const list = Array.isArray(parsed) ? parsed : [parsed];
+    return list.filter(t => t && t.fileId);
+  } catch { return []; }
 }
 
 export const SLIDING_BOARDS_ENABLED_KEY = "slidingBoardsEnabled";

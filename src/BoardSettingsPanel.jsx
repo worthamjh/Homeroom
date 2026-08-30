@@ -179,14 +179,27 @@ export default function BoardSettingsPanel({ selected, onSelect, panelCountInfo 
   const [bellRingerTemplate, setBellRingerTemplate] = useScopedSetting(BELL_RINGER_TEMPLATE_STORAGE_KEY, DEFAULT_BELL_RINGER_TEMPLATE, null);
   const [pickingTemplate, setPickingTemplate] = useState(false);
   const [templateError, setTemplateError] = useState(null);
-  const chosenTemplate = (() => { try { return bellRingerTemplate ? JSON.parse(bellRingerTemplate) : null; } catch { return null; } })();
+  // Always a list; a pre-list value reads as a one-item list (see
+  // readBellRingerTemplates in boardConfig).
+  const templates = (() => {
+    try {
+      const parsed = bellRingerTemplate ? JSON.parse(bellRingerTemplate) : [];
+      const list = Array.isArray(parsed) ? parsed : [parsed];
+      return list.filter(t => t && t.fileId);
+    } catch { return []; }
+  })();
+  const writeTemplates = list => setBellRingerTemplate(list.length ? JSON.stringify(list) : "");
 
-  const handlePickTemplate = async () => {
+  const handleAddTemplate = async () => {
     setPickingTemplate(true);
     setTemplateError(null);
     try {
       const picked = await pickBellRingerTemplate();
-      if (picked) setBellRingerTemplate(JSON.stringify({ fileId: picked.fileId, name: picked.name }));
+      // Re-picking one already saved replaces it rather than duplicating.
+      if (picked) writeTemplates([
+        ...templates.filter(t => t.fileId !== picked.fileId),
+        { fileId: picked.fileId, name: picked.name },
+      ]);
     } catch (err) {
       setTemplateError(err.message || "Couldn't open Google Drive.");
     } finally {
@@ -309,26 +322,30 @@ export default function BoardSettingsPanel({ selected, onSelect, panelCountInfo 
                   {googleDriveConfigured() && (
                     <>
                       <SectionHeading>Bell Ringer Template</SectionHeading>
-                      <div style={{ padding: "0 14px 4px", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                        {chosenTemplate ? (
-                          <>
-                            <span style={{ fontFamily: "Lato, sans-serif", fontSize: 12, color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 190 }}>
-                              📄 {chosenTemplate.name}
+                      <div style={{ padding: "0 14px 4px", display: "flex", flexDirection: "column", gap: 5 }}>
+                        {templates.map(t => (
+                          <div key={t.fileId} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <span style={{ flex: 1, fontFamily: "Lato, sans-serif", fontSize: 12, color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              📄 {t.name}
                             </span>
-                            <button onClick={handlePickTemplate} disabled={pickingTemplate} style={templateBtn}>Change</button>
-                            <button onClick={() => setBellRingerTemplate("")} style={templateBtn}>✕</button>
-                          </>
-                        ) : (
-                          <button onClick={handlePickTemplate} disabled={pickingTemplate} style={templateBtn}>
-                            {pickingTemplate ? "Opening Drive…" : "Choose a Doc or PDF"}
+                            <button
+                              title={`Remove "${t.name}"`}
+                              onClick={() => writeTemplates(templates.filter(x => x.fileId !== t.fileId))}
+                              style={templateBtn}
+                            >✕</button>
+                          </div>
+                        ))}
+                        <div>
+                          <button onClick={handleAddTemplate} disabled={pickingTemplate} style={templateBtn}>
+                            {pickingTemplate ? "Opening Drive…" : templates.length ? "+ Add another" : "Choose a Doc or PDF"}
                           </button>
-                        )}
+                        </div>
                       </div>
                       {templateError && (
                         <div style={{ fontFamily: "Lato, sans-serif", fontSize: 11, color: "#ff7b7b", padding: "0 14px 4px" }}>⚠ {templateError}</div>
                       )}
                       <div style={{ fontFamily: "Lato, sans-serif", fontSize: 11, color: "rgba(255,255,255,0.4)", padding: "4px 14px 0", lineHeight: 1.5 }}>
-                        New bell ringers are copied from this file, so your layout is already there. A Google Doc suits typed text; a PDF suits a fixed page like looseleaf or graph paper. It can live anywhere in your Drive — copies still land in your Bell Ringers folder. Editing the template changes future bell ringers only; ones you've already made keep what they had. With none chosen, bell ringers start blank.
+                        Keep one per kind of paper you use — plain, looseleaf, graph — and pick which when you create a bell ringer. A Google Doc suits typed text; a PDF suits a fixed page like looseleaf or graph paper. They can live anywhere in your Drive; copies still land in your Bell Ringers folder. Editing a template changes future bell ringers only; ones you've already made keep what they had. With none saved, bell ringers start blank.
                       </div>
                     </>
                   )}

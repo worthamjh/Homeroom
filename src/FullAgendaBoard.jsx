@@ -1,7 +1,7 @@
 import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { fetchBoardContent, saveBoardContent, deleteBoardContent } from "./lib/boardContentApi";
 import { createKamiBellRingerDoc, googleDriveConfigured, googleDriveSignedIn } from "./lib/googleDrive";
-import { readBellRingerTemplate } from "./boardConfig";
+import { readBellRingerTemplates } from "./boardConfig";
 
 /**
  * FullAgendaBoard
@@ -297,7 +297,11 @@ function KamiUrlInput({ kamiUrl, onSaveKamiUrl, lessonLabel, surface = DEFAULT_S
   const [pasting, setPasting] = useState(false);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState(null);
-  useEffect(() => { setDraft(""); setPasting(false); }, [kamiUrl]);
+  // Which paper to use is a per-bell-ringer decision -- plain today, graph
+  // paper tomorrow -- so it is asked here rather than being a setting a
+  // teacher has to go and change first.
+  const [pickingTemplate, setPickingTemplate] = useState(false);
+  useEffect(() => { setDraft(""); setPasting(false); setPickingTemplate(false); }, [kamiUrl]);
 
   const handleSave = () => {
     const v = draft.trim();
@@ -305,13 +309,14 @@ function KamiUrlInput({ kamiUrl, onSaveKamiUrl, lessonLabel, surface = DEFAULT_S
     setPasting(false);
   };
 
-  const handleAutoCreate = async () => {
+  const handleAutoCreate = async (templateId) => {
     setCreating(true);
     setCreateError(null);
+    setPickingTemplate(false);
     try {
       const dateStr = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
       const title = lessonLabel ? `Bell Ringer — ${lessonLabel} — ${dateStr}` : undefined;
-      const { kamiUrl: newUrl } = await createKamiBellRingerDoc({ title, templateId: readBellRingerTemplate()?.fileId });
+      const { kamiUrl: newUrl } = await createKamiBellRingerDoc({ title, templateId });
       onSaveKamiUrl(newUrl);
     } catch (err) {
       setCreateError(err.message || "Couldn't create the file.");
@@ -321,6 +326,7 @@ function KamiUrlInput({ kamiUrl, onSaveKamiUrl, lessonLabel, surface = DEFAULT_S
   };
 
   const canAutoCreate = googleDriveConfigured();
+  const templates = canAutoCreate ? readBellRingerTemplates() : [];
   const chip = {
     fontFamily: "Lato, sans-serif", fontSize: 11, padding: "4px 10px",
     borderRadius: 4, border: `1px solid ${surface.dividerBorder}`,
@@ -357,7 +363,9 @@ function KamiUrlInput({ kamiUrl, onSaveKamiUrl, lessonLabel, surface = DEFAULT_S
           <>
             {canAutoCreate && (
               <button
-                onClick={handleAutoCreate}
+                // One template (or none) creates straight away -- a menu of
+                // one is just an extra click. Two or more opens the list.
+                onClick={() => (templates.length > 1 ? setPickingTemplate(v => !v) : handleAutoCreate(templates[0]?.fileId))}
                 disabled={creating}
                 style={{
                   ...chip,
@@ -368,8 +376,20 @@ function KamiUrlInput({ kamiUrl, onSaveKamiUrl, lessonLabel, surface = DEFAULT_S
                   cursor: creating ? "default" : "pointer",
                 }}
               >
-                {creating ? "⏳ Creating…" : "⚡ Create Bell Ringer doc"}
+                {creating ? "⏳ Creating…" : templates.length > 1 ? "⚡ Create Bell Ringer doc ▾" : "⚡ Create Bell Ringer doc"}
               </button>
+            )}
+            {pickingTemplate && templates.length > 1 && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 6, width: "100%" }}>
+                {templates.map(t => (
+                  <button key={t.fileId} onClick={() => handleAutoCreate(t.fileId)} style={{ ...chip, textAlign: "left", color: "#ffb347", borderColor: "rgba(255,165,0,0.45)" }}>
+                    📄 {t.name}
+                  </button>
+                ))}
+                <button onClick={() => handleAutoCreate(undefined)} style={{ ...chip, textAlign: "left" }}>
+                  Blank page
+                </button>
+              </div>
             )}
             {!pasting && (
               <button onClick={() => setPasting(true)} style={{ ...chip, border: "none", padding: "4px 2px", textDecoration: "underline" }}>
@@ -914,7 +934,7 @@ function useAutoCreateKamiDoc({ kamiUrl, onSaveKamiUrl, lessonLabel }) {
     creatingRef.current = true;
     const dateStr = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
     const title = lessonLabel ? `Bell Ringer \u2014 ${lessonLabel} \u2014 ${dateStr}` : undefined;
-    createKamiBellRingerDoc({ title, templateId: readBellRingerTemplate()?.fileId })
+    createKamiBellRingerDoc({ title, templateId: readBellRingerTemplates()[0]?.fileId })
       // Left latched to true on success on purpose: onSave fires on every
       // blur, and the freshly saved kamiUrl takes a render to come back
       // down as a prop, so releasing the latch here would let a fast
