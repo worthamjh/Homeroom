@@ -300,6 +300,35 @@ export async function pickGoogleDriveAssignmentFile() {
   };
 }
 
+/**
+ * Opens the Drive picker for choosing the file every new Bell Ringer is
+ * copied from. PDFs as well as Google Docs, deliberately:
+ *
+ *   - a Doc is right when the bell ringer is typed text, since it reflows
+ *     and a teacher can keep editing the template like any document;
+ *   - a PDF is right for a fixed page -- looseleaf, graph paper, a lab
+ *     write-up form -- because the layout cannot reflow or shift, and Kami
+ *     is a PDF annotator, so it is the format it handles most faithfully.
+ *
+ * Drive's copy endpoint works the same for both, so nothing downstream
+ * cares which one a teacher picked.
+ *
+ * Picking is how this works within `drive.file` scope at all: that scope
+ * only reaches files this app created or the teacher explicitly picked, so
+ * the picker IS the grant. Homeroom cannot go looking through a Drive for
+ * a template by name, and deliberately shouldn't be able to.
+ *
+ * @returns {Promise<{ fileId: string, name: string } | null>}
+ *   null means the teacher cancelled — not an error.
+ */
+export async function pickBellRingerTemplate() {
+  await ensureGoogleScriptsLoaded();
+  const accessToken = await requestAccessToken();
+  const doc = await openPicker(accessToken, { mimeTypes: ASSIGNMENT_MIME_TYPES });
+  if (!doc) return null;
+  return { fileId: doc.id, name: doc.name };
+}
+
 // ─── Google Calendar picker ─────────────────────────────────────────────────
 //
 // Uses calendar.readonly scope to list the teacher's calendars via the
@@ -591,7 +620,7 @@ async function getOrCreateBellRingerFolder(accessToken) {
   return folder.id;
 }
 
-export async function createKamiBellRingerDoc({ title } = {}) {
+export async function createKamiBellRingerDoc({ title, templateId } = {}) {
   await ensureGoogleScriptsLoaded();
   const accessToken = await requestAccessToken();
 
@@ -608,27 +637,54 @@ export async function createKamiBellRingerDoc({ title } = {}) {
     parents = []; // fall back to Drive root if folder step fails
   }
 
-  // Create a blank Google Doc via the Drive v3 REST API.
-  // drive.file scope allows creating files — no broader scope needed.
-  const res = await fetch("https://www.googleapis.com/drive/v3/files", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      name,
-      mimeType: "application/vnd.google-apps.document",
-      ...(parents.length ? { parents } : {}),
-    }),
-  });
-
-  if (!res.ok) {
-    const detail = await res.text().catch(() => "");
-    throw new Error(`Couldn't create the Bell Ringer doc (${res.status}): ${detail}`);
+  // With a template set, copy it so the new doc arrives already carrying
+  // the teacher's layout; otherwise create a blank one as before. Kami
+  // renders the Drive file itself, so whatever is in the copy is what the
+  // class sees -- there is no separate PDF to keep in step.
+  //
+  // A failed copy falls back to a blank doc rather than failing the whole
+  // create: the template may have been deleted, or its drive.file grant
+  // lost (that grant is per-file and does not survive the file being
+  // re-picked elsewhere). Losing the layout is a far smaller problem than
+  // a teacher being unable to make a bell ringer at all.
+  let file = null;
+  if (templateId) {
+    try {
+      const copyRes = await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(templateId)}/copy`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ name, ...(parents.length ? { parents } : {}) }),
+      });
+      if (copyRes.ok) file = await copyRes.json();
+      else console.warn("[bellRinger] template copy failed, falling back to a blank doc", copyRes.status);
+    } catch (err) {
+      console.warn("[bellRinger] template copy threw, falling back to a blank doc", err);
+    }
   }
 
-  const file = await res.json();
+  if (!file) {
+    // Create a blank Google Doc via the Drive v3 REST API.
+    // drive.file scope allows creating files — no broader scope needed.
+    const res = await fetch("https://www.googleapis.com/drive/v3/files", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name,
+        mimeType: "application/vnd.google-apps.document",
+        ...(parents.length ? { parents } : {}),
+      }),
+    });
+
+    if (!res.ok) {
+      const detail = await res.text().catch(() => "");
+      throw new Error(`Couldn't create the Bell Ringer doc (${res.status}): ${detail}`);
+    }
+
+    file = await res.json();
+  }
 
   // Kami's web viewer opens Drive files via a state parameter containing
   // the Drive file ID — the same pattern the rest of Homeroom already uses

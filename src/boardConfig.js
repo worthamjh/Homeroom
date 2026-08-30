@@ -552,6 +552,31 @@ export const BOARD_SURFACES = {
 export const DEFAULT_BOARD_SURFACE = "chalkboard";
 export const BOARD_SURFACE_STORAGE_KEY = "boardSurface";
 
+// ── Bell Ringer template ────────────────────────────────────────────────
+// The Google Doc every new Bell Ringer is copied from, so a teacher's
+// layout arrives already in the document instead of them rebuilding it
+// each morning. Stored as JSON {fileId, name} in one scoped setting --
+// the name is only there so Settings can show which doc is chosen without
+// another Drive round trip.
+//
+// Empty string means no template: bell ringers are created blank, exactly
+// as they were before this existed.
+export const BELL_RINGER_TEMPLATE_STORAGE_KEY = "bellRingerTemplate";
+export const DEFAULT_BELL_RINGER_TEMPLATE = "";
+
+// Read it outside React. The two places that create a bell ringer doc sit
+// several components deep in FullAgendaBoard, and threading a setting down
+// to them would mean touching every layer in between for a value that
+// never changes mid-create.
+export function readBellRingerTemplate() {
+  try {
+    const raw = window.localStorage.getItem(scopedKey(BELL_RINGER_TEMPLATE_STORAGE_KEY));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed && parsed.fileId ? parsed : null;
+  } catch { return null; }
+}
+
 export const SLIDING_BOARDS_ENABLED_KEY = "slidingBoardsEnabled";
 export const DEFAULT_SLIDING_BOARDS_ENABLED = "false";
 export const SLIDING_BOARDS_COUNT_KEY = "slidingBoardsCount";

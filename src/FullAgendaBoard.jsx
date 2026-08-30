@@ -1,6 +1,7 @@
 import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { fetchBoardContent, saveBoardContent, deleteBoardContent } from "./lib/boardContentApi";
 import { createKamiBellRingerDoc, googleDriveConfigured, googleDriveSignedIn } from "./lib/googleDrive";
+import { readBellRingerTemplate } from "./boardConfig";
 
 /**
  * FullAgendaBoard
@@ -310,7 +311,7 @@ function KamiUrlInput({ kamiUrl, onSaveKamiUrl, lessonLabel, surface = DEFAULT_S
     try {
       const dateStr = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
       const title = lessonLabel ? `Bell Ringer — ${lessonLabel} — ${dateStr}` : undefined;
-      const { kamiUrl: newUrl } = await createKamiBellRingerDoc({ title });
+      const { kamiUrl: newUrl } = await createKamiBellRingerDoc({ title, templateId: readBellRingerTemplate()?.fileId });
       onSaveKamiUrl(newUrl);
     } catch (err) {
       setCreateError(err.message || "Couldn't create the file.");
@@ -913,7 +914,7 @@ function useAutoCreateKamiDoc({ kamiUrl, onSaveKamiUrl, lessonLabel }) {
     creatingRef.current = true;
     const dateStr = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
     const title = lessonLabel ? `Bell Ringer \u2014 ${lessonLabel} \u2014 ${dateStr}` : undefined;
-    createKamiBellRingerDoc({ title })
+    createKamiBellRingerDoc({ title, templateId: readBellRingerTemplate()?.fileId })
       // Left latched to true on success on purpose: onSave fires on every
       // blur, and the freshly saved kamiUrl takes a render to come back
       // down as a prop, so releasing the latch here would let a fast
