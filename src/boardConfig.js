@@ -546,6 +546,7 @@ export function wallBackgroundStyle(wallTypeKey, wallColorKey) {
 // don't author their own panels.
 export const BOARD_SURFACES = {
   chalkboard: { id: "chalkboard", label: "Chalkboard (Green)" },
+  chalkboardBlack: { id: "chalkboardBlack", label: "Chalkboard (Black)" },
   dryErase: { id: "dryErase", label: "Dry Erase / Whiteboard" },
 };
 export const DEFAULT_BOARD_SURFACE = "chalkboard";
@@ -607,10 +608,14 @@ export function buildSlidingPanels(goalItems, count) {
     }));
 }
 
-// Text/background colors for the two board surfaces — chalkboard is light
-// text on a dark green face (chalk), dry erase is dark text on a light
+// Text/background colors for the board surfaces — the two chalkboards are
+// light text on a dark face (chalk), dry erase is dark text on a light
 // face (marker). Consumed by the goals checklist, FullAgendaBoard, and
 // ChalkboardBoardRow so all three read the same surface.
+//
+// Green and black chalkboards differ ONLY in the face color: same chalk
+// text, same wooden ledge, same accent. Keeping them one branch means a
+// future change to chalk legibility lands on both instead of drifting.
 export function surfaceColors(boardSurfaceKey) {
   if (boardSurfaceKey === "dryErase") {
     return {
@@ -628,7 +633,9 @@ export function surfaceColors(boardSurfaceKey) {
     };
   }
   return {
-    face: "#2d5a2d",
+    // Slate rather than pure #000 -- a true black face makes the chalk
+    // text and the board's own shadows read as one flat shape.
+    face: boardSurfaceKey === "chalkboardBlack" ? "#1f2120" : "#2d5a2d",
     ledgeBg: "#5c3d0e",
     ledgeBorder: "#3a2408",
     accent: "#E87722",
