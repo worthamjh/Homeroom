@@ -2083,7 +2083,20 @@ export default function App() {
   // say, Lesson 1 opens straight to that same Lesson 1 (editable, for
   // Build) instead of dumping the teacher back at the homepage and making
   // them re-navigate.
-  const initialView = (isPreviewMode || isBuildMode)
+  //
+  // Computed ONCE, via a ref. This used to be a plain expression in the
+  // component body, so it re-ran on every render -- reading the restore
+  // key, deleting it, and putting it back each time -- while its result
+  // was only ever used as the useState initial value below and discarded
+  // from the second render on. On whichever render the curriculum had
+  // finished loading, it resolved successfully, consumed the key for
+  // good, and threw the answer away; the effect further down then found
+  // nothing and fell back to readCurrentView(), which in Build is the
+  // REAL board tab's view -- usually a unit page. That is why saving
+  // slides from the Drive picker landed on the unit instead of the lesson
+  // just edited. Reading a one-shot value like this has to happen once.
+  const initialViewRef = useRef(null);
+  if (initialViewRef.current === null) initialViewRef.current = (isPreviewMode || isBuildMode)
     ? (() => {
         try {
           const raw = sessionStorage.getItem("homeroom-build-reload-restore");
@@ -2108,6 +2121,7 @@ export default function App() {
         return resolveView(readCurrentView(), activeCurriculum);
       })()
     : resolveView(readViewFromUrlParams(), activeCurriculum);
+  const initialView = initialViewRef.current;
   const [activeUnitIdx, setActiveUnitIdx] = useState(initialView.unitIdx);
   const [activeLesson, setActiveLesson] = useState(initialView.lesson);
 
