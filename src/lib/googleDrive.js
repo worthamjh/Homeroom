@@ -163,10 +163,27 @@ function openPicker(accessToken, { viewId, mimeTypes } = {}) {
       .setIncludeFolders(true)
       .setParent("root")   // start at My Drive root so navigation is hierarchical
       .setLabel("Browse Folders");
+    // setAppId is what makes picking GRANT this app drive.file access to the
+    // chosen file. Without it the picker still returns the file's id, and
+    // every Drive API call with that id comes back 404 "File not found" --
+    // under drive.file scope Google reports a missing grant as not-found
+    // rather than forbidden, so it reads like the file does not exist.
+    //
+    // Nothing noticed until the Bell Ringer template needed files.copy:
+    // every earlier picker use only ever built a Kami viewer URL or a Drive
+    // thumbnail URL from the id, both of which the TEACHER's own Google
+    // session opens. None of them called the Drive API as this app, so none
+    // of them needed the grant.
+    //
+    // The App ID is the Cloud project number, which is the numeric prefix of
+    // the OAuth client id -- derived here rather than added as another env
+    // var that could drift out of step with the client id it must match.
+    const appId = (CLIENT_ID || "").split("-")[0];
     const picker = new window.google.picker.PickerBuilder()
       .addView(recentView)
       .addView(browseView)
       .setOAuthToken(accessToken)
+      .setAppId(appId)
       .setDeveloperKey(API_KEY)
       .setCallback((data) => {
         if (data.action === window.google.picker.Action.PICKED) {
