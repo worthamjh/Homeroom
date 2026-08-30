@@ -35,7 +35,14 @@ Rules:
   gitignored `.env.local`, and `npm install`, since worktrees do not
   share `node_modules`):
 
-      ./scripts/new-bot-worktree.sh <name>
+      .\scripts
+ew-bot-worktree.ps1 <name>    # PowerShell (Jay)
+      ./scripts/new-bot-worktree.sh <name>      # bash (agents)
+
+  Two scripts, same behaviour. PowerShell cannot run a `.sh` file -- it
+  hands it to the "select an app to open this file" dialog -- and `bash`
+  on this machine's PATH is WSL's, not Git's, so it would resolve the
+  Windows paths wrong. Give Jay the `.ps1` command.
 
   It keeps worktrees outside the OneDrive folder on purpose, so a second
   `node_modules` is not sync'd.
