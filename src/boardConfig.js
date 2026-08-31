@@ -773,8 +773,13 @@ export const BOARD_SURFACE_STORAGE_KEY = "boardSurface";
 
 // ── Board accent (headers, checkboxes, goal numbers) ──────────────────
 // The colour of "LEARNING GOALS" / "BELL RINGER" and everything that
-// shares their accent role on the board face -- checked checkboxes, the
-// 01/02/03 goal numbering, hover states.
+// shares their accent role on the board face -- the 01/02/03 goal
+// numbering, hover states.
+//
+// NOT the checkboxes. Those are chalk (surface.bodyText), like the
+// handwriting they sit beside (Jay: "the checkboxes and the check box
+// mark in the same color as the normal chalk color ... rather than the
+// header color").
 //
 // This was the literal #E87722 in surfaceColors below, i.e. Webster's
 // orange on every teacher's board no matter what they had chosen. It
@@ -1047,7 +1052,7 @@ export function designCatalog(primaryColor, secondaryColor) {
     {
       area: DESIGN_AREAS.BOARD_ACCENT,
       label: DESIGN_AREA_LABELS[DESIGN_AREAS.BOARD_ACCENT],
-      blurb: "Section headers, checked boxes and goal numbers. Always contrast-corrected to stay readable.",
+      blurb: "Section headers and goal numbers. Always contrast-corrected to stay readable on the board.",
       options: BOARD_ACCENT_PRESETS.map(a => ({
         id: a.id, label: a.label,
         preview: { kind: "onBoard", color: boardAccentBaseColor(a.id, primaryColor, secondaryColor) },

@@ -564,6 +564,13 @@ function Section({ label, value, placeholder, editing, onStartEdit, onSave, rows
   // ------------------------------------------------------------------------
 
   const lines = (value || "").split("\n").filter(l => l.trim().length > 0);
+  // The three ways this block can behave. `kamiTap` is the one real
+  // interaction a NON-interactive board still has (tap a Bell Ringer to
+  // open it in Kami); `canEdit` is Build. Neither means the plain live
+  // board, which should look like a board, not a form.
+  const kamiTap = !interactive && kamiUrl && onKamiOpen;
+  const canEdit = interactive && !!onStartEdit;
+  const hoverable = !!(kamiTap || canEdit);
 
   // On the live (non-build) board, hide the body entirely when there's no
   // content — nothing to show, no placeholder prompting the teacher to add
@@ -626,9 +633,9 @@ function Section({ label, value, placeholder, editing, onStartEdit, onSave, rows
                   >≡</div>
                   <span
                     onClick={() => onToggleLine(displayIdx)}
-                    style={{ width: 14, height: 14, marginTop: 5, borderRadius: 3, border: `2px solid ${checked ? surface.accent : surface.checkboxBorder}`, background: "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: "pointer", transition: "all 0.15s" }}
+                    style={{ width: 14, height: 14, marginTop: 5, borderRadius: 3, border: `2px solid ${checked ? surface.bodyText : surface.checkboxBorder}`, background: "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: "pointer", transition: "all 0.15s" }}
                   >
-                    {checked && <span style={{ color: surface.accent, fontSize: 10, lineHeight: 1, fontWeight: 900 }}>✓</span>}
+                    {checked && <span style={{ color: surface.bodyText, fontSize: 10, lineHeight: 1, fontWeight: 900 }}>✓</span>}
                   </span>
                   <textarea
                     ref={el => { itemRefs.current[displayIdx] = el; }}
@@ -721,8 +728,8 @@ function Section({ label, value, placeholder, editing, onStartEdit, onSave, rows
                 return (
                   <div key={li} onClick={canToggle ? () => onToggleLine(li) : undefined}
                     style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "3px 2px", cursor: canToggle ? "pointer" : "default" }}>
-                    <span style={{ width: 14, height: 14, marginTop: 3, borderRadius: 3, border: `2px solid ${checked ? surface.accent : surface.checkboxBorder}`, background: "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "all 0.15s" }}>
-                      {checked && <span style={{ color: surface.accent, fontSize: 10, lineHeight: 1, fontWeight: 900 }}>✓</span>}
+                    <span style={{ width: 14, height: 14, marginTop: 3, borderRadius: 3, border: `2px solid ${checked ? surface.bodyText : surface.checkboxBorder}`, background: "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "all 0.15s" }}>
+                      {checked && <span style={{ color: surface.bodyText, fontSize: 10, lineHeight: 1, fontWeight: 900 }}>✓</span>}
                     </span>
                     <span style={{ fontFamily: "Caveat, cursive", fontSize: 17, lineHeight: 1.4, minWidth: 0, wordBreak: "break-word", color: checked ? surface.bodyTextChecked : surface.bodyText, textShadow: surface.textShadow, textDecoration: checked ? "line-through" : "none" }}>
                       {line}
@@ -757,19 +764,25 @@ function Section({ label, value, placeholder, editing, onStartEdit, onSave, rows
         />
       ) : (
         <div
-          onClick={(!interactive && kamiUrl && onKamiOpen) ? onKamiOpen : onStartEdit}
-          title={(!interactive && kamiUrl && onKamiOpen) ? "Tap to open Bell Ringer in Kami" : "Click to edit"}
+          onClick={kamiTap ? onKamiOpen : (canEdit ? onStartEdit : undefined)}
+          title={kamiTap ? "Tap to open Bell Ringer in Kami" : (canEdit ? "Click to edit" : undefined)}
           style={{
             fontFamily: "Caveat, cursive", fontSize: 17, lineHeight: 1.4,
             color: lines.length ? surface.bodyText : surface.placeholderText,
             textShadow: lines.length ? surface.textShadow : "none",
             fontStyle: lines.length ? "normal" : "italic",
-            cursor: (!interactive && kamiUrl && onKamiOpen) ? "pointer" : "text",
+            // Nothing to click on the live board, so nothing that says you
+            // can. This block used to hardcode the I-beam, the "Click to
+            // edit" tooltip and a hover highlight whatever `interactive`
+            // was -- so a projected board offered an edit it would then
+            // ignore (Jay: "no hover interaction over the essential
+            // question ... in the regular page").
+            cursor: kamiTap ? "pointer" : (canEdit ? "text" : "default"),
             minHeight: minHeight ?? 24, padding: "2px 4px",
             borderRadius: 4, whiteSpace: "pre-wrap", wordBreak: "break-word",
           }}
-          onMouseEnter={e => { e.currentTarget.style.background = "rgba(128,128,128,0.12)"; }}
-          onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}
+          onMouseEnter={hoverable ? (e => { e.currentTarget.style.background = "rgba(128,128,128,0.12)"; }) : undefined}
+          onMouseLeave={hoverable ? (e => { e.currentTarget.style.background = "transparent"; }) : undefined}
         >
           {lines.length ? lines.join("\n") : placeholder}
         </div>
@@ -1011,8 +1024,8 @@ export function ObjectivesChecklist({ goalItems, checkedGoals, toggleGoal, surfa
           return (
             <div key={key} onClick={() => toggleGoal(panelKey, idx)}
               style={{ display: "flex", alignItems: "flex-start", gap: 8, cursor: "pointer", padding: "4px 0" }}>
-              <div style={{ width: 15, height: 15, border: `2px solid ${checked ? surface.accent : surface.checkboxBorder}`, borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 2, background: "transparent", transition: "all 0.15s" }}>
-                {checked && <span style={{ color: surface.accent, fontSize: 10, lineHeight: 1, fontWeight: 900 }}>✓</span>}
+              <div style={{ width: 15, height: 15, border: `2px solid ${checked ? surface.bodyText : surface.checkboxBorder}`, borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 2, background: "transparent", transition: "all 0.15s" }}>
+                {checked && <span style={{ color: surface.bodyText, fontSize: 10, lineHeight: 1, fontWeight: 900 }}>✓</span>}
               </div>
               <span style={{ fontFamily: "Caveat, cursive", fontSize: 15, color: checked ? surface.bodyTextChecked : surface.bodyText, lineHeight: 1.35, textShadow: surface.textShadow, textDecoration: checked ? "line-through" : "none", minWidth: 0, wordBreak: "break-word" }}>
                 {text}

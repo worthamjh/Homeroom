@@ -189,15 +189,17 @@ export default function BoardSettingsPanel({ selected, onSelect, panelCountInfo,
   const [wallColorKey, setWallColorKey] = useScopedSetting(WALL_COLOR_STORAGE_KEY, DEFAULT_WALL_COLOR_BY_TYPE[DEFAULT_WALL_TYPE], null);
   const [boardSurfaceKey, setBoardSurfaceKey] = useScopedSetting(BOARD_SURFACE_STORAGE_KEY, DEFAULT_BOARD_SURFACE, k => !!BOARD_SURFACES[k]);
   const [boardAccentKey, setBoardAccentKey] = useScopedSetting(BOARD_ACCENT_STORAGE_KEY, DEFAULT_BOARD_ACCENT, isBoardAccentKey);
-  // Swatches show the colour AFTER the contrast pass, sitting on the board
-  // face it will actually sit on -- so the row shows what the teacher will
-  // get rather than what they asked for, and a pick that had to be
-  // corrected shows itself as corrected instead of lying.
+  // Swatches show the colour AFTER the contrast pass, so a pick that had
+  // to be corrected shows itself as corrected rather than lying about what
+  // will render. They used to be drawn as a dot ON the board face to make
+  // that comparison visible, which just read as a chalkboard-coloured
+  // border around every swatch (Jay: "make the header accent color box
+  // just the accent color"). The note under the list already says the
+  // colour gets adjusted, so the swatch does not have to say it too.
   const accentPreview = (key) => {
     const base = boardAccentBaseColor(key, primaryColor, secondaryColor);
     return surfaceColors(boardSurfaceKey, base).accent;
   };
-  const boardFace = surfaceColors(boardSurfaceKey).face;
   const [slidingBoardsEnabled, setSlidingBoardsEnabled] = useScopedSetting(SLIDING_BOARDS_ENABLED_KEY, DEFAULT_SLIDING_BOARDS_ENABLED, k => k === "true" || k === "false");
   const [slidingBoardsCount, setSlidingBoardsCount] = useScopedSetting(SLIDING_BOARDS_COUNT_KEY, DEFAULT_SLIDING_BOARDS_COUNT, k => /^[2-5]$/.test(k));
 
@@ -354,9 +356,7 @@ export default function BoardSettingsPanel({ selected, onSelect, panelCountInfo,
                       onClick={() => setBoardAccentKey(a.id)}
                       label={a.label}
                       swatch={
-                        <span style={{ width: 16, height: 16, borderRadius: 3, flexShrink: 0, background: boardFace, display: "flex", alignItems: "center", justifyContent: "center", border: `2px solid ${boardAccentKey === a.id ? "var(--board-secondary)" : "rgba(255,255,255,0.3)"}` }}>
-                          <span style={{ width: 8, height: 8, borderRadius: 2, background: accentPreview(a.id) }} />
-                        </span>
+                        <span style={{ width: 16, height: 16, borderRadius: 3, flexShrink: 0, background: accentPreview(a.id), border: `2px solid ${boardAccentKey === a.id ? "var(--board-secondary)" : "rgba(255,255,255,0.3)"}` }} />
                       }
                     />
                   ))}
@@ -373,7 +373,7 @@ export default function BoardSettingsPanel({ selected, onSelect, panelCountInfo,
                     </span>
                   </div>
                   <div style={{ padding: "2px 14px 4px", fontFamily: "Lato, sans-serif", fontSize: 11, color: "rgba(255,255,255,0.4)", lineHeight: 1.4 }}>
-                    Used for section headers, checked boxes and goal numbers. Any color you pick is lightened or darkened just enough to stay readable on the board surface above — so it may not render as the exact shade you chose.
+                    Used for section headers and goal numbers. Any color you pick is lightened or darkened just enough to stay readable on the board surface above — so it may not render as the exact shade you chose.
                   </div>
 
                   <SectionHeading>Number of Boards</SectionHeading>
