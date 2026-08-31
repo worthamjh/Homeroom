@@ -152,7 +152,23 @@ function requestAccessToken() {
 // with an ARRAY. Opt-in rather than always-on: slides and calendar embed
 // exactly one thing, so letting a teacher tick three of them would only
 // raise a question the caller has no answer to.
-function openPicker(accessToken, { viewId, mimeTypes, multiple = false } = {}) {
+// Where the teacher last picked an assignment from. Remembered so the
+// picker can offer a way straight back to that folder instead of making
+// them walk down from My Drive again -- the one part of the "keep me
+// where I was" ask that Picker's API actually allows.
+//
+// Not teacher-scoped: it is a convenience, not data, and it is only ever
+// a folder id this browser has already seen.
+const LAST_PICK_FOLDER_KEY = "homeroom_last_assignment_folder";
+function readLastPickFolder() {
+  try { return window.localStorage.getItem(LAST_PICK_FOLDER_KEY) || null; } catch { return null; }
+}
+function rememberLastPickFolder(folderId) {
+  if (!folderId) return;
+  try { window.localStorage.setItem(LAST_PICK_FOLDER_KEY, folderId); } catch { /* ignore */ }
+}
+
+function openPicker(accessToken, { viewId, mimeTypes, multiple = false, pinnedFolderId = null } = {}) {
   return new Promise((resolve) => {
     const makeView = () => {
       // No sort option here, and not for want of trying: the Picker API
@@ -177,6 +193,16 @@ function openPicker(accessToken, { viewId, mimeTypes, multiple = false } = {}) {
       .setIncludeFolders(true)
       .setParent("root")   // start at My Drive root so navigation is hierarchical
       .setLabel("Browse Folders");
+    // An EXTRA tab rooted at the last folder used, never a re-rooting of
+    // the browser above. Rooting the main view at a subfolder is what
+    // trapped a teacher in a folder with no breadcrumb to climb out of
+    // (4247933, reverted). As its own tab it can only ever add a shortcut:
+    // the full hierarchy is still one click away, and if the folder has
+    // since been deleted the worst case is an empty tab beside two working
+    // ones.
+    const pinnedView = pinnedFolderId
+      ? makeView().setIncludeFolders(true).setParent(pinnedFolderId).setLabel("Where you left off")
+      : null;
     // setAppId is what makes picking GRANT this app drive.file access to the
     // chosen file. Without it the picker still returns the file's id, and
     // every Drive API call with that id comes back 404 "File not found" --
@@ -193,7 +219,9 @@ function openPicker(accessToken, { viewId, mimeTypes, multiple = false } = {}) {
     // the OAuth client id -- derived here rather than added as another env
     // var that could drift out of step with the client id it must match.
     const appId = (CLIENT_ID || "").split("-")[0];
-    let builder = new window.google.picker.PickerBuilder()
+    let builder = new window.google.picker.PickerBuilder();
+    if (pinnedView) builder = builder.addView(pinnedView);
+    builder = builder
       .addView(recentView)
       .addView(browseView)
       .setOAuthToken(accessToken)
@@ -210,6 +238,13 @@ function openPicker(accessToken, { viewId, mimeTypes, multiple = false } = {}) {
         }
       });
     if (multiple) builder = builder.enableFeature(window.google.picker.Feature.MULTISELECT_ENABLED);
+    // Open ON the shortcut when there is one. Guarded because
+    // setInitialView is not in Google's published reference even though it
+    // is on the builder -- if it ever disappears, the tab is still there to
+    // click.
+    if (pinnedView && typeof builder.setInitialView === "function") {
+      builder = builder.setInitialView(pinnedView);
+    }
     const picker = builder.build();
     picker.setVisible(true);
   });
@@ -347,7 +382,15 @@ const ASSIGNMENT_MIME_TYPES = "application/pdf,application/vnd.google-apps.docum
 export async function pickGoogleDriveAssignmentFiles() {
   await ensureGoogleScriptsLoaded();
   const accessToken = await requestAccessToken();
-  const batch = await openPicker(accessToken, { mimeTypes: ASSIGNMENT_MIME_TYPES, multiple: true });
+  const batch = await openPicker(accessToken, {
+    mimeTypes: ASSIGNMENT_MIME_TYPES,
+    multiple: true,
+    pinnedFolderId: readLastPickFolder(),
+  });
+  // Remember where these came from for next time. Last one picked: with a
+  // multi-pick they are usually all from one folder, and if not, the most
+  // recent is the best guess at where the teacher was working.
+  rememberLastPickFolder(batch[batch.length - 1]?.parentId);
   // Deduped anyway: cheap, and nothing downstream wants two identical cards.
   const seenIds = new Set();
   const docs = (batch || []).filter(doc => {
