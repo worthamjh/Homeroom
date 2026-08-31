@@ -628,9 +628,9 @@ function Section({ label, value, placeholder, editing, onStartEdit, onSave, rows
                   >≡</div>
                   <span
                     onClick={() => onToggleLine(displayIdx)}
-                    style={{ width: 14, height: 14, marginTop: 5, borderRadius: 3, border: `2px solid ${checked ? surface.accent : surface.checkboxBorder}`, background: checked ? surface.accent : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: "pointer", transition: "all 0.15s" }}
+                    style={{ width: 14, height: 14, marginTop: 5, borderRadius: 3, border: `2px solid ${checked ? surface.accent : surface.checkboxBorder}`, background: "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: "pointer", transition: "all 0.15s" }}
                   >
-                    {checked && <span style={{ color: "white", fontSize: 9, lineHeight: 1 }}>✓</span>}
+                    {checked && <span style={{ color: surface.accent, fontSize: 10, lineHeight: 1, fontWeight: 900 }}>✓</span>}
                   </span>
                   <textarea
                     ref={el => { itemRefs.current[displayIdx] = el; }}
@@ -723,8 +723,8 @@ function Section({ label, value, placeholder, editing, onStartEdit, onSave, rows
                 return (
                   <div key={li} onClick={canToggle ? () => onToggleLine(li) : undefined}
                     style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "3px 2px", cursor: canToggle ? "pointer" : "default" }}>
-                    <span style={{ width: 14, height: 14, marginTop: 3, borderRadius: 3, border: `2px solid ${checked ? surface.accent : surface.checkboxBorder}`, background: checked ? surface.accent : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "all 0.15s" }}>
-                      {checked && <span style={{ color: "white", fontSize: 9, lineHeight: 1 }}>✓</span>}
+                    <span style={{ width: 14, height: 14, marginTop: 3, borderRadius: 3, border: `2px solid ${checked ? surface.accent : surface.checkboxBorder}`, background: "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "all 0.15s" }}>
+                      {checked && <span style={{ color: surface.accent, fontSize: 10, lineHeight: 1, fontWeight: 900 }}>✓</span>}
                     </span>
                     <span style={{ fontFamily: "Caveat, cursive", fontSize: 17, lineHeight: 1.4, minWidth: 0, wordBreak: "break-word", color: checked ? surface.bodyTextChecked : surface.bodyText, textShadow: surface.textShadow, textDecoration: checked ? "line-through" : "none" }}>
                       {line}
@@ -1016,8 +1016,8 @@ export function ObjectivesChecklist({ goalItems, checkedGoals, toggleGoal, surfa
           return (
             <div key={key} onClick={() => toggleGoal(panelKey, idx)}
               style={{ display: "flex", alignItems: "flex-start", gap: 8, cursor: "pointer", padding: "4px 0" }}>
-              <div style={{ width: 15, height: 15, border: `2px solid ${checked ? surface.accent : surface.checkboxBorder}`, borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 2, background: checked ? surface.accent : "transparent", transition: "all 0.15s" }}>
-                {checked && <span style={{ color: "white", fontSize: 9, lineHeight: 1 }}>✓</span>}
+              <div style={{ width: 15, height: 15, border: `2px solid ${checked ? surface.accent : surface.checkboxBorder}`, borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 2, background: "transparent", transition: "all 0.15s" }}>
+                {checked && <span style={{ color: surface.accent, fontSize: 10, lineHeight: 1, fontWeight: 900 }}>✓</span>}
               </div>
               <span style={{ fontFamily: "Caveat, cursive", fontSize: 15, color: checked ? surface.bodyTextChecked : surface.bodyText, lineHeight: 1.35, textShadow: surface.textShadow, textDecoration: checked ? "line-through" : "none", minWidth: 0, wordBreak: "break-word" }}>
                 {text}

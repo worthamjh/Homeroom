@@ -538,8 +538,8 @@ export default function ChalkboardBoardRow({
                             return (
                               <div key={idx} onClick={() => toggleGoal(panelKey, idx)}
                                 style={{ display: "flex", alignItems: "flex-start", gap: 8, cursor: "pointer", padding: "4px 0" }}>
-                                <div style={{ width: 15, height: 15, border: `2px solid ${checked ? "var(--board-secondary)" : surface.checkboxBorder}`, borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 2, background: checked ? "var(--board-secondary)" : "transparent", transition: "all 0.15s" }}>
-                                  {checked && <span style={{ color: "var(--board-secondary-fg)", fontSize: 9, lineHeight: 1 }}>✓</span>}
+                                <div style={{ width: 15, height: 15, border: `2px solid ${checked ? surface.accent : surface.checkboxBorder}`, borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 2, background: "transparent", transition: "all 0.15s" }}>
+                                  {checked && <span style={{ color: surface.accent, fontSize: 10, lineHeight: 1, fontWeight: 900 }}>✓</span>}
                                 </div>
                                 <span style={{ fontFamily: "Caveat, cursive", fontSize: 15, color: checked ? surface.bodyTextChecked : surface.bodyText, lineHeight: 1.35, textShadow: surface.textShadow, textDecoration: checked ? "line-through" : "none", minWidth: 0, wordBreak: "break-word" }}>
                                   {text}
