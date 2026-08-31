@@ -3393,9 +3393,27 @@ export default function App() {
                   what makes it read as a bulletin board rather than as two
                   stripes. The parent is already position: relative.
 
-                  Sides are inset by the band thickness at top and bottom so
-                  the horizontal strips lie OVER them at the corners, the way
-                  a real border pack overlaps when you staple it up.
+                  The sides run the FULL height and are painted FIRST, so the
+                  horizontal strips lie over them at the corners -- the way
+                  you staple the side strips down and then the top and bottom
+                  across them (Jay: "the vertical components of the border
+                  need to overlap with the horizontal ones so there isnt the
+                  small gap near each corner"). Inset sides left an obvious
+                  notch of bare strip in every corner.
+
+                  Full-length strips alone still cannot close a corner, and
+                  the reason is geometric rather than a bug: each tile is
+                  solid across its OUTER half only, and two round scallops
+                  cannot fill a square. What is left is a small curved wedge
+                  at the inner corner, roughly two pixels across -- exactly
+                  the residue you would expect where two discs of radius r
+                  meet inside an r-by-r box.
+
+                  So each corner also gets a solid patch, one band square,
+                  painted underneath everything. That is what the overlap of
+                  two real strips looks like: solid colour through the
+                  corner, with the scalloping starting after it, which is
+                  what Jay's close-up shows.
 
                   pointerEvents none throughout: this is paper, nothing in
                   the strip should become unclickable because of it. */}
@@ -3405,10 +3423,14 @@ export default function App() {
                 const common = { position: "absolute", pointerEvents: "none" };
                 return (
                   <>
+                    <div style={{ ...common, top: 0, left: 0, width: b, height: b, background: sc.color }} />
+                    <div style={{ ...common, top: 0, right: 0, width: b, height: b, background: sc.color }} />
+                    <div style={{ ...common, bottom: 0, left: 0, width: b, height: b, background: sc.color }} />
+                    <div style={{ ...common, bottom: 0, right: 0, width: b, height: b, background: sc.color }} />
+                    <div style={{ ...common, top: 0, bottom: 0, left: 0, width: b, backgroundImage: sc.left, backgroundRepeat: "repeat-y", backgroundSize: `${b}px ${b * 2}px` }} />
+                    <div style={{ ...common, top: 0, bottom: 0, right: 0, width: b, backgroundImage: sc.right, backgroundRepeat: "repeat-y", backgroundSize: `${b}px ${b * 2}px` }} />
                     <div style={{ ...common, top: 0, left: 0, right: 0, height: b, backgroundImage: sc.top, backgroundRepeat: "repeat-x", backgroundSize: `${b * 2}px ${b}px` }} />
                     <div style={{ ...common, bottom: 0, left: 0, right: 0, height: b, backgroundImage: sc.bottom, backgroundRepeat: "repeat-x", backgroundSize: `${b * 2}px ${b}px` }} />
-                    <div style={{ ...common, top: b, bottom: b, left: 0, width: b, backgroundImage: sc.left, backgroundRepeat: "repeat-y", backgroundSize: `${b}px ${b * 2}px` }} />
-                    <div style={{ ...common, top: b, bottom: b, right: 0, width: b, backgroundImage: sc.right, backgroundRepeat: "repeat-y", backgroundSize: `${b}px ${b * 2}px` }} />
                   </>
                 );
               })()}

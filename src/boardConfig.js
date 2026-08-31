@@ -496,6 +496,9 @@ function scallopTile(color, edge) {
 function scallopTiles(color) {
   return {
     band: SCALLOP_BAND,
+    // Needed as a plain colour too, for the solid corner patches where the
+    // strips overlap -- see the bulletin strip in WebsterGrovesChemistry.
+    color,
     top: scallopTile(color, "top"),
     bottom: scallopTile(color, "bottom"),
     left: scallopTile(color, "left"),
