@@ -23,6 +23,7 @@ import {
   wallBackgroundStyle,
   BOARD_SURFACES, DEFAULT_BOARD_SURFACE, BOARD_SURFACE_STORAGE_KEY, surfaceColors,
   BOARD_ACCENT_STORAGE_KEY, DEFAULT_BOARD_ACCENT, isBoardAccentKey, boardAccentBaseColor,
+  useLessonBoardCount, seedLessonBoardCount,
   SLIDING_BOARDS_ENABLED_KEY, DEFAULT_SLIDING_BOARDS_ENABLED,
   SLIDING_BOARDS_COUNT_KEY, DEFAULT_SLIDING_BOARDS_COUNT,
   buildSlidingPanels,
@@ -2401,8 +2402,10 @@ export default function App() {
   const [wallColorKey] = useScopedSetting(WALL_COLOR_STORAGE_KEY, DEFAULT_WALL_COLOR_BY_TYPE[DEFAULT_WALL_TYPE], null);
   const [boardSurfaceKey] = useScopedSetting(BOARD_SURFACE_STORAGE_KEY, DEFAULT_BOARD_SURFACE, k => !!BOARD_SURFACES[k]);
   const [boardAccentKey] = useScopedSetting(BOARD_ACCENT_STORAGE_KEY, DEFAULT_BOARD_ACCENT, isBoardAccentKey);
-  const [slidingBoardsEnabled] = useScopedSetting(SLIDING_BOARDS_ENABLED_KEY, DEFAULT_SLIDING_BOARDS_ENABLED, k => k === "true" || k === "false");
-  const [slidingBoardsCount] = useScopedSetting(SLIDING_BOARDS_COUNT_KEY, DEFAULT_SLIDING_BOARDS_COUNT, k => /^[2-5]$/.test(k));
+  // Per lesson now, not per teacher -- see useLessonBoardCount. Falls back
+  // to the old global pair for any lesson that predates the change, so
+  // nobody's existing board rearranges itself.
+  const [lessonBoardCount] = useLessonBoardCount(activeUnitIdx, activeLesson?.title);
 
   useEffect(() => {
     window.localStorage.setItem(scopedKey(GOALS_STORAGE_KEY), JSON.stringify(checkedGoals));
@@ -2590,8 +2593,9 @@ export default function App() {
     isBlankTeacher ? teacherProfile?.primaryColor : undefined,
     isBlankTeacher ? teacherProfile?.secondaryColor : undefined,
   ));
-  const slidingEnabled = slidingBoardsEnabled === "true";
-  const slidingCount = parseInt(slidingBoardsCount, 10) || parseInt(DEFAULT_SLIDING_BOARDS_COUNT, 10);
+  // One number does both jobs: 1 means a single flat board, 2-5 slide.
+  const slidingCount = parseInt(lessonBoardCount, 10) || 1;
+  const slidingEnabled = slidingCount > 1;
 
   const isHome = activeUnitIdx === null || (!isBuildMode && !!activeCurriculum[activeUnitIdx]?.hidden);
   const activeUnit = isHome ? null : activeCurriculum[activeUnitIdx];
@@ -2974,6 +2978,11 @@ export default function App() {
 
   const handleAddLesson = (unitIdx, title) => {
     const newLesson = { title, slides: null, goals: [], assignments: [], videos: [] };
+    // Written at CREATION on purpose. It is the only moment that can tell
+    // "this lesson is new, give it one board" apart from "this lesson
+    // predates per-lesson counts, leave it on the old global setting" --
+    // both look like an absent value afterwards.
+    seedLessonBoardCount(unitIdx, title);
     const next = blankUnits.map((u, i) => i === unitIdx ? { ...u, lessons: [...u.lessons, newLesson] } : u);
     setBlankUnits(next);
     saveCurriculum(activeTeacherId, next).catch(() => {});

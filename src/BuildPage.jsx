@@ -317,7 +317,11 @@ export default function BuildPage() {
           for its own themeVars above, so nothing extra is fetched. */}
       <BoardSettingsPanel selected={selected} onSelect={setSelected} panelCountInfo={panelCountInfo}
         primaryColor={isBlankTeacher ? teacherProfile?.primaryColor : undefined}
-        secondaryColor={isBlankTeacher ? teacherProfile?.secondaryColor : undefined} />
+        secondaryColor={isBlankTeacher ? teacherProfile?.secondaryColor : undefined}
+        /* Number of Boards is a per-lesson setting now, so the panel has to
+           know which lesson the embedded board is showing. This is the same
+           currentView the "Back to board" link is built from. */
+        currentLesson={currentView} />
     </div>
   );
 

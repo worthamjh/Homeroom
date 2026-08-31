@@ -840,6 +840,56 @@ export const DEFAULT_SLIDING_BOARDS_COUNT = "3";
 // Number of Boards control; picking 1 board IS off.
 export const SLIDING_BOARDS_COUNT_OPTIONS = ["1", "2", "3", "4", "5"];
 
+// ── Board count is PER LESSON ───────────────────────────────────
+// It used to be one number for a teacher's whole board, which meant a
+// lesson with two goals and a lesson with fifteen were forced to the same
+// shape. How many boards a lesson wants is a property of that LESSON's
+// content, so it lives with the lesson now, and a newly created one
+// starts at a single flat board (Jay: "when a new page is created ... the
+// default that there is only one for the number of boards selected").
+//
+// One value, "1".."5", where 1 means a single flat board and no sliding.
+// That collapses the old enabled+count pair into the one thing the
+// settings control has always actually displayed.
+//
+// Keyed by unit index and lesson title, the same (teacherId, unitIdx,
+// lessonTitle) identity api/boardContent.js and api/assignments.js
+// already use. It inherits their weakness too: renaming a lesson orphans
+// its value, exactly as renaming orphans that lesson's board content
+// today. Not a new problem, but not a fixed one either.
+export const NEW_LESSON_BOARD_COUNT = "1";
+export function lessonBoardCountKey(unitIdx, lessonTitle) {
+  // A stable stand-in when no lesson is open (the homepage and unit
+  // overviews). Nothing reads the value there -- the board renders no
+  // panels, and the settings panel hides the control rather than letting
+  // a teacher edit a setting belonging to no lesson.
+  if (unitIdx == null || !lessonTitle) return `${SLIDING_BOARDS_COUNT_KEY}:none`;
+  return `${SLIDING_BOARDS_COUNT_KEY}:${unitIdx}:${lessonTitle}`;
+}
+
+// Writes a lesson's count without a hook, for the moment a lesson is
+// CREATED -- which is the only way "new lessons start at 1" can be told
+// apart from "this lesson predates per-lesson counts, leave it alone".
+// Absence means the latter, and falls back to the old global setting.
+export function seedLessonBoardCount(unitIdx, lessonTitle, count = NEW_LESSON_BOARD_COUNT) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(scopedKey(lessonBoardCountKey(unitIdx, lessonTitle)), count);
+  } catch { /* ignore */ }
+}
+
+// The lesson's count, falling back to whatever the teacher's old global
+// pair said so that every lesson predating this keeps the exact board it
+// had. Returns [count, setCount] with count a "1".."5" string.
+export function useLessonBoardCount(unitIdx, lessonTitle) {
+  const [globalEnabled] = useScopedSetting(
+    SLIDING_BOARDS_ENABLED_KEY, DEFAULT_SLIDING_BOARDS_ENABLED, k => k === "true" || k === "false");
+  const [globalCount] = useScopedSetting(
+    SLIDING_BOARDS_COUNT_KEY, DEFAULT_SLIDING_BOARDS_COUNT, k => /^[2-5]$/.test(k));
+  const fallback = globalEnabled === "true" ? globalCount : "1";
+  return useScopedSetting(lessonBoardCountKey(unitIdx, lessonTitle), fallback, k => /^[1-5]$/.test(k));
+}
+
 // Whether a blank-shell teacher has finished (or skipped) the guided
 // Build tour (see GuidedTour.jsx) -- a plain "true"/"false" scoped
 // setting like every other per-teacher preference, so it is Mongo-

@@ -14,6 +14,7 @@ import {
   SLIDING_BOARDS_ENABLED_KEY, DEFAULT_SLIDING_BOARDS_ENABLED,
   SLIDING_BOARDS_COUNT_KEY, DEFAULT_SLIDING_BOARDS_COUNT, SLIDING_BOARDS_COUNT_OPTIONS,
   DESIGN_AREAS, useOwnedDesignOptions,
+  useLessonBoardCount,
 } from "./boardConfig";
 
 /**
@@ -145,7 +146,7 @@ function reorder(order, fromKey, toKey) {
   return next;
 }
 
-export default function BoardSettingsPanel({ selected, onSelect, panelCountInfo, primaryColor, secondaryColor }) {
+export default function BoardSettingsPanel({ selected, onSelect, panelCountInfo, primaryColor, secondaryColor, currentLesson }) {
   // Every picker below is filtered through this, so gating a design is a
   // catalogue entry rather than a hunt through six render sites. See the
   // design catalogue in boardConfig.js.
@@ -200,24 +201,15 @@ export default function BoardSettingsPanel({ selected, onSelect, panelCountInfo,
     const base = boardAccentBaseColor(key, primaryColor, secondaryColor);
     return surfaceColors(boardSurfaceKey, base).accent;
   };
-  const [slidingBoardsEnabled, setSlidingBoardsEnabled] = useScopedSetting(SLIDING_BOARDS_ENABLED_KEY, DEFAULT_SLIDING_BOARDS_ENABLED, k => k === "true" || k === "false");
-  const [slidingBoardsCount, setSlidingBoardsCount] = useScopedSetting(SLIDING_BOARDS_COUNT_KEY, DEFAULT_SLIDING_BOARDS_COUNT, k => /^[2-5]$/.test(k));
-
-  const slidingOn = slidingBoardsEnabled === "true";
-  // Number of Boards is a single 1-5 control now, not a separate
-  // on/off toggle plus a 2-5 count -- 1 board IS "off" (see
-  // SLIDING_BOARDS_COUNT_OPTIONS in boardConfig.js). Internally this
-  // still writes to the same two scoped settings for backward
-  // compatibility with anything already stored.
-  const displayedBoardCount = slidingOn ? slidingBoardsCount : "1";
-  const setBoardCount = (n) => {
-    if (n === "1") {
-      setSlidingBoardsEnabled("false");
-    } else {
-      setSlidingBoardsCount(n);
-      setSlidingBoardsEnabled("true");
-    }
-  };
+  // Number of Boards edits THIS LESSON now, not the whole board (see
+  // useLessonBoardCount). One 1-5 value does both jobs the old
+  // enabled+count pair did: 1 board IS "off". `currentLesson` comes from
+  // Build, which already knows what its embedded board has open.
+  const [displayedBoardCount, setBoardCount] = useLessonBoardCount(
+    currentLesson?.unitIdx, currentLesson?.lessonTitle);
+  // No lesson open means no lesson to set a count FOR. Better to say so
+  // than to show a control that silently edits nothing.
+  const hasLessonOpen = currentLesson?.unitIdx != null && !!currentLesson?.lessonTitle;
 
   const selectWallType = (typeId) => {
     setWallTypeKey(typeId);
@@ -376,8 +368,13 @@ export default function BoardSettingsPanel({ selected, onSelect, panelCountInfo,
                     Used for section headers and goal numbers. Any color you pick is lightened or darkened just enough to stay readable on the board surface above — so it may not render as the exact shade you chose.
                   </div>
 
-                  <SectionHeading>Number of Boards</SectionHeading>
-                  <div style={{ display: "flex", gap: 8, padding: "4px 14px 10px", flexWrap: "wrap" }}>
+                  <SectionHeading>Number of Boards{hasLessonOpen ? ` — ${currentLesson.lessonTitle}` : ""}</SectionHeading>
+                  {!hasLessonOpen && (
+                    <div style={{ padding: "2px 14px 10px", fontFamily: "Lato, sans-serif", fontSize: 11, color: "rgba(255,255,255,0.4)", lineHeight: 1.4 }}>
+                      Open a lesson on the board above to set how many boards it uses. Each lesson keeps its own count.
+                    </div>
+                  )}
+                  {hasLessonOpen && <div style={{ display: "flex", gap: 8, padding: "4px 14px 10px", flexWrap: "wrap" }}>
                     {SLIDING_BOARDS_COUNT_OPTIONS.map(n => (
                       <button
                         key={n}
@@ -394,10 +391,10 @@ export default function BoardSettingsPanel({ selected, onSelect, panelCountInfo,
                         {n}
                       </button>
                     ))}
-                  </div>
-                  <div style={{ padding: "0 14px 4px", fontFamily: "Lato, sans-serif", fontSize: 11, color: "rgba(255,255,255,0.4)", lineHeight: 1.4 }}>
-                    1 board is a single flat board — no sliding. 2-5 boards slide, one at a time, on the classic rail-and-handle mechanic. Applies to lessons that don't already define their own boards (Unit 10's Testing lessons keep their own board count). This is a fixed count — you'll always get exactly this many boards, even if a lesson has fewer learning goals than that (the extra boards are simply blank, or carry only whatever else is turned on in Board Content) or Learning Goals is toggled off entirely.
-                  </div>
+                  </div>}
+                  {hasLessonOpen && <div style={{ padding: "0 14px 4px", fontFamily: "Lato, sans-serif", fontSize: 11, color: "rgba(255,255,255,0.4)", lineHeight: 1.4 }}>
+                    Applies to this lesson only — every lesson keeps its own count, and a newly created one starts at 1. 1 board is a single flat board, no sliding; 2-5 slide one at a time on the classic rail-and-handle mechanic. Lessons that define their own boards (Unit 10's Testing lessons) keep theirs. This is a fixed count — you'll always get exactly this many, even if the lesson has fewer learning goals than that (the extra boards are simply blank, or carry only whatever else is turned on in Board Content) or Learning Goals is toggled off entirely.
+                  </div>}
                 </>
               )}
             </div>
