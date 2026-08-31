@@ -3375,7 +3375,15 @@ export default function App() {
             </div>
 
             {/* Chalkboard */}
-            <div style={{ flex: 1, minHeight: 0, background: surface.face, borderTop: "4px solid #6B4F10", display: "flex", flexDirection: "column", ...highlightStyle("blackboard"), ...highlightStyle("content") }}>
+            {/* borderTop is the frame member BETWEEN the bulletin strip and
+                the chalkboard -- the bulletin board's bottom edge. Same
+                #8B6914 as the perimeter above, so the whole surround reads
+                as one piece of wood (Jay: "the same brown color as that
+                goes around the perimeter of the chalk board"). It was a
+                darker #6B4F10, which made the divider look like a shadow
+                rather than part of the frame. Still thinner than the 7px
+                perimeter, which is what an inner member should be. */}
+            <div style={{ flex: 1, minHeight: 0, background: surface.face, borderTop: "4px solid #8B6914", display: "flex", flexDirection: "column", ...highlightStyle("blackboard"), ...highlightStyle("content") }}>
               {!isOverview && (activeLesson?.goalPanels || slidingEnabled) ? (
                 // Sliding multi-panel chalkboard — the exact same rail/dock
                 // mechanic regardless of content template. A lesson that
