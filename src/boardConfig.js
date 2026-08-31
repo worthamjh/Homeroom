@@ -1096,6 +1096,34 @@ export const DESIGN_AREA_LABELS = {
   [DESIGN_AREAS.BOARD_ACCENT]: "Header & Accent Colors",
 };
 
+// What each area's setting currently is, and what it falls back to. The
+// store needs both to honour "removing something your board is using
+// switches the board" -- see the Remove handler in DesignStorePage.
+//
+// A fixed object of hook calls, not a loop: every one runs unconditionally
+// on every render, in the same order, which is the only shape the rules of
+// hooks allow. Validators deliberately mirror BoardSettingsPanel's, so the
+// two pages never disagree about what a valid saved value is.
+export const DESIGN_AREA_DEFAULT_OPTION = {
+  [DESIGN_AREAS.BULLETIN]: DEFAULT_BULLETIN,
+  [DESIGN_AREAS.WALL_TYPE]: DEFAULT_WALL_TYPE,
+  [DESIGN_AREAS.WALL_COLOR]: DEFAULT_WALL_COLOR_BY_TYPE[DEFAULT_WALL_TYPE],
+  [DESIGN_AREAS.BOARD_SURFACE]: DEFAULT_BOARD_SURFACE,
+  [DESIGN_AREAS.BOARD_LAYOUT]: DEFAULT_ARRANGEMENT,
+  [DESIGN_AREAS.BOARD_ACCENT]: DEFAULT_BOARD_ACCENT,
+};
+
+export function useDesignAreaSelections() {
+  return {
+    [DESIGN_AREAS.BULLETIN]: useScopedSetting(BULLETIN_STORAGE_KEY, DEFAULT_BULLETIN, isBulletinStyleId, migrateBulletinStyleId),
+    [DESIGN_AREAS.WALL_TYPE]: useScopedSetting(WALL_TYPE_STORAGE_KEY, DEFAULT_WALL_TYPE, k => !!WALL_TYPES[k]),
+    [DESIGN_AREAS.WALL_COLOR]: useScopedSetting(WALL_COLOR_STORAGE_KEY, DEFAULT_WALL_COLOR_BY_TYPE[DEFAULT_WALL_TYPE], null),
+    [DESIGN_AREAS.BOARD_SURFACE]: useScopedSetting(BOARD_SURFACE_STORAGE_KEY, DEFAULT_BOARD_SURFACE, k => !!BOARD_SURFACES[k]),
+    [DESIGN_AREAS.BOARD_LAYOUT]: useScopedSetting(ARRANGEMENT_STORAGE_KEY, DEFAULT_ARRANGEMENT, k => !!BOARD_ARRANGEMENTS[k]),
+    [DESIGN_AREAS.BOARD_ACCENT]: useScopedSetting(BOARD_ACCENT_STORAGE_KEY, DEFAULT_BOARD_ACCENT, isBoardAccentKey),
+  };
+}
+
 export function designCatalog(primaryColor, secondaryColor) {
   const bulletins = bulletinStyles(primaryColor, secondaryColor);
   return [
@@ -1235,6 +1263,12 @@ export function useScopedSetting(storageKeyName, defaultValue, isValid, migrate)
   }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [value, setValue] = useState(read);
+  // Set the moment the teacher changes this setting themselves. The
+  // one-time remote fetch below must not overwrite an explicit change just
+  // because the fetch was started first -- clicking Add or Remove in the
+  // first second after a page or route change would otherwise be undone by
+  // a reply describing the world before the click.
+  const hasLocalEdit = useRef(false);
   // Gates the Mongo write-through below until the one-time remote fetch
   // has had a chance to run — otherwise a fresh mount's first render
   // (local default or stale localStorage) would immediately overwrite
@@ -1276,13 +1310,21 @@ export function useScopedSetting(storageKeyName, defaultValue, isValid, migrate)
       .then((remote) => {
         if (cancelled) return;
         const remoteValue = accept(remote ? remote[storageKeyName] : null);
-        if (remoteValue !== null) setValue(remoteValue);
+        if (remoteValue !== null && !hasLocalEdit.current) setValue(remoteValue);
       })
       .finally(() => { if (!cancelled) hasLoadedRemote.current = true; });
     return () => { cancelled = true; };
   }, [teacherId, storageKeyName]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  return [value, setValue];
+  // Wrapped so every caller's write flags the edit. Direct values only --
+  // no functional updater has ever been passed to one of these setters, and
+  // this shape keeps it that way.
+  const setValueLocal = useCallback((next) => {
+    hasLocalEdit.current = true;
+    setValue(next);
+  }, []);
+
+  return [value, setValueLocal];
 }
 
 // One in-flight/resolved fetch per teacherId, shared across every

@@ -5,6 +5,7 @@ import {
   getActiveTeacherId, DEFAULT_TEACHER_ID,
   boardThemeVars, wallBackgroundStyle,
   designCatalog, useOwnedDesignOptions, isDesignOptionIncluded,
+  useDesignAreaSelections, DESIGN_AREA_DEFAULT_OPTION,
 } from "./boardConfig";
 import { fetchProfile } from "./lib/profileApi";
 import BulletinPreview from "./BulletinPreview";
@@ -112,6 +113,32 @@ export default function DesignStorePage() {
   );
 
   const addedCount = design.owned.length;
+  const selections = useDesignAreaSelections();
+
+  // Removing something the board is actually USING would otherwise leave
+  // the store saying "not added" while the board still shows it -- the two
+  // contradicting each other, which is what Jay hit with Cork. So a removal
+  // that matters asks first, and then moves the board off it, rather than
+  // either changing the board silently or letting them disagree.
+  //
+  // Only the in-use case prompts. Removing something you are not using is
+  // not destructive and should not need a dialog.
+  const removeOption = (area, opt, options) => {
+    const [current, setCurrent] = selections[area] || [];
+    if (current === opt.id) {
+      const fallbackId = DESIGN_AREA_DEFAULT_OPTION[area];
+      const fallbackLabel = options.find(o => o.id === fallbackId)?.label || "the default";
+      const ok = window.confirm(
+        `"${opt.label}" is on your board right now.
+
+` +
+        `Remove it anyway? Your board will switch to "${fallbackLabel}".`
+      );
+      if (!ok) return;
+      setCurrent?.(fallbackId);
+    }
+    design.remove(area, opt.id);
+  };
 
   return (
     <div style={{ ...themeVars, minHeight: "100vh", background: "#141414", fontFamily: "Lato, sans-serif", color: "#eee" }}>
@@ -169,7 +196,7 @@ export default function DesignStorePage() {
                         <>
                           <StateChip tone="added">✓ Added</StateChip>
                           <button
-                            onClick={() => design.remove(section.area, opt.id)}
+                            onClick={() => removeOption(section.area, opt, section.options)}
                             style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.25)", color: "rgba(255,255,255,0.6)", borderRadius: 4, fontSize: 11, padding: "4px 9px", cursor: "pointer", fontFamily: "Lato, sans-serif" }}
                           >
                             Remove
