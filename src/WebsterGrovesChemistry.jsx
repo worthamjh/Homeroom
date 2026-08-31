@@ -1886,6 +1886,16 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
                     ) : (
                       <button
                         data-tour={ui === 0 ? "tour-unit-tab" : undefined}
+                        // The guided tour's "open-unit" step gates on this
+                        // attribute (see GuidedTour.jsx) and nothing else --
+                        // hovering the tab opens its dropdown, so the presence
+                        // of "+ Add Lesson" is not proof of a real click.
+                        // It has to live on BOTH tab branches: this one is the
+                        // branch a blank teacher in Build mode renders, which
+                        // is the ONLY audience the tour ever runs for, so when
+                        // splitting the tab into name-button + ✎ left it on the
+                        // other branch alone the tour stalled here forever.
+                        data-tour-clicked={ui === 0 && activeUnitIdx === ui && isOverview ? "true" : undefined}
                         title={`Open "${u.unit}"`}
                         onClick={() => { handleUnitOverview(ui); setOpenDropdown(ui); }}
                         // Padding is symmetric again now that the ✎ has moved
