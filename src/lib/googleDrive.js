@@ -391,16 +391,32 @@ const ASSIGNMENT_MIME_TYPES = [
 // file id is stored precisely so the link always reflects what is in
 // their Drive right now.
 //
-// drive.google.com/open?id= rather than a per-type URL: Drive redirects
-// to the right viewer for whatever the file turns out to be, so this does
-// not need a table of mime type to URL shape that could go out of date.
+// Non-PDFs get a READ-ONLY viewer, not Drive's generic /open redirect.
+//
+// /open?id= sends Office files into the Docs EDITOR. Fine for the teacher
+// who owns them; less fine as the link sitting on a board a class is
+// looking at, where the invitation is to open someone's master copy for
+// editing. Google still enforces permissions, so this is not an open
+// door -- but a file shared "anyone with the link can edit" would be, and
+// nothing here should encourage that. Read-only also matches what PDFs
+// already do: Kami annotates over the file, it never edits the original.
+//
+// Google-native files have their own /preview; everything else uploaded
+// to Drive (a .docx, .doc, an image) uses Drive's file viewer.
+const NATIVE_PREVIEW_PATH = {
+  "application/vnd.google-apps.document": "document",
+  "application/vnd.google-apps.presentation": "presentation",
+  "application/vnd.google-apps.spreadsheet": "spreadsheets",
+};
 function assignmentViewUrl(doc) {
   if (doc.mimeType === "application/pdf") {
     return `https://web.kamihq.com/web/viewer.html?state=${encodeURIComponent(
       JSON.stringify({ id: doc.id, action: "open", from: "google-drive" })
     )}`;
   }
-  return `https://drive.google.com/open?id=${doc.id}`;
+  const nativePath = NATIVE_PREVIEW_PATH[doc.mimeType];
+  if (nativePath) return `https://docs.google.com/${nativePath}/d/${doc.id}/preview`;
+  return `https://drive.google.com/file/d/${doc.id}/view`;
 }
 
 /**
