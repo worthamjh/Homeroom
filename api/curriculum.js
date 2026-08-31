@@ -24,6 +24,19 @@ import { resolveTeacherId } from "./_auth.js";
 
 const DB_NAME = process.env.MONGODB_DB || "homeroom";
 const COLLECTION = "curricula";
+// Every previous version of a teacher's units, so a bad save is
+// recoverable. A curriculum is the most expensive thing a teacher builds
+// here -- hours of typing -- and until now a single overwrite was final:
+// no undo, no backups, nothing to restore from. An export would only help
+// someone who thought to run one first, which nobody does before the
+// thing they did not expect.
+//
+// Written on the way IN, before the overwrite, so what is kept is the
+// state that was actually good. Trimmed to the most recent
+// CURRICULUM_HISTORY_LIMIT per teacher: enough to walk back through a bad
+// afternoon, not an unbounded log of every keystroke-triggered save.
+const HISTORY_COLLECTION = "curriculaHistory";
+const CURRICULUM_HISTORY_LIMIT = 30;
 
 // Loose shape validation — not exhaustive, just enough to keep obviously
 // malformed data (wrong types, a missing `unit`/`lessons` field) out of
@@ -93,6 +106,36 @@ export default async function handler(req, res) {
       }
       const col = await getCollection();
       const now = new Date();
+
+      // Snapshot what is there BEFORE replacing it. Best-effort on
+      // purpose: if history ever fails, the teacher's save must still go
+      // through -- a safety net that can block the thing it protects is
+      // worse than no safety net.
+      try {
+        const previous = await col.findOne({ teacherId });
+        if (previous?.units?.length) {
+          const client = await getClientPromise();
+          const history = client.db(DB_NAME).collection(HISTORY_COLLECTION);
+          await history.insertOne({
+            teacherId,
+            units: previous.units,
+            replacedAt: now,
+            unitCount: previous.units.length,
+          });
+          // Trim to the newest N for this teacher.
+          const stale = await history
+            .find({ teacherId }, { projection: { _id: 1 } })
+            .sort({ replacedAt: -1 })
+            .skip(CURRICULUM_HISTORY_LIMIT)
+            .toArray();
+          if (stale.length) {
+            await history.deleteMany({ _id: { $in: stale.map(d => d._id) } });
+          }
+        }
+      } catch (err) {
+        console.error("[api/curriculum] history snapshot failed (save continuing)", err);
+      }
+
       await col.updateOne(
         { teacherId: String(teacherId) },
         { $set: { teacherId: String(teacherId), units: cleanUnits, updatedAt: now }, $setOnInsert: { createdAt: now } },

@@ -8,7 +8,7 @@ import {
   HEADING_FONT_OPTIONS, BODY_FONT_OPTIONS,
   ensureFontsLoaded,
 } from "./boardConfig";
-import { fetchProfile, saveProfile } from "./lib/profileApi";
+import { fetchProfile, saveProfile, downloadMyData } from "./lib/profileApi";
 
 /**
  * EditProfilePage — /profile route, linked from the Build page header.
@@ -33,6 +33,8 @@ export default function EditProfilePage() {
   const [saving,  setSaving]  = useState(false);
   const [error,   setError]   = useState("");
 
+  const [exporting,      setExporting]      = useState(false);
+  const [exportError,    setExportError]    = useState("");
   const [teacherName,    setTeacherName]    = useState("");
   const [school,         setSchool]         = useState("");
   const [subject,        setSubject]        = useState("");
@@ -210,6 +212,42 @@ export default function EditProfilePage() {
             {saving ? "Saving…" : "Save changes"}
           </button>
         </form>
+
+        {/* Your data, out of Homeroom and into a file you keep. Here
+            rather than buried in Build because it is about the account,
+            not about one board -- and because a teacher looking for
+            "where is my stuff" looks at their profile. */}
+        <div style={{ marginTop: 26, paddingTop: 18, borderTop: "1px solid #333" }}>
+          <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 12, letterSpacing: 1.4, textTransform: "uppercase", color: "rgba(255,255,255,0.45)", marginBottom: 8 }}>
+            Your data
+          </div>
+          <button
+            type="button"
+            disabled={exporting}
+            onClick={async () => {
+              setExportError("");
+              setExporting(true);
+              try {
+                await downloadMyData();
+              } catch (err) {
+                setExportError(err.message || "Couldn't build your export.");
+              } finally {
+                setExporting(false);
+              }
+            }}
+            style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.28)", color: "rgba(255,255,255,0.8)", borderRadius: 6, padding: "9px 16px", fontFamily: "Lato, sans-serif", fontSize: 13, cursor: exporting ? "wait" : "pointer" }}
+          >
+            {exporting ? "Preparing…" : "Download a backup"}
+          </button>
+          <p style={{ fontSize: 12, color: "rgba(255,255,255,0.45)", lineHeight: 1.5, margin: "10px 0 0" }}>
+            One JSON file with everything Homeroom stores for you — your units and
+            lessons, board content, assignments and settings, plus the last 30 saved
+            versions of your curriculum. Readable without Homeroom, and yours to keep.
+          </p>
+          {exportError && (
+            <p style={{ fontSize: 12, color: "#ff9b8a", margin: "8px 0 0" }}>{exportError}</p>
+          )}
+        </div>
       </div>
     </Shell>
   );
