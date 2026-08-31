@@ -364,6 +364,17 @@ export default function BuildPage() {
               </SignedOut>
             </>
           )}
+          {/* The store is where the long tail of designs lives, so that
+              this page's settings panel can stay short. Not gated on
+              sign-in the way Profile is: browsing what a board COULD look
+              like is exactly what you want a signed-out teacher to see. */}
+          <a
+            href="/store"
+            style={{ color: "rgba(255,255,255,0.45)", fontFamily: "Oswald, sans-serif", fontSize: 12, textTransform: "uppercase", letterSpacing: 0.5, textDecoration: "none", flexShrink: 0 }}
+            title="Design Store — browse and add board designs"
+          >
+            🛍 Store
+          </a>
           {isBlankTeacher && CLERK_CONFIGURED && (
             <a
               href={`/profile?from=build`}

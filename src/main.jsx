@@ -8,6 +8,7 @@ import LandingPage from './LandingPage.jsx'
 import SettingsPage from './SettingsPage.jsx'
 import BuildPage from './BuildPage.jsx'
 import EditProfilePage from './EditProfilePage.jsx'
+import DesignStorePage from './DesignStorePage.jsx'
 import { useSyncAuthIdentity, CLERK_CONFIGURED } from './boardConfig.js'
 
 const CLERK_PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
@@ -58,6 +59,12 @@ const routedApp = (
           and should show zero add/edit affordances. See BuildPage.jsx. */}
       <Route path="/build" element={<BuildPage />} />
       <Route path="/profile" element={<EditProfilePage />} />
+      {/* The design store — browse every look Homeroom can put on a
+          board and add the ones you want. Build's settings panel then
+          shows what ships plus what you've added, which is what keeps
+          that panel short while the catalogue grows. See
+          DesignStorePage.jsx and the design catalogue in boardConfig.js. */}
+      <Route path="/store" element={<DesignStorePage />} />
     </Routes>
   </BrowserRouter>
 );

@@ -964,7 +964,12 @@ export const designOptionKey = (area, optionId) => `${area}:${optionId}`;
 // is much worse than a new design being free for a while. Gate a design
 // by adding its id here, in the same commit that adds it to the store.
 const STORE_GATED_OPTIONS = {
-  [DESIGN_AREAS.BULLETIN]: [],
+  // The store's first stock. The scalloped borders are the newest and
+  // most decorative thing on the board, and nothing shipped depends on
+  // them, so they are the safe pair to put behind the counter first.
+  // WHICH designs are gated is a product call, not a technical one --
+  // this list is the only place it is expressed.
+  [DESIGN_AREAS.BULLETIN]: ["primaryScallop", "secondaryScallop"],
   [DESIGN_AREAS.WALL_TYPE]: [],
   [DESIGN_AREAS.WALL_COLOR]: [],
   [DESIGN_AREAS.BOARD_SURFACE]: [],
@@ -975,6 +980,75 @@ const STORE_GATED_OPTIONS = {
 // Ships with every board, no purchase, no ownership record.
 export function isDesignOptionIncluded(area, optionId) {
   return !(STORE_GATED_OPTIONS[area] || []).includes(optionId);
+}
+
+// Everything the store can show, in one shape, so the store page renders
+// from a list rather than hard-coding a section per area -- which is the
+// thing that has to stay cheap as areas get added.
+//
+// `preview` is deliberately area-shaped rather than a single universal
+// blob: a bulletin style previews as a strip, a wall colour as a square,
+// a layout as two columns. Pretending those are the same thing would cost
+// more than the switch it saves.
+export const DESIGN_AREA_LABELS = {
+  [DESIGN_AREAS.BULLETIN]: "Bulletin Board Styles",
+  [DESIGN_AREAS.WALL_TYPE]: "Wall Types",
+  [DESIGN_AREAS.WALL_COLOR]: "Wall Colors",
+  [DESIGN_AREAS.BOARD_SURFACE]: "Board Surfaces",
+  [DESIGN_AREAS.BOARD_LAYOUT]: "Board Layouts",
+  [DESIGN_AREAS.BOARD_ACCENT]: "Header & Accent Colors",
+};
+
+export function designCatalog(primaryColor, secondaryColor) {
+  const bulletins = bulletinStyles(primaryColor, secondaryColor);
+  return [
+    {
+      area: DESIGN_AREAS.BULLETIN,
+      label: DESIGN_AREA_LABELS[DESIGN_AREAS.BULLETIN],
+      blurb: "The board's top strip — its colour, and the border stapled around the inside.",
+      options: Object.values(bulletins).map(b => ({
+        id: b.id, label: b.label,
+        preview: { kind: "bulletin", background: b.background, trim: b.trim, scallop: b.scallop },
+      })),
+    },
+    {
+      area: DESIGN_AREAS.WALL_COLOR,
+      label: DESIGN_AREA_LABELS[DESIGN_AREAS.WALL_COLOR],
+      blurb: "The classroom wall behind the board.",
+      options: WALL_COLORS.map(c => ({ id: c.id, label: c.label, preview: { kind: "swatch", color: c.base } })),
+    },
+    {
+      area: DESIGN_AREAS.WALL_TYPE,
+      label: DESIGN_AREA_LABELS[DESIGN_AREAS.WALL_TYPE],
+      blurb: "Cinderblock or smooth drywall — texture only; the colour is separate.",
+      options: Object.values(WALL_TYPES).map(t => ({ id: t.id, label: t.label, preview: { kind: "wall", wallType: t.id } })),
+    },
+    {
+      area: DESIGN_AREAS.BOARD_SURFACE,
+      label: DESIGN_AREA_LABELS[DESIGN_AREAS.BOARD_SURFACE],
+      blurb: "What the writing surface itself is made of.",
+      options: Object.values(BOARD_SURFACES).map(b => ({
+        id: b.id, label: b.label, preview: { kind: "swatch", color: surfaceColors(b.id).face },
+      })),
+    },
+    {
+      area: DESIGN_AREAS.BOARD_ACCENT,
+      label: DESIGN_AREA_LABELS[DESIGN_AREAS.BOARD_ACCENT],
+      blurb: "Section headers, checked boxes and goal numbers. Always contrast-corrected to stay readable.",
+      options: BOARD_ACCENT_PRESETS.map(a => ({
+        id: a.id, label: a.label,
+        preview: { kind: "onBoard", color: boardAccentBaseColor(a.id, primaryColor, secondaryColor) },
+      })),
+    },
+    {
+      area: DESIGN_AREAS.BOARD_LAYOUT,
+      label: DESIGN_AREA_LABELS[DESIGN_AREAS.BOARD_LAYOUT],
+      blurb: "Which side the slides sit on.",
+      options: Object.values(BOARD_ARRANGEMENTS).map(a => ({
+        id: a.id, label: a.label, preview: { kind: "layout", columns: a.gridTemplateColumns },
+      })),
+    },
+  ];
 }
 
 export const OWNED_DESIGN_OPTIONS_KEY = "ownedDesignOptions";
