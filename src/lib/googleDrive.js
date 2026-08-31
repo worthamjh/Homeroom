@@ -152,7 +152,7 @@ function requestAccessToken() {
 // with an ARRAY. Opt-in rather than always-on: slides and calendar embed
 // exactly one thing, so letting a teacher tick three of them would only
 // raise a question the caller has no answer to.
-function openPicker(accessToken, { viewId, mimeTypes, multiple = false } = {}) {
+function openPicker(accessToken, { viewId, mimeTypes, multiple = false, parentId = null } = {}) {
   return new Promise((resolve) => {
     const makeView = () => {
       const _view = new window.google.picker.DocsView(viewId || window.google.picker.ViewId.DOCS)
@@ -165,9 +165,14 @@ function openPicker(accessToken, { viewId, mimeTypes, multiple = false } = {}) {
       return view;
     };
     const recentView = makeView();
+    // `parentId` reopens the browser in the folder the teacher was last
+    // picking from instead of My Drive root. Without it, gathering files
+    // from two folders means walking the whole tree again for the second
+    // one, which is most of the work the picker was supposed to save
+    // (Jay: "i have to click all the way back through my google folders").
     const browseView = makeView()
       .setIncludeFolders(true)
-      .setParent("root")   // start at My Drive root so navigation is hierarchical
+      .setParent(parentId || "root")
       .setLabel("Browse Folders");
     // setAppId is what makes picking GRANT this app drive.file access to the
     // chosen file. Without it the picker still returns the file's id, and
@@ -185,9 +190,15 @@ function openPicker(accessToken, { viewId, mimeTypes, multiple = false } = {}) {
     // the OAuth client id -- derived here rather than added as another env
     // var that could drift out of step with the client id it must match.
     const appId = (CLIENT_ID || "").split("-")[0];
-    let builder = new window.google.picker.PickerBuilder()
-      .addView(recentView)
-      .addView(browseView)
+    // Whichever view is added FIRST is the tab the picker opens on, and
+    // there is no API to select one afterwards. So once we know where the
+    // teacher was working, the folder browser leads -- landing them back
+    // where they were rather than on the recent list.
+    let builder = new window.google.picker.PickerBuilder();
+    builder = parentId
+      ? builder.addView(browseView).addView(recentView)
+      : builder.addView(recentView).addView(browseView);
+    builder = builder
       .setOAuthToken(accessToken)
       .setAppId(appId)
       .setDeveloperKey(API_KEY)
@@ -312,8 +323,9 @@ const ASSIGNMENT_MIME_TYPES = "application/pdf,application/vnd.google-apps.docum
  * directly to MongoDB; cloudinaryPublicId is omitted for Drive picks.
  *
  * MULTI-SELECT, ACROSS FOLDERS. Tick as many as you like in one folder,
- * press Select, and the picker comes straight back so you can walk to
- * another folder and keep going. Cancel finishes and adds the lot.
+ * press Select, and the picker comes straight back OPEN IN THAT SAME
+ * FOLDER so the next one is a click away rather than a walk down from My
+ * Drive again. Cancel finishes and adds the lot.
  *
  * @returns {Promise<Array<{ fileId: string, name: string, viewUrl: string, thumbUrl: string }>>}
  *   An empty array means the teacher cancelled without picking anything
@@ -344,9 +356,20 @@ export async function pickGoogleDriveAssignmentFiles() {
   const accessToken = await requestAccessToken();
   const docs = [];
   const seenIds = new Set();
+  // Where the last pick came from, so the next round opens there.
+  let lastParentId = null;
   for (let round = 0; round < MAX_PICK_ROUNDS; round++) {
-    const batch = await openPicker(accessToken, { mimeTypes: ASSIGNMENT_MIME_TYPES, multiple: true });
+    const batch = await openPicker(accessToken, {
+      mimeTypes: ASSIGNMENT_MIME_TYPES,
+      multiple: true,
+      parentId: lastParentId,
+    });
     if (!batch.length) break;   // Cancel (or picked nothing) -- that is "done"
+    // Picker reports each file's folder. Take the last one picked: with a
+    // multi-pick they are usually all from the same folder anyway, and if
+    // they are not, the most recent is the best guess at where the teacher
+    // still is.
+    lastParentId = batch[batch.length - 1]?.parentId || lastParentId;
     // Deduped by file id: reopening means the same file can be picked
     // twice, and two identical assignment cards is not what anyone meant.
     for (const doc of batch) {
