@@ -1,5 +1,5 @@
 // Client for /api/boardContent — a lesson's Full Agenda board content
-// (Essential Question, Agenda, Bell Ringer, Home Learning text, and which
+// (Essential Question, Agenda, Bell Ringer text, and which
 // Agenda lines are checked off). Same small-fetch-wrapper pattern as
 // lib/curriculumApi.js and lib/profileApi.js.
 //

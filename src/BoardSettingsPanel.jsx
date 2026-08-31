@@ -167,7 +167,6 @@ export default function BoardSettingsPanel({ selected, onSelect, panelCountInfo,
   const [essentialQuestionOn, setEssentialQuestionOn] = useScopedSetting(BOARD_COMPONENTS.essentialQuestion.storageKey, BOARD_COMPONENTS.essentialQuestion.default, isOnOff);
   const [agendaOn, setAgendaOn] = useScopedSetting(BOARD_COMPONENTS.agenda.storageKey, BOARD_COMPONENTS.agenda.default, isOnOff);
   const [bellRingerOn, setBellRingerOn] = useScopedSetting(BOARD_COMPONENTS.bellRinger.storageKey, BOARD_COMPONENTS.bellRinger.default, isOnOff);
-  const [homeLearningOn, setHomeLearningOn] = useScopedSetting(BOARD_COMPONENTS.homeLearning.storageKey, BOARD_COMPONENTS.homeLearning.default, isOnOff);
   const toggleComponent = (value, setValue) => setValue(value === "true" ? "false" : "true");
   // Which order the five components above render in on the board — see
   // useBoardContentOrder/BOARD_CONTENT_ORDER_STORAGE_KEY in boardConfig.js.
@@ -185,7 +184,6 @@ export default function BoardSettingsPanel({ selected, onSelect, panelCountInfo,
     essentialQuestion: [essentialQuestionOn, setEssentialQuestionOn],
     agenda: [agendaOn, setAgendaOn],
     bellRinger: [bellRingerOn, setBellRingerOn],
-    homeLearning: [homeLearningOn, setHomeLearningOn],
   };
   const [wallTypeKey, setWallTypeKey] = useScopedSetting(WALL_TYPE_STORAGE_KEY, DEFAULT_WALL_TYPE, k => !!WALL_TYPES[k]);
   const [wallColorKey, setWallColorKey] = useScopedSetting(WALL_COLOR_STORAGE_KEY, DEFAULT_WALL_COLOR_BY_TYPE[DEFAULT_WALL_TYPE], null);

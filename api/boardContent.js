@@ -23,8 +23,14 @@ const DEFAULT_TEACHER_ID = "local-teacher";
 const DB_NAME = process.env.MONGODB_DB || "homeroom";
 const COLLECTION = "boardContent";
 
-// The four freeform text fields — kept in one list so GET/POST/sanitizing
-// don't have to spell out all four separately in more than one place.
+// The freeform text fields — kept in one list so GET/POST/sanitizing
+// don't have to spell each one out in more than one place.
+//
+// `homeLearning` is deliberately still here even though the Home Learning
+// component was removed from the board: nothing reads or writes it any
+// more, but leaving it means whatever a teacher had typed there is still
+// sitting in Mongo rather than dropped on the next save. Costs one unused
+// key; buys back the text if that component ever returns.
 const TEXT_FIELDS = ["essentialQuestion", "agenda", "bellRinger", "homeLearning", "bellRingerKamiUrl", "learningGoals"];
 
 function getClientPromise() {

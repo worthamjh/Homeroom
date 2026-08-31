@@ -94,7 +94,7 @@ export default function ChalkboardBoardRow({
   // when Learning Goals is the only thing on the board (matching its
   // original look), but the caller passes surface.accent instead whenever
   // Objectives & Benchmarks is sharing the panel with Full Agenda's other
-  // fields (Essential Question, Agenda, Bell Ringer, Home Learning) — all
+  // fields (Essential Question, Agenda, Bell Ringer) — all
   // of which use surface.accent via SectionHeader in FullAgendaBoard.jsx
   // — so every header in that shared section reads as one consistent set
   // instead of Objectives & Benchmarks standing out as a different color.
@@ -120,11 +120,11 @@ export default function ChalkboardBoardRow({
   // dragging a row in the settings panel reorders the sliding board's
   // content too instead of only ever affecting the flat layout. Defaults
   // to the same order as DEFAULT_BOARD_CONTENT_ORDER there.
-  contentOrder = ["learningGoals", "essentialQuestion", "agenda", "bellRinger", "homeLearning"],
+  contentOrder = ["learningGoals", "essentialQuestion", "agenda", "bellRinger"],
   // Extra content rendered on every panel face (including the fixed back
   // board), one item per non-"learningGoals" key in contentOrder — used
   // by the Full Agenda content template to carry Essential Question/
-  // Agenda/Bell Ringer/Home Learning along on every board, since that
+  // Agenda/Bell Ringer along on every board, since that
   // content isn't itself per-panel.
   //
   // Pass a FUNCTION `(key, isFront) => ReactNode`, not a plain element.

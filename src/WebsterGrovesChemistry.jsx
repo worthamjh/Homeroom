@@ -2365,17 +2365,15 @@ export default function App() {
   const [essentialQuestionOn] = useScopedSetting(BOARD_COMPONENTS.essentialQuestion.storageKey, BOARD_COMPONENTS.essentialQuestion.default, isOnOff);
   const [agendaOn] = useScopedSetting(BOARD_COMPONENTS.agenda.storageKey, BOARD_COMPONENTS.agenda.default, isOnOff);
   const [bellRingerOn] = useScopedSetting(BOARD_COMPONENTS.bellRinger.storageKey, BOARD_COMPONENTS.bellRinger.default, isOnOff);
-  const [homeLearningOn] = useScopedSetting(BOARD_COMPONENTS.homeLearning.storageKey, BOARD_COMPONENTS.homeLearning.default, isOnOff);
   const learningGoalsIsOn = learningGoalsOn === "true";
   const essentialQuestionIsOn = essentialQuestionOn === "true";
   const agendaIsOn = agendaOn === "true";
   const bellRingerIsOn = bellRingerOn === "true";
-  const homeLearningIsOn = homeLearningOn === "true";
   // Whether any of the four Full Agenda freeform fields are on — drives
   // whether FullAgendaFields renders at all (it's presentational and would
   // otherwise render an empty gap of its own layout gap/Reset button when
   // every one of its four sections is toggled off).
-  const anyFullAgendaFieldOn = essentialQuestionIsOn || agendaIsOn || bellRingerIsOn || homeLearningIsOn;
+  const anyFullAgendaFieldOn = essentialQuestionIsOn || agendaIsOn || bellRingerIsOn;
   // Which order the five Board Content components render in, in the flat
   // (non-sliding) goals column — a teacher-chosen order (see Settings'
   // Board Content section), independent of which ones are toggled on.
@@ -3192,7 +3190,7 @@ export default function App() {
   // deliberately does NOT depend on whether Learning Goals itself is
   // toggled on: the board count is its own independent setting (Board
   // Content > Number of Boards), and a teacher may well want several
-  // sliding boards to hold Agenda/Bell Ringer/Home Learning content even
+  // sliding boards to hold Agenda/Bell Ringer content even
   // with Learning Goals switched off. The one exception is a lesson that
   // authors its own explicit goalPanels (Unit 10's Testing lessons),
   // which keeps its real multi-panel layout regardless of the setting.
@@ -3218,7 +3216,7 @@ export default function App() {
   }, [isSlidingActive, slidingPanelsForLesson.length, slidingCount, activeLesson]);
 
   // Full Agenda's freeform fields (Essential Question, Agenda, Bell
-  // Ringer, Home Learning) — a SINGLE hook instance owning that state, so
+  // Ringer) — a SINGLE hook instance owning that state, so
   // whether Full Agenda is currently showing as a flat board or as
   // multiple sliding panels (ChalkboardBoardRow's extraContent, rendered
   // once per panel face), every render reads/writes the exact same
@@ -3228,7 +3226,7 @@ export default function App() {
   // argument scopes this lesson's content to Mongo too (null at the
   // overview, where there's no lesson to scope it to) — see the
   // `mongoKey` param on useFullAgendaFields for why this is what lets a
-  // teacher's Essential Question/Agenda/Bell Ringer/Home Learning text
+  // teacher's Essential Question/Agenda/Bell Ringer text
   // survive a different browser or a cleared cache, instead of living
   // only in this one browser's localStorage.
   // Unit-level hook — owns only the Essential Question, shared across
@@ -3248,7 +3246,7 @@ export default function App() {
 
   // Per-panel hooks — one per possible panel slot, always the same number
   // and unconditional, so hooks are never called conditionally. Each
-  // panel's Agenda / Bell Ringer / Home Learning / Learning Goals is
+  // panel's Agenda / Bell Ringer / Learning Goals is
   // stored under its own key, so sliding board 1 and board 2 always carry
   // their own independent content regardless of which panel is in front.
   //
@@ -3481,7 +3479,7 @@ export default function App() {
                   // lets a teacher's drag-to-reorder in the Board Content
                   // settings panel actually take effect while Sliding
                   // Boards is on, instead of Essential Question/Agenda/Bell
-                  // Ringer/Home Learning always rendering in one fixed
+                  // Ringer always rendering in one fixed
                   // sequence regardless of what's been dragged where.
                   contentOrder={boardContentOrder}
                   renderReset={anyExtraContentOn ? (isFront, panelIdx) => {
@@ -3510,7 +3508,7 @@ export default function App() {
                         />
                       );
                     }
-                    const isOnByKey = { essentialQuestion: essentialQuestionIsOn, agenda: agendaIsOn, bellRinger: bellRingerIsOn, homeLearning: isBuildMode && homeLearningIsOn };
+                    const isOnByKey = { essentialQuestion: essentialQuestionIsOn, agenda: agendaIsOn, bellRinger: bellRingerIsOn };
                     if (!isOnByKey[key]) return null;
                     return (
                       <EditableField
@@ -3659,7 +3657,7 @@ export default function App() {
                               </div>
                             );
                           }
-                          const isOnByKey = { essentialQuestion: essentialQuestionIsOn, agenda: agendaIsOn, bellRinger: bellRingerIsOn, homeLearning: isBuildMode && homeLearningIsOn };
+                          const isOnByKey = { essentialQuestion: essentialQuestionIsOn, agenda: agendaIsOn, bellRinger: bellRingerIsOn };
                           if (!isOnByKey[key]) return null;
                           return (
                             <EditableField
@@ -3684,7 +3682,7 @@ export default function App() {
                         })}
                         {!learningGoalsIsOn && !anyFullAgendaFieldOn && (
                           <div style={{ fontFamily: "Caveat, cursive", fontSize: 17, color: surface.placeholderText, fontStyle: "italic", padding: "2px 4px" }}>
-                            No board content is turned on. Turn on Learning Goals, Essential Question, Agenda, Bell Ringer, or Home Learning in Settings.
+                            No board content is turned on. Turn on Learning Goals, Essential Question, Agenda, or Bell Ringer in Settings.
                           </div>
                         )}
                       </>

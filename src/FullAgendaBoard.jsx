@@ -9,11 +9,11 @@ import { BUILT_IN_PAPERS } from "./lib/paperTemplates";
  * A "Blackboard Configuration" content template — the classic full-board
  * format a lot of districts/admins expect (modeled directly on Jay's own
  * reference photo): Objectives & Benchmarks, Essential Question, Agenda,
- * Bell Ringer, Home Learning. Renders inside the same goals-column slot
+ * Bell Ringer. Renders inside the same goals-column slot
  * the Simple Goals checklist occupies (alongside the SmartBoard/slides),
  * not instead of it.
  *
- * Essential Question / Agenda / Bell Ringer / Home Learning are freely
+ * Essential Question / Agenda / Bell Ringer are freely
  * editable in place (click to edit, click away or Tab out to save) and
  * persisted to localStorage per-lesson, so a teacher can make that content
  * "whatever they want" while still having a sensible prefilled default.
@@ -25,7 +25,7 @@ import { BUILT_IN_PAPERS } from "./lib/paperTemplates";
  *
  * Sliding Boards support: when Sliding Boards is on, Full Agenda behaves
  * exactly like Simple Goals — the *entire* board (Objectives checklist AND
- * the Essential Question/Agenda/Bell Ringer/Home Learning fields) is what
+ * the Essential Question/Agenda/Bell Ringer fields) is what
  * physically slides, via ChalkboardBoardRow's real rail/dock mechanic, not
  * a separate scoped-down slider. To make that possible without each
  * sliding panel owning its own independent (and therefore driftable) copy
@@ -59,7 +59,6 @@ export function defaultFullAgendaContent() {
     agenda: "",
     bellRinger: "",
     bellRingerKamiUrl: "",
-    homeLearning: "",
     learningGoals: "",
   };
 }
@@ -214,7 +213,7 @@ export function useFullAgendaFields(storageKey, mongoKey) {
 }
 
 // The one header style shared by EVERY board content section — Essential
-// Question, Agenda, Bell Ringer, Home Learning, and Objectives &
+// Question, Agenda, Bell Ringer, and Objectives &
 // Benchmarks/Learning Goals all render through this SAME function rather
 // than each having its own copy of the same style object, specifically so
 // they can never visually drift apart from each other again (Jay caught a
@@ -254,7 +253,6 @@ export const FULL_AGENDA_FIELD_META = {
   // into. Any bellRinger TEXT saved before this still lives in the record;
   // it just is not shown or editable here any more.
   bellRinger: { label: "Bell Ringer", placeholder: "", rows: 2, docOnly: true },
-  homeLearning: { label: "Home Learning", placeholder: "Click to add homework / home learning...", rows: 2 },
   // Editable Learning Goals -- for lessons with no curriculum-authored
   // goals at all (see useEditableLearningGoals in WebsterGrovesChemistry
   // .jsx), a teacher can type their own goals list here instead of the
@@ -853,16 +851,15 @@ export function ResetBoardButton({ onReset, surface = DEFAULT_SURFACE, interacti
 
 export function FullAgendaFields({
   content, editingKey, onStartEdit, onSave, onReset, surface = DEFAULT_SURFACE, interactive = true,
-  showEssentialQuestion = true, showAgenda = true, showBellRinger = true, showHomeLearning = true,
+  showEssentialQuestion = true, showAgenda = true, showBellRinger = true,
   checkedAgendaLines, onToggleAgendaLine,
 }) {
-  // Agenda's quick-add chips ("+ Bell Ringer" / "+ Home Learning") — see
+  // Agenda's quick-add chip ("+ Bell Ringer") — see
   // the comment above them in Section. Computed here (not in Section
   // itself) since it needs the other three fields' current content, not
   // just Agenda's own.
   const agendaQuickAddOptions = [
     { label: FULL_AGENDA_FIELD_META.bellRinger.label, value: (content.bellRinger || "").trim() || FULL_AGENDA_FIELD_META.bellRinger.label },
-    { label: FULL_AGENDA_FIELD_META.homeLearning.label, value: (content.homeLearning || "").trim() || FULL_AGENDA_FIELD_META.homeLearning.label },
   ];
 
   const section = (key, label, opts = {}) => (
@@ -891,7 +888,6 @@ export function FullAgendaFields({
       {showEssentialQuestion && section("essentialQuestion", FULL_AGENDA_FIELD_META.essentialQuestion.label, FULL_AGENDA_FIELD_META.essentialQuestion)}
       {showAgenda && section("agenda", FULL_AGENDA_FIELD_META.agenda.label, FULL_AGENDA_FIELD_META.agenda)}
       {showBellRinger && section("bellRinger", FULL_AGENDA_FIELD_META.bellRinger.label, FULL_AGENDA_FIELD_META.bellRinger)}
-      {showHomeLearning && section("homeLearning", FULL_AGENDA_FIELD_META.homeLearning.label, FULL_AGENDA_FIELD_META.homeLearning)}
     </div>
   );
 }
@@ -900,7 +896,7 @@ export function FullAgendaFields({
 // underneath FullAgendaFields uses, just one at a time instead of all
 // four in a fixed block. This is what lets BOTH the flat (non-sliding)
 // board content column AND ChalkboardBoardRow's sliding panels render
-// Essential Question/Agenda/Bell Ringer/Home Learning in whatever order a
+// Essential Question/Agenda/Bell Ringer in whatever order a
 // teacher has chosen (see BOARD_CONTENT_ORDER_STORAGE_KEY in
 // boardConfig.js) instead of a fixed sequence.
 //
@@ -964,7 +960,6 @@ export function EditableField({ fieldKey, content, editingKey, onStartEdit, onSa
   // copies) render through, so it needs its own copy of that logic.
   const quickAddOptions = (interactive && fieldKey === "agenda") ? [
     { label: FULL_AGENDA_FIELD_META.bellRinger.label, value: (content.bellRinger || "").trim() || FULL_AGENDA_FIELD_META.bellRinger.label },
-    { label: FULL_AGENDA_FIELD_META.homeLearning.label, value: (content.homeLearning || "").trim() || FULL_AGENDA_FIELD_META.homeLearning.label },
   ] : undefined;
   return (
     <Section

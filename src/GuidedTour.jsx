@@ -143,7 +143,7 @@ const STEPS = [
     gate: "select",
     matchSelected: "content",
     title: "Board Content",
-    body: "Click “Board Content” to see it — this is where you turn Essential Question, Agenda, Bell Ringer, and Home Learning on or off, and drag to reorder them.",
+    body: "Click “Board Content” to see it — this is where you turn Essential Question, Agenda, and Bell Ringer on or off, and drag to reorder them.",
   },
   {
     id: "blackboard",

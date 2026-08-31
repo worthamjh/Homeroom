@@ -555,25 +555,23 @@ export const BULLETIN_STORAGE_KEY = "bulletinStyle";
 // same "cross-tab-synced setting" pattern as Sliding Boards' on/off
 // switch — so a teacher can build whatever combination of board content
 // their admin's format actually calls for (e.g. just the checklist, or
-// checklist + Essential Question with Agenda/Bell Ringer/Home Learning
-// left off) instead of only ever getting the two fixed combinations that
+// checklist + Essential Question with Agenda/Bell Ringer left off) instead of only ever getting the two fixed combinations that
 // used to be available. See FullAgendaBoard.jsx for the fields
 // themselves.
 //
 // `default` matches the old "Simple Goals" look (goals checklist only),
 // so a teacher who never opens Settings sees exactly what they always
-// have — the four extra fields are opt-in on a fresh install, not a
+// have — the extra fields are opt-in on a fresh install, not a
 // surprise change to every existing board.
 export const BOARD_COMPONENTS = {
   learningGoals: { id: "learningGoals", label: "Learning Goals", storageKey: "component:learningGoals", default: "true" },
   essentialQuestion: { id: "essentialQuestion", label: "Essential Question", storageKey: "component:essentialQuestion", default: "false" },
   agenda: { id: "agenda", label: "Agenda", storageKey: "component:agenda", default: "false" },
   bellRinger: { id: "bellRinger", label: "Bell Ringer", storageKey: "component:bellRinger", default: "false" },
-  homeLearning: { id: "homeLearning", label: "Home Learning", storageKey: "component:homeLearning", default: "false" },
 };
 
 // ── Board content order ─────────────────────────────────────────────────
-// Which of the five BOARD_COMPONENTS above renders first, second, etc. in
+// Which of the BOARD_COMPONENTS above renders first, second, etc. in
 // the flat (non-sliding) goals column — independent of which ones are ON,
 // so a component still has a place in line while toggled off, and turning
 // it back on later doesn't silently bump it back to the end. Only the
@@ -583,7 +581,21 @@ export const BOARD_COMPONENTS = {
 // scope than the flat case, flagged as a follow-up rather than blocking
 // this on rebuilding the sliding-boards rendering path too.
 export const BOARD_CONTENT_ORDER_STORAGE_KEY = "boardContentOrder";
-export const DEFAULT_BOARD_CONTENT_ORDER = ["learningGoals", "essentialQuestion", "agenda", "bellRinger", "homeLearning"];
+export const DEFAULT_BOARD_CONTENT_ORDER = ["learningGoals", "essentialQuestion", "agenda", "bellRinger"];
+
+// Saved orders are NORMALISED on the way in rather than rejected: drop
+// keys that no longer exist (Home Learning was removed) and append any
+// that are missing. The strict check below then passes, so a teacher
+// keeps the ordering they chose for everything that survived instead of
+// being silently reset to the default because their saved list is now the
+// wrong length.
+export function normalizeBoardContentOrder(raw) {
+  let arr;
+  try { arr = JSON.parse(raw); } catch { return DEFAULT_BOARD_CONTENT_ORDER; }
+  if (!Array.isArray(arr)) return DEFAULT_BOARD_CONTENT_ORDER;
+  const kept = [...new Set(arr.filter(k => DEFAULT_BOARD_CONTENT_ORDER.includes(k)))];
+  return [...kept, ...DEFAULT_BOARD_CONTENT_ORDER.filter(k => !kept.includes(k))];
+}
 
 function isValidBoardContentOrder(raw) {
   try {
@@ -604,7 +616,8 @@ export function useBoardContentOrder() {
   const [raw, setRaw] = useScopedSetting(
     BOARD_CONTENT_ORDER_STORAGE_KEY,
     JSON.stringify(DEFAULT_BOARD_CONTENT_ORDER),
-    isValidBoardContentOrder
+    isValidBoardContentOrder,
+    (v) => JSON.stringify(normalizeBoardContentOrder(v)),
   );
   let order;
   try {
