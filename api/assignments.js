@@ -4,26 +4,12 @@
 // assignment is scoped to a unit index + lesson title, same addressing
 // the client already uses to look up a lesson's hardcoded assignments.
 //
-// Real login exists now (Clerk — see src/boardConfig.js's
-// useSyncAuthIdentity and main.jsx's <ClerkProvider>), but every document
-// here is still scoped under whatever teacherId the CLIENT sends in the
-// request, exactly as before — this endpoint does not itself verify who's
-// actually signed in. getActiveTeacherId() on the client resolves to a
-// signed-in teacher's real Clerk id (prefixed "clerk:") once they're
-// signed in, but nothing stops a request from claiming a different
-// teacherId outright; the isolation this gives is "different teachers'
-// content doesn't collide by default," not "a request is verified to
-// belong to the teacher it claims." Hardening this — verifying the
-// request's Clerk session token server-side (e.g. via
-// @clerk/backend's verifyToken, using CLERK_SECRET_KEY, already reserved
-// in .env.example) and deriving teacherId from THAT instead of trusting
-// req.body/req.query — is real future work, not done in this pass.
-// Defaulting to DEFAULT_TEACHER_ID (Webster Groves' real identity) when
-// the client omits teacherId, and the ?teacher=sandbox escape hatch on
-// the client, both still work exactly as before.
+// Identity comes from the verified Clerk session, never from the request
+// — see api/_auth.js for what that means and why. Any teacherId still
+// arriving in the query or body is ignored for identity.
 import { MongoClient } from "mongodb";
+import { resolveTeacherId } from "./_auth.js";
 
-const DEFAULT_TEACHER_ID = "local-teacher";
 const DB_NAME = process.env.MONGODB_DB || "homeroom";
 const COLLECTION = "assignments";
 
@@ -56,11 +42,12 @@ async function getCollection() {
 
 export default async function handler(req, res) {
   try {
-  // Identity comes from the verified session, never from the request --
-  // see api/_auth.js. Any teacherId still arriving in the query or body is
-  // ignored, so a caller cannot name a teacher they are not.
-  const teacherId = await resolveTeacherId(req, res);
-  if (!teacherId) return;   // 401/503 already sent
+    // Identity comes from the verified session, never from the request --
+    // see api/_auth.js. Any teacherId still arriving in the query or body
+    // is ignored, so a caller cannot name a teacher they are not.
+    const teacherId = await resolveTeacherId(req, res);
+    if (!teacherId) return;   // 401/503 already sent
+
     if (req.method === "GET") {
       const { unitIdx, lessonTitle } = req.query;
       if (unitIdx == null || !lessonTitle) {
