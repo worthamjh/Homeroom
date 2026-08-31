@@ -18,6 +18,7 @@
 // @clerk/backend's verifyToken) is the same flagged future work as
 // api/assignments.js, api/profile.js, and api/curriculum.js.
 import { MongoClient } from "mongodb";
+import { resolveTeacherId } from "./_auth.js";
 
 const DEFAULT_TEACHER_ID = "local-teacher";
 const DB_NAME = process.env.MONGODB_DB || "homeroom";
@@ -65,8 +66,13 @@ function docKey({ teacherId, unitIdx, lessonTitle, panelIdx }) {
 
 export default async function handler(req, res) {
   try {
+  // Identity comes from the verified session, never from the request --
+  // see api/_auth.js. Any teacherId still arriving in the query or body is
+  // ignored, so a caller cannot name a teacher they are not.
+  const teacherId = await resolveTeacherId(req, res);
+  if (!teacherId) return;   // 401/503 already sent
     if (req.method === "GET") {
-      const { teacherId, unitIdx, lessonTitle, panelIdx } = req.query;
+      const { unitIdx, lessonTitle, panelIdx } = req.query;
       if (unitIdx == null || !lessonTitle) {
         res.status(400).json({ error: "unitIdx and lessonTitle query params are required" });
         return;
@@ -81,7 +87,7 @@ export default async function handler(req, res) {
     }
 
     if (req.method === "POST") {
-      const { teacherId, unitIdx, lessonTitle, panelIdx, checkedAgendaLines, checkedLearningGoalsLines, ...rest } = req.body || {};
+      const { unitIdx, lessonTitle, panelIdx, checkedAgendaLines, checkedLearningGoalsLines, ...rest } = req.body || {};
       if (unitIdx == null || !lessonTitle) {
         res.status(400).json({ error: "unitIdx and lessonTitle are required" });
         return;
@@ -124,7 +130,7 @@ export default async function handler(req, res) {
       // defaults, means a future GET returns null and the client falls
       // back to its own defaultFullAgendaContent() — one definition of
       // "default", kept client-side, instead of duplicating it here.
-      const { teacherId, unitIdx, lessonTitle } = req.query;
+      const { unitIdx, lessonTitle } = req.query;
       if (unitIdx == null || !lessonTitle) {
         res.status(400).json({ error: "unitIdx and lessonTitle query params are required" });
         return;

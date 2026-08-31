@@ -3,6 +3,8 @@
 // WebsterGrovesChemistry.jsx. Kept as its own small module (same pattern
 // as boardConfig.js's helpers) so the component file isn't the place
 // fetch/error-handling details live.
+
+import { apiFetch } from "./apiClient";
 import { getActiveTeacherId } from "../boardConfig";
 
 export async function fetchExtraAssignments(unitIdx, lessonTitle) {
@@ -11,13 +13,13 @@ export async function fetchExtraAssignments(unitIdx, lessonTitle) {
     lessonTitle,
     teacherId: getActiveTeacherId(),
   });
-  const res = await fetch(`/api/assignments?${params}`);
+  const res = await apiFetch(`/api/assignments?${params}`);
   if (!res.ok) throw new Error(`Failed to load assignments (${res.status})`);
   return res.json();
 }
 
 export async function createExtraAssignment({ unitIdx, lessonTitle, label, url, thumb, cloudinaryPublicId }) {
-  const res = await fetch("/api/assignments", {
+  const res = await apiFetch("/api/assignments", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -31,7 +33,7 @@ export async function createExtraAssignment({ unitIdx, lessonTitle, label, url, 
 
 export async function deleteExtraAssignment(id) {
   const params = new URLSearchParams({ id, teacherId: getActiveTeacherId() });
-  const res = await fetch(`/api/assignments?${params}`, { method: "DELETE" });
+  const res = await apiFetch(`/api/assignments?${params}`, { method: "DELETE" });
   if (!res.ok) throw new Error(`Failed to remove assignment (${res.status})`);
 }
 
@@ -42,7 +44,7 @@ export async function updateExtraAssignment(id, { label, hidden } = {}) {
   const body = { teacherId: getActiveTeacherId() };
   if (label !== undefined) body.label = label;
   if (hidden !== undefined) body.hidden = hidden;
-  const res = await fetch(`/api/assignments?id=${encodeURIComponent(id)}`, {
+  const res = await apiFetch(`/api/assignments?id=${encodeURIComponent(id)}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -55,7 +57,7 @@ export async function updateExtraAssignment(id, { label, hidden } = {}) {
 // api/assignments.js. `ids` is every assignment in the list, in the order
 // they should appear.
 export async function reorderExtraAssignments(ids) {
-  const res = await fetch("/api/assignments", {
+  const res = await apiFetch("/api/assignments", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ ids, teacherId: getActiveTeacherId() }),

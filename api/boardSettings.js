@@ -22,6 +22,7 @@
 // api/assignments.js, api/profile.js, api/curriculum.js, api/boardContent.js,
 // and api/checkedGoals.js.
 import { MongoClient } from "mongodb";
+import { resolveTeacherId } from "./_auth.js";
 
 const DEFAULT_TEACHER_ID = "local-teacher";
 const DB_NAME = process.env.MONGODB_DB || "homeroom";
@@ -47,10 +48,14 @@ async function getCollection() {
 
 export default async function handler(req, res) {
   try {
+  // Identity comes from the verified session, never from the request --
+  // see api/_auth.js. Any teacherId still arriving in the query or body is
+  // ignored, so a caller cannot name a teacher they are not.
+  const teacherId = await resolveTeacherId(req, res);
+  if (!teacherId) return;   // 401/503 already sent
     if (req.method === "GET") {
-      const { teacherId } = req.query;
       const col = await getCollection();
-      const doc = await col.findOne({ teacherId: teacherId ? String(teacherId) : DEFAULT_TEACHER_ID });
+      const doc = await col.findOne({ teacherId });
       // 200 + null (not 404) when nothing's saved yet — same convention as
       // every other endpoint here. The client keeps whatever it already
       // has (its localStorage value, or the hardcoded default) in that case.
@@ -59,12 +64,11 @@ export default async function handler(req, res) {
     }
 
     if (req.method === "POST") {
-      const { teacherId, key, value } = req.body || {};
+      const { key, value } = req.body || {};
       if (!key || typeof key !== "string" || typeof value !== "string") {
         res.status(400).json({ error: "key and value (both strings) are required" });
         return;
       }
-      const resolvedTeacherId = teacherId ? String(teacherId) : DEFAULT_TEACHER_ID;
       const col = await getCollection();
       const now = new Date();
       // Partial update — one setting changes at a time (a teacher tweaking
@@ -72,8 +76,8 @@ export default async function handler(req, res) {
       // instead of round-tripping (and risking clobbering) every other
       // setting on every save.
       await col.updateOne(
-        { teacherId: resolvedTeacherId },
-        { $set: { teacherId: resolvedTeacherId, [`settings.${key}`]: value, updatedAt: now }, $setOnInsert: { createdAt: now } },
+        { teacherId: teacherId },
+        { $set: { teacherId: teacherId, [`settings.${key}`]: value, updatedAt: now }, $setOnInsert: { createdAt: now } },
         { upsert: true }
       );
       res.status(200).json({ key, value });

@@ -13,6 +13,7 @@
 // @clerk/backend's verifyToken, using CLERK_SECRET_KEY) is the same
 // future work flagged there, not done in this pass.
 import { MongoClient } from "mongodb";
+import { resolveTeacherId } from "./_auth.js";
 
 const DB_NAME = process.env.MONGODB_DB || "homeroom";
 const COLLECTION = "profiles";
@@ -54,12 +55,12 @@ async function getCollection() {
 
 export default async function handler(req, res) {
   try {
+  // Identity comes from the verified session, never from the request --
+  // see api/_auth.js. Any teacherId still arriving in the query or body is
+  // ignored, so a caller cannot name a teacher they are not.
+  const teacherId = await resolveTeacherId(req, res);
+  if (!teacherId) return;   // 401/503 already sent
     if (req.method === "GET") {
-      const { teacherId } = req.query;
-      if (!teacherId) {
-        res.status(400).json({ error: "teacherId query param is required" });
-        return;
-      }
       const col = await getCollection();
       const doc = await col.findOne({ teacherId: String(teacherId) });
       // 200 + null (not 404) when no profile exists yet — the client's
@@ -70,9 +71,9 @@ export default async function handler(req, res) {
     }
 
     if (req.method === "POST") {
-      const { teacherId, teacherName, school, subject, primaryColor, secondaryColor, headingFont, bodyFont } = req.body || {};
-      if (!teacherId || !teacherName) {
-        res.status(400).json({ error: "teacherId and teacherName are required" });
+      const { teacherName, school, subject, primaryColor, secondaryColor, headingFont, bodyFont } = req.body || {};
+      if (!teacherName) {
+        res.status(400).json({ error: "teacherName is required" });
         return;
       }
       const col = await getCollection();

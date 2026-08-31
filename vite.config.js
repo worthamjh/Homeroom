@@ -84,7 +84,13 @@ function localApi() {
           // string busts Node's module cache, so edits to api/* are picked
           // up without restarting the dev server.
           const mod = await import(`${pathToFileURL(handlerPath).href}?t=${Date.now()}`)
-          await mod.default({ method: req.method, query, body }, vercelRes)
+          // headers included deliberately: without them req.headers is
+          // undefined here, so api/_auth.js could never see an
+          // Authorization header and every local request looked
+          // signed-out. That made the auth path untestable in dev while
+          // appearing to pass -- the shim's whole job is to look like the
+          // Vercel Node runtime, and this was the gap.
+          await mod.default({ method: req.method, query, body, headers: req.headers }, vercelRes)
         } catch (err) {
           res.statusCode = 500
           res.end(JSON.stringify({ error: 'local-api failed', detail: String(err?.message || err) }))

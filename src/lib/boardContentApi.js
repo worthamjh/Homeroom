@@ -6,10 +6,12 @@
 // `panelIdx` is optional — only sliding-board panels pass it. The flat board
 // and unit board omit it so their documents stay at the same key they always
 // had (backward compatible with existing saved data).
+
+import { apiFetch } from "./apiClient";
 export async function fetchBoardContent(teacherId, unitIdx, lessonTitle, panelIdx) {
   const params = new URLSearchParams({ teacherId, unitIdx: String(unitIdx), lessonTitle });
   if (panelIdx != null) params.set("panelIdx", String(panelIdx));
-  const res = await fetch(`/api/boardContent?${params}`);
+  const res = await apiFetch(`/api/boardContent?${params}`);
   if (!res.ok) throw new Error(`Failed to load board content (${res.status})`);
   return res.json(); // null when nothing's been saved for this lesson yet
 }
@@ -21,7 +23,7 @@ export async function fetchBoardContent(teacherId, unitIdx, lessonTitle, panelId
 export async function saveBoardContent(teacherId, unitIdx, lessonTitle, patch, panelIdx) {
   const body = { teacherId, unitIdx, lessonTitle, ...patch };
   if (panelIdx != null) body.panelIdx = panelIdx;
-  const res = await fetch("/api/boardContent", {
+  const res = await apiFetch("/api/boardContent", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -35,6 +37,6 @@ export async function saveBoardContent(teacherId, unitIdx, lessonTitle, patch, p
 export async function deleteBoardContent(teacherId, unitIdx, lessonTitle, panelIdx) {
   const params = new URLSearchParams({ teacherId, unitIdx: String(unitIdx), lessonTitle });
   if (panelIdx != null) params.set("panelIdx", String(panelIdx));
-  const res = await fetch(`/api/boardContent?${params}`, { method: "DELETE" });
+  const res = await apiFetch(`/api/boardContent?${params}`, { method: "DELETE" });
   if (!res.ok && res.status !== 204) throw new Error(`Failed to reset board content (${res.status})`);
 }

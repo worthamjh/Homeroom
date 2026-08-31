@@ -20,6 +20,7 @@
 // @clerk/backend's verifyToken) is the same flagged future work as
 // api/assignments.js and api/profile.js.
 import { MongoClient } from "mongodb";
+import { resolveTeacherId } from "./_auth.js";
 
 const DB_NAME = process.env.MONGODB_DB || "homeroom";
 const COLLECTION = "curricula";
@@ -71,12 +72,12 @@ async function getCollection() {
 
 export default async function handler(req, res) {
   try {
+  // Identity comes from the verified session, never from the request --
+  // see api/_auth.js. Any teacherId still arriving in the query or body is
+  // ignored, so a caller cannot name a teacher they are not.
+  const teacherId = await resolveTeacherId(req, res);
+  if (!teacherId) return;   // 401/503 already sent
     if (req.method === "GET") {
-      const { teacherId } = req.query;
-      if (!teacherId) {
-        res.status(400).json({ error: "teacherId query param is required" });
-        return;
-      }
       const col = await getCollection();
       const doc = await col.findOne({ teacherId: String(teacherId) });
       res.status(200).json(doc ? doc.units : null);
@@ -84,10 +85,10 @@ export default async function handler(req, res) {
     }
 
     if (req.method === "POST") {
-      const { teacherId, units } = req.body || {};
+      const { units } = req.body || {};
       const cleanUnits = sanitizeUnits(units);
-      if (!teacherId || !cleanUnits) {
-        res.status(400).json({ error: "teacherId and a non-empty units array are required" });
+      if (!cleanUnits) {
+        res.status(400).json({ error: "a non-empty units array is required" });
         return;
       }
       const col = await getCollection();

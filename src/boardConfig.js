@@ -9,7 +9,8 @@
 // two tabs to stay in sync.
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useUser } from "@clerk/clerk-react";
+import { registerAuthTokenGetter } from "./lib/apiClient";
+import { useUser, useAuth } from "@clerk/clerk-react";
 import { fetchBoardSettings, saveBoardSetting } from "./lib/boardSettingsApi";
 
 // Real identity now exists (Clerk — see main.jsx's <ClerkProvider> and
@@ -91,6 +92,15 @@ function setActiveTeacherId(id) {
 // ?teacher=sandbox first) shouldn't yank them back to the public demo.
 export function useSyncAuthIdentity() {
   const { isLoaded, isSignedIn, user } = useUser();
+  const { getToken } = useAuth();
+
+  // Hand Clerk's token getter to the API layer. Registered here because
+  // this hook is already mounted once, inside <ClerkProvider>, above every
+  // route -- and useAuth() only works in there, while the API helpers are
+  // plain modules called from anywhere. See src/lib/apiClient.js.
+  useEffect(() => {
+    registerAuthTokenGetter(() => getToken());
+  }, [getToken]);
 
   useEffect(() => {
     if (!isLoaded || typeof window === "undefined") return;

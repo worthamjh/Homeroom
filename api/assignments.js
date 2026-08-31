@@ -56,15 +56,20 @@ async function getCollection() {
 
 export default async function handler(req, res) {
   try {
+  // Identity comes from the verified session, never from the request --
+  // see api/_auth.js. Any teacherId still arriving in the query or body is
+  // ignored, so a caller cannot name a teacher they are not.
+  const teacherId = await resolveTeacherId(req, res);
+  if (!teacherId) return;   // 401/503 already sent
     if (req.method === "GET") {
-      const { unitIdx, lessonTitle, teacherId } = req.query;
+      const { unitIdx, lessonTitle } = req.query;
       if (unitIdx == null || !lessonTitle) {
         res.status(400).json({ error: "unitIdx and lessonTitle query params are required" });
         return;
       }
       const col = await getCollection();
       const docs = await col
-        .find({ teacherId: teacherId ? String(teacherId) : DEFAULT_TEACHER_ID, unitIdx: Number(unitIdx), lessonTitle: String(lessonTitle) })
+        .find({ teacherId, unitIdx: Number(unitIdx), lessonTitle: String(lessonTitle) })
         // `order` is what drag-to-reorder writes. Documents created before
         // it existed have none; Mongo sorts missing ahead of numbers, so
         // they stay in their original createdAt sequence at the front until
@@ -77,13 +82,13 @@ export default async function handler(req, res) {
     }
 
     if (req.method === "POST") {
-      const { unitIdx, lessonTitle, label, url, thumb, cloudinaryPublicId, teacherId } = req.body || {};
+      const { unitIdx, lessonTitle, label, url, thumb, cloudinaryPublicId } = req.body || {};
       if (unitIdx == null || !lessonTitle || !label || !url) {
         res.status(400).json({ error: "unitIdx, lessonTitle, label, and url are required" });
         return;
       }
       const doc = {
-        teacherId: teacherId ? String(teacherId) : DEFAULT_TEACHER_ID,
+        teacherId,
         unitIdx: Number(unitIdx),
         lessonTitle: String(lessonTitle),
         label: String(label),
@@ -107,7 +112,7 @@ export default async function handler(req, res) {
 
     if (req.method === "PATCH") {
       const { id } = req.query;
-      const { label, hidden, teacherId } = req.body || {};
+      const { label, hidden } = req.body || {};
       // Either field may be patched on its own -- rename sends label,
       // the hide/show toggle sends hidden. Build $set from whatever was
       // actually provided so a rename can't blank out hidden, or vice versa.
@@ -121,7 +126,7 @@ export default async function handler(req, res) {
       const { ObjectId } = await import("mongodb");
       const col = await getCollection();
       const result = await col.findOneAndUpdate(
-        { _id: new ObjectId(id), teacherId: teacherId ? String(teacherId) : DEFAULT_TEACHER_ID },
+        { _id: new ObjectId(id), teacherId },
         { $set: updates },
         { returnDocument: "after" }
       );
@@ -135,19 +140,18 @@ export default async function handler(req, res) {
     // index stamped as `order`, so a drag is atomic from the UI's point of
     // view and cannot leave a half-applied sequence behind.
     if (req.method === "PUT") {
-      const { ids, teacherId } = req.body || {};
+      const { ids } = req.body || {};
       if (!Array.isArray(ids) || ids.length === 0) {
         res.status(400).json({ error: "ids (non-empty array) is required" });
         return;
       }
       const { ObjectId } = await import("mongodb");
       const col = await getCollection();
-      const scopedTeacher = teacherId ? String(teacherId) : DEFAULT_TEACHER_ID;
       await col.bulkWrite(ids.map((id, index) => ({
         updateOne: {
           // teacherId in the filter so a stray id from another teacher's
           // board cannot be reordered through this endpoint.
-          filter: { _id: new ObjectId(String(id)), teacherId: scopedTeacher },
+          filter: { _id: new ObjectId(String(id)), teacherId: teacherId },
           update: { $set: { order: index } },
         },
       })));
@@ -156,14 +160,16 @@ export default async function handler(req, res) {
     }
 
     if (req.method === "DELETE") {
-      const { id, teacherId } = req.query;
+      const { id } = req.query;
       if (!id) {
         res.status(400).json({ error: "id query param is required" });
         return;
       }
       const { ObjectId } = await import("mongodb");
       const col = await getCollection();
-      await col.deleteOne({ _id: new ObjectId(id), teacherId: teacherId ? String(teacherId) : DEFAULT_TEACHER_ID });
+      // teacherId in the filter, from the session: deleting by _id alone
+      // would let anyone with an assignment id remove another teacher's.
+      await col.deleteOne({ _id: new ObjectId(id), teacherId });
       res.status(204).end();
       return;
     }

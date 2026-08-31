@@ -23,6 +23,7 @@
 // api/assignments.js, api/profile.js, api/curriculum.js, and
 // api/boardContent.js.
 import { MongoClient } from "mongodb";
+import { resolveTeacherId } from "./_auth.js";
 
 const DEFAULT_TEACHER_ID = "local-teacher";
 const DB_NAME = process.env.MONGODB_DB || "homeroom";
@@ -60,10 +61,14 @@ function sanitizeCheckedGoals(value) {
 
 export default async function handler(req, res) {
   try {
+  // Identity comes from the verified session, never from the request --
+  // see api/_auth.js. Any teacherId still arriving in the query or body is
+  // ignored, so a caller cannot name a teacher they are not.
+  const teacherId = await resolveTeacherId(req, res);
+  if (!teacherId) return;   // 401/503 already sent
     if (req.method === "GET") {
-      const { teacherId } = req.query;
       const col = await getCollection();
-      const doc = await col.findOne({ teacherId: teacherId ? String(teacherId) : DEFAULT_TEACHER_ID });
+      const doc = await col.findOne({ teacherId });
       // 200 + null (not 404) when nothing's saved yet — same convention as
       // every other endpoint here. The client keeps whatever it already
       // has (its localStorage cache, or the empty default) in that case.
@@ -72,18 +77,17 @@ export default async function handler(req, res) {
     }
 
     if (req.method === "POST") {
-      const { teacherId, checkedGoals } = req.body || {};
+      const { checkedGoals } = req.body || {};
       const clean = sanitizeCheckedGoals(checkedGoals);
       if (!clean) {
         res.status(400).json({ error: "a checkedGoals object is required" });
         return;
       }
-      const resolvedTeacherId = teacherId ? String(teacherId) : DEFAULT_TEACHER_ID;
       const col = await getCollection();
       const now = new Date();
       await col.updateOne(
-        { teacherId: resolvedTeacherId },
-        { $set: { teacherId: resolvedTeacherId, checkedGoals: clean, updatedAt: now }, $setOnInsert: { createdAt: now } },
+        { teacherId: teacherId },
+        { $set: { teacherId: teacherId, checkedGoals: clean, updatedAt: now }, $setOnInsert: { createdAt: now } },
         { upsert: true }
       );
       res.status(200).json(clean);
