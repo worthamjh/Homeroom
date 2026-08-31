@@ -316,22 +316,42 @@ async function publishToWeb(fileId, accessToken) {
  *   null means the teacher opened the picker and cancelled/closed it —
  *   not an error, just nothing to save.
  */
+// The PRESENTATIONS view lists PowerPoint files alongside Google Slides,
+// and both paths below used to assume the Slides one. A .pptx got the
+// /presentation/d/<id>/embed URL, which only resolves for a NATIVE Slides
+// deck, so the board showed a blank frame -- and then publishToWeb failed
+// on it (that API only applies to Google-native files) and produced a
+// warning telling the teacher to publish it in Google Slides, which they
+// cannot do, because it is not a Slides file. Wrong frame, wrong advice.
+//
+// So the same split as assignments: native Slides keep the Slides embed,
+// anything else gets Drive's own file preview, which renders a .pptx in
+// an iframe perfectly well. Sharing still has to be opened up either way
+// -- that is what makes it visible to a student -- but publish-to-web is
+// only attempted where it means something.
+const NATIVE_SLIDES_MIME = "application/vnd.google-apps.presentation";
+
 export async function pickGoogleSlidesEmbed() {
   await ensureGoogleScriptsLoaded();
   const accessToken = await requestAccessToken();
   const doc = await openPicker(accessToken, { viewId: window.google.picker.ViewId.PRESENTATIONS });
   if (!doc) return null;
 
+  const isNativeSlides = doc.mimeType === NATIVE_SLIDES_MIME;
   let shareWarning = null;
   try {
     await ensurePubliclyViewable(doc.id, accessToken);
-    await publishToWeb(doc.id, accessToken);
+    if (isNativeSlides) await publishToWeb(doc.id, accessToken);
   } catch (err) {
-    shareWarning = `Picked "${doc.name}", but couldn't automatically publish it to the web (${err.message}). Open it in Google Slides and go File → Share → Publish to web yourself, or the board will show a blank frame instead of the slides.`;
+    shareWarning = isNativeSlides
+      ? `Picked "${doc.name}", but couldn't automatically publish it to the web (${err.message}). Open it in Google Slides and go File → Share → Publish to web yourself, or the board will show a blank frame instead of the slides.`
+      : `Picked "${doc.name}", but couldn't automatically share it (${err.message}). Open it in Drive and set "Anyone with the link" to Viewer, or the board will show a blank frame instead of the slides.`;
   }
 
   return {
-    embedUrl: `https://docs.google.com/presentation/d/${doc.id}/embed?start=false&loop=false&delayms=3000`,
+    embedUrl: isNativeSlides
+      ? `https://docs.google.com/presentation/d/${doc.id}/embed?start=false&loop=false&delayms=3000`
+      : `https://drive.google.com/file/d/${doc.id}/preview`,
     name: doc.name,
     shareWarning,
   };
