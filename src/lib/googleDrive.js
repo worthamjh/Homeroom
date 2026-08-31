@@ -343,10 +343,45 @@ export async function pickGoogleSlidesEmbed() {
 // transfer), no duplicate storage, and the link always reflects whatever
 // is currently in their Drive. The Drive thumbnail URL gives Homeroom a
 // usable preview image without needing Cloudinary's page-render feature.
-// Scoped to PDFs and Google Docs only — the picker narrows what the
-// teacher can pick rather than letting them pick something that won't
-// display well.
-const ASSIGNMENT_MIME_TYPES = "application/pdf,application/vnd.google-apps.document";
+// What a teacher is allowed to pick. Word documents are in the list now:
+// they were not, so a teacher browsing a folder of .docx saw an EMPTY
+// picker with no explanation -- which reads as a bug, not a filter. (The
+// filename cleanup below has always stripped .doc/.docx, so the intent
+// was there; the mime list never caught up.)
+const ASSIGNMENT_MIME_TYPES = [
+  "application/pdf",
+  "application/vnd.google-apps.document",                                       // Google Docs
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",    // .docx
+  "application/msword",                                                         // .doc
+].join(",");
+
+// PDFs open in Kami; everything else opens in Google's own viewer.
+//
+// Kami is an ANNOTATION tool over a fixed page, which is what a PDF is. A
+// Google Doc already reflows and is editable, so marking it up is the
+// wrong tool -- and, more to the point, whether Kami renders a Doc at all
+// is not something this codebase knows. Sending Docs there would be
+// building on an unknown whose failure mode is the bad kind: fine when
+// the teacher checks it, broken for a student in class.
+//
+// The alternative considered and rejected was exporting non-PDFs to PDF
+// on add. It would make Kami work everywhere, at the cost of a snapshot
+// that goes stale the moment the teacher edits the original, silently.
+// cc9db97 already made this call the other way on purpose -- the Drive
+// file id is stored precisely so the link always reflects what is in
+// their Drive right now.
+//
+// drive.google.com/open?id= rather than a per-type URL: Drive redirects
+// to the right viewer for whatever the file turns out to be, so this does
+// not need a table of mime type to URL shape that could go out of date.
+function assignmentViewUrl(doc) {
+  if (doc.mimeType === "application/pdf") {
+    return `https://web.kamihq.com/web/viewer.html?state=${encodeURIComponent(
+      JSON.stringify({ id: doc.id, action: "open", from: "google-drive" })
+    )}`;
+  }
+  return `https://drive.google.com/open?id=${doc.id}`;
+}
 
 /**
  * Opens the Drive picker scoped to PDFs and Google Docs, then returns
@@ -401,7 +436,7 @@ export async function pickGoogleDriveAssignmentFiles() {
   return docs.map(doc => ({
     fileId: doc.id,
     name: doc.name.replace(/\.(pdf|docx?|gdoc)$/i, ""),
-    viewUrl: `https://web.kamihq.com/web/viewer.html?state=${encodeURIComponent(JSON.stringify({ id: doc.id, action: 'open', from: 'google-drive' }))}`,
+    viewUrl: assignmentViewUrl(doc),
     thumbUrl: `https://drive.google.com/thumbnail?id=${doc.id}&sz=w400`,
   }));
 }
