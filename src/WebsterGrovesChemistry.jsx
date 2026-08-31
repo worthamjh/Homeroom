@@ -1826,11 +1826,17 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
                     {/* Two states, because one always-on input did not read as
                         editable: it was transparent and borderless, so it
                         looked like a label with a stray underline (Jay: "isn't
-                        very obvious that you can change the name"). Now the
-                        name is plain text that shows a text cursor on hover,
-                        and clicking it swaps in an unmistakable white field.
-                        Clicking still opens the unit too, exactly as before --
-                        renaming is offered, not forced. */}
+                        very obvious that you can change the name"). The second
+                        state is an unmistakable white field.
+
+                        What opens it is the ✎ button, NOT a click on the
+                        name. Clicking the name used to do both -- open the
+                        unit AND arm a rename -- which is why the name wore an
+                        I-beam. One click doing two things is what made this
+                        tab hard to pin down (Jay: "I cant figure out what i
+                        want for the unit page build menu button options").
+                        Now each verb has its own control, matching the eye and
+                        the × already sitting beside them. */}
                     {renamingUnit === ui ? (
                       <input
                         // Select on mount via the ref rather than onFocus:
@@ -1859,23 +1865,39 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
                     ) : (
                       <button
                         data-tour={ui === 0 ? "tour-unit-tab" : undefined}
-                        title={`Open "${u.unit}" — click the name to rename it`}
-                        onClick={() => { handleUnitOverview(ui); setOpenDropdown(ui); setRenameUnitVal(u.unit); setRenamingUnit(ui); }}
+                        title={`Open "${u.unit}"`}
+                        onClick={() => { handleUnitOverview(ui); setOpenDropdown(ui); }}
                         style={{ flex: 1, minWidth: 0, background: "transparent", color: "var(--board-secondary-fg)", border: "none", borderRadius: 4, padding: `${SPACE.sm}px 18px ${SPACE.sm}px ${SPACE.xs}px`, fontSize: 13, fontFamily: "var(--board-heading-font, 'Oswald', sans-serif)", fontWeight: 600, letterSpacing: 0.5, textAlign: "center",
-                          // Text cursor, not a pointer: the I-beam is the part
-                          // that says "this word is editable" before any click.
-                          cursor: "text", transition: "background 0.15s" }}
+                          // Plain arrow (Jay: "the mouse shows the normal arrow
+                          // over the unit text rather than the cursor"). The
+                          // I-beam here was advertising that the word itself
+                          // was an edit target; the ✎ beside it is now the
+                          // thing that says that.
+                          cursor: "default", transition: "background 0.15s" }}
                         onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.14)"; const pen = e.currentTarget.parentElement.querySelector(".uPen"); if (pen) pen.style.opacity = 1; }}
                         onMouseLeave={e => { e.currentTarget.style.background = "transparent"; const pen = e.currentTarget.parentElement.querySelector(".uPen"); if (pen) pen.style.opacity = 0.55; }}
                       >
                         {u.unit}
                       </button>
                     )}
-                    {/* Pencil hint — the name is editable even before hover.
-                        Decorative (pointer-events: none) so clicks land on the
-                        control beneath it. */}
+                    {/* Rename. Was a decorative pointer-events: none hint;
+                        it is the actual control now. It sits in the 18px of
+                        right padding the name button reserves, so it overlaps
+                        no text however long the unit name is.
+
+                        Deliberately does NOT also open the unit the way the
+                        old name-click did: a teacher fixing a typo in Unit 3
+                        should not be navigated away from the unit they are
+                        looking at. */}
                     {renamingUnit !== ui && (
-                      <span className="uPen" aria-hidden="true" style={{ position: "absolute", right: 4, top: "50%", transform: "translateY(-50%)", fontSize: 11, color: "var(--board-secondary-fg)", opacity: 0.55, pointerEvents: "none", transition: "opacity 0.15s" }}>✎</span>
+                      <button
+                        className="uPen"
+                        title={`Rename "${u.unit}"`}
+                        onClick={e => { e.stopPropagation(); setRenameUnitVal(u.unit); setRenamingUnit(ui); }}
+                        style={{ position: "absolute", right: 2, top: "50%", transform: "translateY(-50%)", background: "transparent", border: "none", borderRadius: 3, padding: "3px 4px", lineHeight: 1, fontSize: 11, color: "var(--board-secondary-fg)", opacity: 0.55, cursor: "pointer", transition: "opacity 0.15s, background 0.15s" }}
+                        onMouseEnter={e => { e.currentTarget.style.opacity = 1; e.currentTarget.style.background = "rgba(0,0,0,0.18)"; }}
+                        onMouseLeave={e => { e.currentTarget.style.opacity = 0.55; e.currentTarget.style.background = "transparent"; }}
+                      >✎</button>
                     )}
                   </div>
                 ) : (
