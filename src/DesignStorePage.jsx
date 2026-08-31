@@ -123,22 +123,43 @@ export default function DesignStorePage() {
   //
   // Only the in-use case prompts. Removing something you are not using is
   // not destructive and should not need a dialog.
+  //
+  // An in-app dialog rather than window.confirm (Jay: "i was expecting the
+  // notification to be on the site rather than a browser alert"). This page
+  // is plain React with no Google Picker anywhere near it, so unlike the
+  // Drive flow there is nothing stopping it drawing its own UI -- which
+  // also lets it SHOW the two designs rather than just name them.
+  const [pendingRemoval, setPendingRemoval] = useState(null);
+
   const removeOption = (area, opt, options) => {
-    const [current, setCurrent] = selections[area] || [];
+    const [current] = selections[area] || [];
     if (current === opt.id) {
       const fallbackId = DESIGN_AREA_DEFAULT_OPTION[area];
-      const fallbackLabel = options.find(o => o.id === fallbackId)?.label || "the default";
-      const ok = window.confirm(
-        `"${opt.label}" is on your board right now.
-
-` +
-        `Remove it anyway? Your board will switch to "${fallbackLabel}".`
-      );
-      if (!ok) return;
-      setCurrent?.(fallbackId);
+      setPendingRemoval({
+        area, opt, fallbackId,
+        fallback: options.find(o => o.id === fallbackId) || null,
+      });
+      return;
     }
     design.remove(area, opt.id);
   };
+
+  const confirmRemoval = () => {
+    if (!pendingRemoval) return;
+    const { area, opt, fallbackId } = pendingRemoval;
+    const [, setCurrent] = selections[area] || [];
+    setCurrent?.(fallbackId);
+    design.remove(area, opt.id);
+    setPendingRemoval(null);
+  };
+
+  // Escape cancels, the way any dialog should.
+  useEffect(() => {
+    if (!pendingRemoval) return;
+    const onKey = (e) => { if (e.key === "Escape") setPendingRemoval(null); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [pendingRemoval]);
 
   return (
     <div style={{ ...themeVars, minHeight: "100vh", background: "#141414", fontFamily: "Lato, sans-serif", color: "#eee" }}>
@@ -218,6 +239,63 @@ export default function DesignStorePage() {
           </section>
         ))}
       </div>
+
+      {/* Confirm-removal dialog. Shows BOTH designs rather than naming
+          them, since "your board will switch to Primary Color" means very
+          little until you see that it is black. Backdrop and Escape both
+          cancel; the destructive action is the one that has to be aimed
+          at, and it is not the default-looking button. */}
+      {pendingRemoval && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Remove ${pendingRemoval.opt.label}?`}
+          onClick={() => setPendingRemoval(null)}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 50 }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{ background: "#1d1d1d", border: "1px solid #333", borderRadius: 8, padding: "20px 22px", maxWidth: 440, width: "100%", boxShadow: "0 18px 50px rgba(0,0,0,0.6)" }}
+          >
+            <h2 style={{ fontFamily: "var(--board-heading-font, 'Oswald', sans-serif)", fontSize: 17, letterSpacing: 0.5, margin: "0 0 8px" }}>
+              Remove &ldquo;{pendingRemoval.opt.label}&rdquo;?
+            </h2>
+            <p style={{ fontSize: 13, lineHeight: 1.55, color: "rgba(255,255,255,0.65)", margin: "0 0 16px" }}>
+              Your board is using it right now. Remove it and the board switches to{" "}
+              <strong style={{ color: "#fff", fontWeight: 600 }}>{pendingRemoval.fallback?.label || "the default"}</strong>.
+              You can add it back any time.
+            </p>
+
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: 0.6, color: "rgba(255,255,255,0.4)", marginBottom: 5 }}>Now</div>
+                <Preview preview={pendingRemoval.opt.preview} />
+              </div>
+              <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 18, flexShrink: 0, alignSelf: "flex-end", paddingBottom: 24 }}>→</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: 0.6, color: "rgba(255,255,255,0.4)", marginBottom: 5 }}>After</div>
+                <Preview preview={pendingRemoval.fallback?.preview} />
+              </div>
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+              <button
+                autoFocus
+                onClick={() => setPendingRemoval(null)}
+                style={{ background: "var(--board-secondary)", border: "none", color: "var(--board-secondary-fg)", borderRadius: 4, fontSize: 13, padding: "8px 16px", cursor: "pointer", fontFamily: "var(--board-heading-font, 'Oswald', sans-serif)", letterSpacing: 0.5 }}
+              >
+                Keep it
+              </button>
+              <button
+                onClick={confirmRemoval}
+                style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.28)", color: "rgba(255,255,255,0.75)", borderRadius: 4, fontSize: 13, padding: "8px 16px", cursor: "pointer", fontFamily: "Lato, sans-serif" }}
+              >
+                Remove and switch
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
