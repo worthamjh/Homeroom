@@ -13,6 +13,7 @@ import {
   isBoardAccentKey, isCustomBoardAccent, boardAccentBaseColor,
   SLIDING_BOARDS_ENABLED_KEY, DEFAULT_SLIDING_BOARDS_ENABLED,
   SLIDING_BOARDS_COUNT_KEY, DEFAULT_SLIDING_BOARDS_COUNT, SLIDING_BOARDS_COUNT_OPTIONS,
+  DESIGN_AREAS, useOwnedDesignOptions,
 } from "./boardConfig";
 
 /**
@@ -145,6 +146,11 @@ function reorder(order, fromKey, toKey) {
 }
 
 export default function BoardSettingsPanel({ selected, onSelect, panelCountInfo, primaryColor, secondaryColor }) {
+  // Every picker below is filtered through this. Today it changes nothing
+  // -- no option is store-gated yet -- but it means gating one later is a
+  // catalogue entry rather than a hunt through six render sites. See the
+  // design catalogue in boardConfig.js.
+  const design = useOwnedDesignOptions();
   const [arrangementKey, setArrangementKey] = useScopedSetting(ARRANGEMENT_STORAGE_KEY, DEFAULT_ARRANGEMENT, k => !!BOARD_ARRANGEMENTS[k]);
   const [bulletinStyleKey, setBulletinStyleKey] = useScopedSetting(BULLETIN_STORAGE_KEY, DEFAULT_BULLETIN, isBulletinStyleId, migrateBulletinStyleId);
   const bulletinOptions = bulletinStyles(primaryColor, secondaryColor);
@@ -238,12 +244,12 @@ export default function BoardSettingsPanel({ selected, onSelect, panelCountInfo,
               {cat.id === "background" && (
                 <>
                   <SectionHeading>Wall Type</SectionHeading>
-                  {Object.values(WALL_TYPES).map(t => (
+                  {Object.values(WALL_TYPES).filter(t => design.isAvailable(DESIGN_AREAS.WALL_TYPE, t.id)).map(t => (
                     <RadioRow key={t.id} selected={wallTypeKey === t.id} onClick={() => selectWallType(t.id)} label={t.label} />
                   ))}
                   {/* One palette for both wall types -- see WALL_COLORS. */}
                   <SectionHeading>Wall Color</SectionHeading>
-                  {WALL_COLORS.map(c => (
+                  {WALL_COLORS.filter(c => design.isAvailable(DESIGN_AREAS.WALL_COLOR, c.id)).map(c => (
                     <RadioRow
                       key={c.id}
                       selected={wallColorSwatch(wallTypeKey, wallColorKey).id === c.id}
@@ -273,7 +279,7 @@ export default function BoardSettingsPanel({ selected, onSelect, panelCountInfo,
               {cat.id === "layout" && (
                 <>
                   <SectionHeading>Board Layout</SectionHeading>
-                  {Object.values(BOARD_ARRANGEMENTS).map(a => (
+                  {Object.values(BOARD_ARRANGEMENTS).filter(a => design.isAvailable(DESIGN_AREAS.BOARD_LAYOUT, a.id)).map(a => (
                     <RadioRow key={a.id} selected={arrangementKey === a.id} onClick={() => setArrangementKey(a.id)} label={a.label} />
                   ))}
                 </>
@@ -282,7 +288,7 @@ export default function BoardSettingsPanel({ selected, onSelect, panelCountInfo,
               {cat.id === "bulletin" && (
                 <>
                   <SectionHeading>Bulletin Board</SectionHeading>
-                  {Object.values(bulletinOptions).map(b => (
+                  {Object.values(bulletinOptions).filter(b => design.isAvailable(DESIGN_AREAS.BULLETIN, b.id)).map(b => (
                     <RadioRow
                       key={b.id}
                       selected={bulletinStyleKey === b.id}
@@ -326,7 +332,7 @@ export default function BoardSettingsPanel({ selected, onSelect, panelCountInfo,
               {cat.id === "blackboard" && (
                 <>
                   <SectionHeading>Board Surface</SectionHeading>
-                  {Object.values(BOARD_SURFACES).map(s => (
+                  {Object.values(BOARD_SURFACES).filter(s => design.isAvailable(DESIGN_AREAS.BOARD_SURFACE, s.id)).map(s => (
                     <RadioRow key={s.id} selected={boardSurfaceKey === s.id} onClick={() => setBoardSurfaceKey(s.id)} label={s.label} />
                   ))}
 
@@ -337,7 +343,7 @@ export default function BoardSettingsPanel({ selected, onSelect, panelCountInfo,
                       out unreadable. Swatches are drawn ON that surface for
                       the same reason. */}
                   <SectionHeading>Header &amp; Accent Color</SectionHeading>
-                  {BOARD_ACCENT_PRESETS.map(a => (
+                  {BOARD_ACCENT_PRESETS.filter(a => design.isAvailable(DESIGN_AREAS.BOARD_ACCENT, a.id)).map(a => (
                     <RadioRow
                       key={a.id}
                       selected={boardAccentKey === a.id}

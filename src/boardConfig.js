@@ -923,6 +923,104 @@ export function surfaceColors(boardSurfaceKey, accentColor) {
   };
 }
 
+// ── Design catalogue & ownership ────────────────────────────────
+// Groundwork for the design store (Jay, 2026-08-31): "a store that has a
+// ton of different options, then users can add whatever option they want
+// to their profile ... we can go nuts making cool designs without
+// overwhelming users".
+//
+// The whole point is that the picker a teacher sees is NOT the full
+// catalogue -- it is the subset they have added, plus whatever ships with
+// every board. This is the layer that makes that distinction expressible.
+// The store's browsing UI is not built; this is what it will write to.
+//
+// ONE flat owned list keyed "<area>:<optionId>", rather than a list per
+// area, so every customisation area is covered by one mechanism and
+// adding the seventh area later costs nothing. That is the "for
+// customization in multiple areas too" part.
+//
+// Persisted through useScopedSetting like every other board setting: that
+// endpoint stores an arbitrary key to opaque-string map (see
+// api/boardSettings.js), so a JSON array needs no schema change and gets
+// the cross-tab sync and Mongo mirror for free.
+export const DESIGN_AREAS = {
+  BULLETIN: "bulletin",
+  WALL_TYPE: "wallType",
+  WALL_COLOR: "wallColor",
+  BOARD_SURFACE: "boardSurface",
+  BOARD_LAYOUT: "boardLayout",
+  BOARD_ACCENT: "boardAccent",
+};
+
+export const designOptionKey = (area, optionId) => `${area}:${optionId}`;
+
+// Options a teacher must ADD before the picker offers them. Anything not
+// listed here ships with every board, so this file staying empty means
+// today's behaviour is exactly today's behaviour -- nothing has been
+// taken away from anyone, and the machinery is simply not gating yet.
+//
+// Permissive by default on purpose: the failure mode of the other default
+// is a teacher silently losing an option they were already using, which
+// is much worse than a new design being free for a while. Gate a design
+// by adding its id here, in the same commit that adds it to the store.
+const STORE_GATED_OPTIONS = {
+  [DESIGN_AREAS.BULLETIN]: [],
+  [DESIGN_AREAS.WALL_TYPE]: [],
+  [DESIGN_AREAS.WALL_COLOR]: [],
+  [DESIGN_AREAS.BOARD_SURFACE]: [],
+  [DESIGN_AREAS.BOARD_LAYOUT]: [],
+  [DESIGN_AREAS.BOARD_ACCENT]: [],
+};
+
+// Ships with every board, no purchase, no ownership record.
+export function isDesignOptionIncluded(area, optionId) {
+  return !(STORE_GATED_OPTIONS[area] || []).includes(optionId);
+}
+
+export const OWNED_DESIGN_OPTIONS_KEY = "ownedDesignOptions";
+const EMPTY_OWNED = "[]";
+
+export function parseOwnedDesignOptions(raw) {
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter(v => typeof v === "string") : [];
+  } catch {
+    return [];
+  }
+}
+function isOwnedDesignOptionsValue(raw) {
+  try {
+    return Array.isArray(JSON.parse(raw));
+  } catch {
+    return false;
+  }
+}
+
+// What a teacher has added, and the question every picker should ask
+// before offering an option.
+//
+// IMPORTANT: pickers filter, the BOARD DOES NOT. If a teacher's saved
+// selection is something they no longer own, their board must keep
+// rendering it rather than silently snapping to a default -- losing the
+// look you set up is a far worse outcome than an un-owned option staying
+// on screen. So nothing in the render path calls this; only the settings
+// panel does.
+export function useOwnedDesignOptions() {
+  const [raw, setRaw] = useScopedSetting(OWNED_DESIGN_OPTIONS_KEY, EMPTY_OWNED, isOwnedDesignOptionsValue);
+  const owned = parseOwnedDesignOptions(raw);
+  const write = (list) => setRaw(JSON.stringify([...new Set(list)].sort()));
+  return {
+    owned,
+    has: (area, optionId) => owned.includes(designOptionKey(area, optionId)),
+    // Included-with-every-board OR added by this teacher. The one call a
+    // picker needs.
+    isAvailable: (area, optionId) =>
+      isDesignOptionIncluded(area, optionId) || owned.includes(designOptionKey(area, optionId)),
+    add: (area, optionId) => write([...owned, designOptionKey(area, optionId)]),
+    remove: (area, optionId) => write(owned.filter(k => k !== designOptionKey(area, optionId))),
+  };
+}
+
 // ── Cross-tab-synced setting ────────────────────────────────────────────
 // A small string-valued setting (a preset id) persisted to a scoped
 // localStorage key, that also live-updates when the *same* key changes
