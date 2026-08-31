@@ -2518,9 +2518,24 @@ export default function App() {
   // matching the highlighted settings category, applied directly to the
   // real board's own DOM (background wall, bulletin strip, chalkboard,
   // board layout grid) instead of a mockup's stand-in pieces.
+  // INSET, so the marker lands inside the region it marks. As an outside
+  // ring it painted over whatever framed the region -- most visibly the
+  // wooden surround of the bulletin strip, which turned orange the moment
+  // that category was expanded (Jay: "can we keep the 'wooden' bulliten
+  // border there the whole time"). Inset shadows are drawn inside the
+  // border, so the frame stays wood the whole time.
+  //
+  // The soft outer glow that used to accompany the ring is gone rather
+  // than inset. It was a literal rgba(232,119,34) -- Webster orange --
+  // while the ring itself is var(--board-secondary), so on any other
+  // profile the two halves of one highlight were different colours.
+  //
+  // Worth noting the "background" region could never have shown an outer
+  // ring at all: it is the outermost element, so the ring fell outside the
+  // viewport. That one only starts being visible now.
   const highlightStyle = (region) =>
     (isPreviewMode || isBuildMode) && highlightRegion === region
-      ? { boxShadow: "0 0 0 3px var(--board-secondary), 0 0 22px rgba(232,119,34,0.55)" }
+      ? { boxShadow: "inset 0 0 0 3px var(--board-secondary)" }
       : {};
 
   // Close any open video player when navigating to a different lesson,
