@@ -5,9 +5,9 @@ import {
   getActiveTeacherId, DEFAULT_TEACHER_ID,
   boardThemeVars, wallBackgroundStyle,
   designCatalog, useOwnedDesignOptions, isDesignOptionIncluded,
-  SCALLOP_BAND,
 } from "./boardConfig";
 import { fetchProfile } from "./lib/profileApi";
+import BulletinPreview from "./BulletinPreview";
 
 /**
  * DesignStorePage — the /store route, linked from the Build header.
@@ -39,30 +39,10 @@ function Preview({ preview }) {
   if (!preview) return <div style={{ ...box, background: "#2a2a2a" }} />;
 
   if (preview.kind === "bulletin") {
-    const b = SCALLOP_BAND;
-    const sc = preview.scallop;
+    // Same miniature the settings swatch uses, just at full band width.
     return (
-      <div style={{ ...box, background: preview.background, border: "3px solid #8B6914" }}>
-        {preview.trim && (
-          <>
-            <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 8, backgroundImage: preview.trim, backgroundRepeat: "repeat-x", backgroundSize: "24px 8px" }} />
-            <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 8, backgroundImage: preview.trim, backgroundRepeat: "repeat-x", backgroundSize: "24px 8px" }} />
-          </>
-        )}
-        {sc && (
-          <>
-            {/* Same stacking as the real strip: corner patches, then the
-                sides, then the horizontals over them. */}
-            <div style={{ position: "absolute", top: 0, left: 0, width: b, height: b, background: sc.color }} />
-            <div style={{ position: "absolute", top: 0, right: 0, width: b, height: b, background: sc.color }} />
-            <div style={{ position: "absolute", bottom: 0, left: 0, width: b, height: b, background: sc.color }} />
-            <div style={{ position: "absolute", bottom: 0, right: 0, width: b, height: b, background: sc.color }} />
-            <div style={{ position: "absolute", top: 0, bottom: 0, left: 0, width: b, backgroundImage: sc.left, backgroundRepeat: "repeat-y", backgroundSize: `${b}px ${b * 2}px` }} />
-            <div style={{ position: "absolute", top: 0, bottom: 0, right: 0, width: b, backgroundImage: sc.right, backgroundRepeat: "repeat-y", backgroundSize: `${b}px ${b * 2}px` }} />
-            <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: b, backgroundImage: sc.top, backgroundRepeat: "repeat-x", backgroundSize: `${b * 2}px ${b}px` }} />
-            <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: b, backgroundImage: sc.bottom, backgroundRepeat: "repeat-x", backgroundSize: `${b * 2}px ${b}px` }} />
-          </>
-        )}
+      <div style={{ ...box, border: "3px solid #8B6914", boxSizing: "border-box" }}>
+        <BulletinPreview style={preview.style} radius={0} />
       </div>
     );
   }

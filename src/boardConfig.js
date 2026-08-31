@@ -448,15 +448,34 @@ export const ARRANGEMENT_STORAGE_KEY = "boardArrangement";
 // below is what validates a saved setting, so validation never has to know
 // what colour a board happens to be using today.
 //
-// Navy stays on as the one school-agnostic neutral. It is not derivable
-// from the two profile colours (it is a third colour, and never was in the
-// profile), and dropping it would have moved every board already using it
-// -- including Jay's, which is on Navy today.
+// The neutrals (Navy and friends) are school-agnostic: not derivable from
+// the two profile colours, and not gone either -- they live in the store
+// now. A board already using one keeps rendering it whether or not that
+// teacher has "added" it; see useOwnedDesignOptions for why the board
+// never filters on ownership.
 const DOT_TRIM = (dot, bg) =>
   `url("data:image/svg+xml,${encodeURIComponent(
     `<svg xmlns='http://www.w3.org/2000/svg' width='24' height='12'><rect width='24' height='12' fill='${bg}'/><circle cx='6' cy='6' r='3' fill='${dot}'/><circle cx='18' cy='6' r='3' fill='${dot}'/></svg>`
   )}")`;
 
+// School-agnostic bulletin colours -- the paper-and-cork end of a supply
+// catalogue rather than anything derived from a teacher's own two
+// colours. They exist so a board can be something OTHER than the school
+// palette without a teacher having to hand-pick a hex.
+//
+// "Navy" and not "Navy (Neutral)": the label was explaining the category
+// the row already sits in, and navy plainly is not a school colour here
+// (Jay: "the color navy itself implies that it is neutral").
+export const NEUTRAL_BULLETIN_COLORS = [
+  { id: "navy",     label: "Navy",       background: "#1a2a4a" },
+  { id: "forest",   label: "Forest",     background: "#1f3d2b" },
+  { id: "burgundy", label: "Burgundy",   background: "#5a1f2b" },
+  { id: "charcoal", label: "Charcoal",   background: "#2b2f33" },
+  { id: "cork",     label: "Cork",       background: "#b98b5e" },
+  { id: "kraft",    label: "Kraft Paper", background: "#c8a97e" },
+  { id: "slate",    label: "Slate Blue", background: "#46566b" },
+  { id: "plum",     label: "Plum",       background: "#4a2b4d" },
+];
 export const NEUTRAL_BULLETIN_NAVY = "#1a2a4a";
 // The scalloped paper border strip that runs around the inside of a real
 // classroom bulletin board (Jay: "this style of border on the inside of a
@@ -517,13 +536,20 @@ export function bulletinStyles(primaryColor, secondaryColor) {
     secondaryTrim: { id: "secondaryTrim", label: "Accent + Primary Trim", background: secondary, trim: DOT_TRIM(primary, secondary) },
     primaryScallop:   { id: "primaryScallop",   label: "Primary + Accent Scallop", background: primary,   trim: null, scallop: scallopTiles(secondary) },
     secondaryScallop: { id: "secondaryScallop", label: "Accent + Primary Scallop", background: secondary, trim: null, scallop: scallopTiles(primary) },
-    navy:          { id: "navy",          label: "Navy (Neutral)",        background: NEUTRAL_BULLETIN_NAVY, trim: null },
+    // Spread rather than listed one by one, so adding a neutral is a single
+    // entry in NEUTRAL_BULLETIN_COLORS and nothing else.
+    ...Object.fromEntries(NEUTRAL_BULLETIN_COLORS.map(c => [
+      c.id, { id: c.id, label: c.label, background: c.background, trim: null },
+    ])),
   };
 }
 
 // Colour-independent, so useScopedSetting can validate a saved key without
 // having loaded the profile first.
-export const BULLETIN_STYLE_IDS = ["primary", "secondary", "primaryTrim", "secondaryTrim", "primaryScallop", "secondaryScallop", "navy"];
+export const BULLETIN_STYLE_IDS = [
+  "primary", "secondary", "primaryTrim", "secondaryTrim", "primaryScallop", "secondaryScallop",
+  ...NEUTRAL_BULLETIN_COLORS.map(c => c.id),
+];
 export const isBulletinStyleId = k => BULLETIN_STYLE_IDS.includes(k);
 
 // Boards saved a preset id back when those ids named a specific Webster
@@ -1032,12 +1058,15 @@ export const designOptionKey = (area, optionId) => `${area}:${optionId}`;
 // is much worse than a new design being free for a while. Gate a design
 // by adding its id here, in the same commit that adds it to the store.
 const STORE_GATED_OPTIONS = {
-  // The store's stock. Both bordered styles as well as both scalloped
-  // ones, so what ships with every board is the three plain colours and
-  // anything decorative is something a teacher chose to add.
+  // The store's stock: every border style, and every neutral colour
+  // including Navy. What ships with every board is just the teacher's own
+  // two colours, plain -- everything else is something they chose to add.
   // WHICH designs are gated is a product call, not a technical one --
   // this list is the only place it is expressed.
-  [DESIGN_AREAS.BULLETIN]: ["primaryTrim", "secondaryTrim", "primaryScallop", "secondaryScallop"],
+  [DESIGN_AREAS.BULLETIN]: [
+    "primaryTrim", "secondaryTrim", "primaryScallop", "secondaryScallop",
+    ...NEUTRAL_BULLETIN_COLORS.map(c => c.id),
+  ],
   [DESIGN_AREAS.WALL_TYPE]: [],
   [DESIGN_AREAS.WALL_COLOR]: [],
   [DESIGN_AREAS.BOARD_SURFACE]: [],
@@ -1076,7 +1105,7 @@ export function designCatalog(primaryColor, secondaryColor) {
       blurb: "The board's top strip — its colour, and the border stapled around the inside.",
       options: Object.values(bulletins).map(b => ({
         id: b.id, label: b.label,
-        preview: { kind: "bulletin", background: b.background, trim: b.trim, scallop: b.scallop },
+        preview: { kind: "bulletin", style: b },
       })),
     },
     {

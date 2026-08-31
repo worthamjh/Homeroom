@@ -1,4 +1,5 @@
 import { useState } from "react";
+import BulletinPreview from "./BulletinPreview";
 
 import {
   useScopedSetting,
@@ -292,10 +293,15 @@ export default function BoardSettingsPanel({ selected, onSelect, panelCountInfo,
                       selected={bulletinStyleKey === b.id}
                       onClick={() => setBulletinStyleKey(b.id)}
                       label={b.label}
-                      /* A scallop swatch shows its top edge tile, scaled down
-                         so a couple of bumps land inside 16px -- the dot
-                         swatches already work this way. */
-                      swatch={<span style={{ width: 16, height: 16, borderRadius: 3, flexShrink: 0, background: b.background, backgroundImage: b.scallop?.top || b.trim || undefined, backgroundSize: b.scallop ? "10px 5px" : b.trim ? "10px 5px" : undefined, backgroundRepeat: "repeat", border: `2px solid ${bulletinStyleKey === b.id ? "var(--board-secondary)" : "rgba(255,255,255,0.3)"}` }} />}
+                      /* A real miniature of the strip rather than a tiled
+                         edge tile -- see BulletinPreview. A 5px band is
+                         about the thinnest that still reads as scallops at
+                         swatch size. */
+                      swatch={
+                        <span style={{ width: 18, height: 18, flexShrink: 0, display: "block", borderRadius: 3, border: `2px solid ${bulletinStyleKey === b.id ? "var(--board-secondary)" : "rgba(255,255,255,0.3)"}`, boxSizing: "border-box" }}>
+                          <BulletinPreview style={b} band={5} radius={1} />
+                        </span>
+                      }
                     />
                   ))}
                 </>
