@@ -15,7 +15,7 @@ import {
   readCalendarUrl, writeCalendarUrl,
   readLessonSlidesUrl, writeLessonSlidesUrl,
   BOARD_ARRANGEMENTS, DEFAULT_ARRANGEMENT, ARRANGEMENT_STORAGE_KEY,
-  BULLETIN_STYLES, DEFAULT_BULLETIN, BULLETIN_STORAGE_KEY,
+  bulletinStyles, isBulletinStyleId, migrateBulletinStyleId, DEFAULT_BULLETIN, BULLETIN_STORAGE_KEY,
   BOARD_COMPONENTS,
   GOALS_STORAGE_KEY,
   WALL_TYPES, DEFAULT_WALL_TYPE, WALL_TYPE_STORAGE_KEY,
@@ -2355,7 +2355,7 @@ export default function App() {
   // opened via the gear icon. No backend needed for the two tabs to stay
   // in sync; the browser's native `storage` event does it.
   const [arrangementKey, setArrangementKey] = useScopedSetting(ARRANGEMENT_STORAGE_KEY, DEFAULT_ARRANGEMENT, k => !!BOARD_ARRANGEMENTS[k]);
-  const [bulletinStyleKey, setBulletinStyleKey] = useScopedSetting(BULLETIN_STORAGE_KEY, DEFAULT_BULLETIN, k => !!BULLETIN_STYLES[k]);
+  const [bulletinStyleKey, setBulletinStyleKey] = useScopedSetting(BULLETIN_STORAGE_KEY, DEFAULT_BULLETIN, isBulletinStyleId, migrateBulletinStyleId);
   // Board Content: five independent on/off toggles (replaced the old
   // all-or-nothing Simple Goals / Full Agenda template — see BOARD_COMPONENTS
   // in boardConfig.js). Each is its own cross-tab-synced boolean setting.
@@ -2528,7 +2528,14 @@ export default function App() {
   }, [activeLesson]);
 
   const arrangement = BOARD_ARRANGEMENTS[arrangementKey] || BOARD_ARRANGEMENTS[DEFAULT_ARRANGEMENT];
-  const bulletinStyle = BULLETIN_STYLES[bulletinStyleKey] || BULLETIN_STYLES[DEFAULT_BULLETIN];
+  // Built from the teacher's own profile colours now, not a fixed Webster
+  // palette. Webster Groves itself passes nothing and so gets the app
+  // defaults -- which ARE its colours (#1a1a1a / #E87722), so its board is
+  // unchanged. See bulletinStyles in boardConfig.js.
+  const bulletinOptions = isBlankTeacher
+    ? bulletinStyles(teacherProfile?.primaryColor, teacherProfile?.secondaryColor)
+    : bulletinStyles();
+  const bulletinStyle = bulletinOptions[bulletinStyleKey] || bulletinOptions[DEFAULT_BULLETIN];
   const wallStyle = wallBackgroundStyle(wallTypeKey, wallColorKey);
   const surface = surfaceColors(boardSurfaceKey);
   const slidingEnabled = slidingBoardsEnabled === "true";
@@ -3345,7 +3352,8 @@ export default function App() {
 
             {/* Bulletin strip — background + optional decorative dot-trim
                 along the top/bottom edges, both driven by the selected
-                BULLETIN_STYLES preset. */}
+                bulletinStyles() preset, whose colours come from the
+                teacher's profile. */}
             <div style={{ background: bulletinStyle.background, position: "relative", minHeight: 112, flexShrink: 0, display: "flex", flexDirection: "column", ...highlightStyle("bulletin") }}>
               {bulletinStyle.trim && (
                 <div style={{ height: 10, flexShrink: 0, backgroundImage: bulletinStyle.trim, backgroundRepeat: "repeat-x", backgroundSize: "24px 10px" }} />

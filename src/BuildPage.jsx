@@ -306,7 +306,13 @@ export default function BuildPage() {
   );
   const settingsPanel = (
     <div style={{ flex: "0 1 340px", minWidth: 280 }}>
-      <BoardSettingsPanel selected={selected} onSelect={setSelected} panelCountInfo={panelCountInfo} />
+      {/* Profile colours go down as props: the bulletin swatches are built
+          from them, and the trim ones bake the colours into an SVG data
+          URI that no CSS var can reach. This page already has the profile
+          for its own themeVars above, so nothing extra is fetched. */}
+      <BoardSettingsPanel selected={selected} onSelect={setSelected} panelCountInfo={panelCountInfo}
+        primaryColor={isBlankTeacher ? teacherProfile?.primaryColor : undefined}
+        secondaryColor={isBlankTeacher ? teacherProfile?.secondaryColor : undefined} />
     </div>
   );
 

@@ -383,22 +383,69 @@ export const BOARD_ARRANGEMENTS = {
 export const DEFAULT_ARRANGEMENT = "classic";
 export const ARRANGEMENT_STORAGE_KEY = "boardArrangement";
 
-// ── Bulletin strip presets ──────────────────────────────────────────────
+// ── Bulletin strip presets ──────────────────────────────────────
 // `trim`, when set, is a small repeating SVG tile drawn along the top and
 // bottom edges of the strip.
+//
+// The colours come from the TEACHER'S PROFILE (primary/secondary) rather
+// than being hardcoded. They used to be five fixed presets built out of
+// Webster Groves' own navy/orange/black, which meant a teacher at any
+// other school chose between three colours, none of which were theirs
+// (Jay: "Can we make it so the color scheme matches the school colors
+// (primary secondary) selected in the profile").
+//
+// Hence a FUNCTION of (primary, secondary) rather than a constant object.
+// The ids stay fixed even though the colours do not -- BULLETIN_STYLE_IDS
+// below is what validates a saved setting, so validation never has to know
+// what colour a board happens to be using today.
+//
+// Navy stays on as the one school-agnostic neutral. It is not derivable
+// from the two profile colours (it is a third colour, and never was in the
+// profile), and dropping it would have moved every board already using it
+// -- including Jay's, which is on Navy today.
 const DOT_TRIM = (dot, bg) =>
   `url("data:image/svg+xml,${encodeURIComponent(
     `<svg xmlns='http://www.w3.org/2000/svg' width='24' height='12'><rect width='24' height='12' fill='${bg}'/><circle cx='6' cy='6' r='3' fill='${dot}'/><circle cx='18' cy='6' r='3' fill='${dot}'/></svg>`
   )}")`;
 
-export const BULLETIN_STYLES = {
-  navy: { id: "navy", label: "Navy (Classic)", background: "#1a2a4a", trim: null },
-  orange: { id: "orange", label: "Webster Orange", background: "#E87722", trim: null },
-  black: { id: "black", label: "Chalkboard Black", background: "#1a1a1a", trim: null },
-  navyTrim: { id: "navyTrim", label: "Navy + Orange Trim", background: "#1a2a4a", trim: DOT_TRIM("#E87722", "#1a1a1a") },
-  orangeTrim: { id: "orangeTrim", label: "Orange + Black Trim", background: "#E87722", trim: DOT_TRIM("#1a1a1a", "#E87722") },
+export const NEUTRAL_BULLETIN_NAVY = "#1a2a4a";
+
+export function bulletinStyles(primaryColor, secondaryColor) {
+  const primary   = primaryColor   || DEFAULT_PRIMARY_COLOR;
+  const secondary = secondaryColor || DEFAULT_SECONDARY_COLOR;
+  return {
+    primary:       { id: "primary",       label: "Primary Color",         background: primary,   trim: null },
+    secondary:     { id: "secondary",     label: "Accent Color",          background: secondary, trim: null },
+    primaryTrim:   { id: "primaryTrim",   label: "Primary + Accent Trim", background: primary,   trim: DOT_TRIM(secondary, primary) },
+    secondaryTrim: { id: "secondaryTrim", label: "Accent + Primary Trim", background: secondary, trim: DOT_TRIM(primary, secondary) },
+    navy:          { id: "navy",          label: "Navy (Neutral)",        background: NEUTRAL_BULLETIN_NAVY, trim: null },
+  };
+}
+
+// Colour-independent, so useScopedSetting can validate a saved key without
+// having loaded the profile first.
+export const BULLETIN_STYLE_IDS = ["primary", "secondary", "primaryTrim", "secondaryTrim", "navy"];
+export const isBulletinStyleId = k => BULLETIN_STYLE_IDS.includes(k);
+
+// Boards saved a preset id back when those ids named a specific Webster
+// colour rather than a role in the profile. An unrecognised key silently
+// falls back to the default (see useScopedSetting), so without this every
+// board on `orange` or `black` would have jumped to something else the
+// moment this shipped. `navy` is deliberately absent -- it kept both its
+// id and its colour, so it needs no mapping.
+const LEGACY_BULLETIN_IDS = {
+  orange: "secondary",
+  black: "primary",
+  navyTrim: "primaryTrim",
+  orangeTrim: "secondaryTrim",
 };
-export const DEFAULT_BULLETIN = "navy";
+export function migrateBulletinStyleId(saved) {
+  return LEGACY_BULLETIN_IDS[saved] || saved;
+}
+
+// A teacher's own primary, not navy: the point of all of the above is that
+// a new board looks like the school that owns it from the first render.
+export const DEFAULT_BULLETIN = "primary";
 export const BULLETIN_STORAGE_KEY = "bulletinStyle";
 
 // ── Board content components ────────────────────────────────────────────
@@ -726,14 +773,29 @@ export function surfaceColors(boardSurfaceKey) {
 // cleared cache. One shared per-teacher fetch (see
 // getRemoteBoardSettingsOnce below) backs every useScopedSetting call on
 // the page, so ~10 settings don't turn into ~10 GET requests.
-export function useScopedSetting(storageKeyName, defaultValue, isValid) {
+//
+// `migrate`, when given, renames a stored value on the way IN -- for a
+// setting whose ids have changed meaning since boards started saving them
+// (bulletinStyle is the one that needed it). It has to be applied at all
+// THREE doors a value comes through, not just localStorage: the `storage`
+// event and the Mongo fetch would otherwise hand back a legacy id, fail
+// isValid, and silently drop the board to the default.
+export function useScopedSetting(storageKeyName, defaultValue, isValid, migrate) {
   const key = scopedKey(storageKeyName);
   const teacherId = getActiveTeacherId();
+  // useCallback keyed on `key` alone, exactly as `read` below is: isValid
+  // and migrate are inline lambdas at every call site, so listing them
+  // would rebuild this every render and re-subscribe the storage listener
+  // every render with it.
+  const accept = useCallback((raw) => {
+    if (typeof raw !== "string") return null;
+    const v = migrate ? migrate(raw) : raw;
+    return !isValid || isValid(v) ? v : null;
+  }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const read = useCallback(() => {
     if (typeof window === "undefined") return defaultValue;
-    const saved = window.localStorage.getItem(key);
-    return saved && (!isValid || isValid(saved)) ? saved : defaultValue;
+    return accept(window.localStorage.getItem(key)) ?? defaultValue;
   }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [value, setValue] = useState(read);
@@ -755,21 +817,20 @@ export function useScopedSetting(storageKeyName, defaultValue, isValid) {
   useEffect(() => {
     const handler = (e) => {
       if (e.key !== key || e.newValue == null) return;
-      if (!isValid || isValid(e.newValue)) setValue(e.newValue);
+      const v = accept(e.newValue);
+      if (v !== null) setValue(v);
     };
     window.addEventListener("storage", handler);
     return () => window.removeEventListener("storage", handler);
-  }, [key, isValid]);
+  }, [key, accept]);
 
   useEffect(() => {
     let cancelled = false;
     getRemoteBoardSettingsOnce(teacherId)
       .then((remote) => {
         if (cancelled) return;
-        const remoteValue = remote ? remote[storageKeyName] : null;
-        if (typeof remoteValue === "string" && (!isValid || isValid(remoteValue))) {
-          setValue(remoteValue);
-        }
+        const remoteValue = accept(remote ? remote[storageKeyName] : null);
+        if (remoteValue !== null) setValue(remoteValue);
       })
       .finally(() => { if (!cancelled) hasLoadedRemote.current = true; });
     return () => { cancelled = true; };

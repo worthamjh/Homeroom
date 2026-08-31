@@ -3,7 +3,7 @@ import { useState } from "react";
 import {
   useScopedSetting,
   BOARD_ARRANGEMENTS, DEFAULT_ARRANGEMENT, ARRANGEMENT_STORAGE_KEY,
-  BULLETIN_STYLES, DEFAULT_BULLETIN, BULLETIN_STORAGE_KEY,
+  bulletinStyles, isBulletinStyleId, migrateBulletinStyleId, DEFAULT_BULLETIN, BULLETIN_STORAGE_KEY,
   BOARD_COMPONENTS, useBoardContentOrder,
   WALL_TYPES, DEFAULT_WALL_TYPE, WALL_TYPE_STORAGE_KEY,
   WALL_COLORS, DEFAULT_WALL_COLOR_BY_TYPE, WALL_COLOR_STORAGE_KEY,
@@ -30,6 +30,14 @@ import {
  * iframe it's highlighting is Build's interactive one instead of
  * Settings' read-only one (see the isBuildMode-gated listener in
  * WebsterGrovesChemistry.jsx).
+ *
+ * `primaryColor`/`secondaryColor` are the teacher's profile colours,
+ * passed down rather than fetched here: the bulletin swatches are built
+ * from them (see bulletinStyles in boardConfig.js), and the trim ones
+ * encode the colours inside an SVG data URI, which a CSS var cannot reach
+ * -- so this needs the literal hex, not just var(--board-primary).
+ * BuildPage already fetches the profile for its own theming, so it passes
+ * what it has; omitted, they fall back to the app defaults.
  *
  * Every setting here is a "cross-tab-synced setting" (useScopedSetting,
  * see boardConfig.js): persisted to the same scoped localStorage keys the
@@ -134,9 +142,10 @@ function reorder(order, fromKey, toKey) {
   return next;
 }
 
-export default function BoardSettingsPanel({ selected, onSelect, panelCountInfo }) {
+export default function BoardSettingsPanel({ selected, onSelect, panelCountInfo, primaryColor, secondaryColor }) {
   const [arrangementKey, setArrangementKey] = useScopedSetting(ARRANGEMENT_STORAGE_KEY, DEFAULT_ARRANGEMENT, k => !!BOARD_ARRANGEMENTS[k]);
-  const [bulletinStyleKey, setBulletinStyleKey] = useScopedSetting(BULLETIN_STORAGE_KEY, DEFAULT_BULLETIN, k => !!BULLETIN_STYLES[k]);
+  const [bulletinStyleKey, setBulletinStyleKey] = useScopedSetting(BULLETIN_STORAGE_KEY, DEFAULT_BULLETIN, isBulletinStyleId, migrateBulletinStyleId);
+  const bulletinOptions = bulletinStyles(primaryColor, secondaryColor);
   // Board Content: five independent on/off toggles, one storage key per
   // component (see BOARD_COMPONENTS in boardConfig.js).
   const isOnOff = k => k === "true" || k === "false";
@@ -261,7 +270,7 @@ export default function BoardSettingsPanel({ selected, onSelect, panelCountInfo 
               {cat.id === "bulletin" && (
                 <>
                   <SectionHeading>Bulletin Board</SectionHeading>
-                  {Object.values(BULLETIN_STYLES).map(b => (
+                  {Object.values(bulletinOptions).map(b => (
                     <RadioRow
                       key={b.id}
                       selected={bulletinStyleKey === b.id}
