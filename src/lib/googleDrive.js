@@ -311,19 +311,51 @@ const ASSIGNMENT_MIME_TYPES = "application/pdf,application/vnd.google-apps.docum
  * no Cloudinary upload. The caller stores fileId + viewUrl + thumbUrl
  * directly to MongoDB; cloudinaryPublicId is omitted for Drive picks.
  *
- * MULTI-SELECT. A teacher handing out a set of worksheets was reopening
- * the picker and renavigating their Drive folder once per file (Jay:
- * "right now you can only select one assignment, then you have to go back
- * through your google drive to select another").
+ * MULTI-SELECT, ACROSS FOLDERS. Tick as many as you like in one folder,
+ * press Select, and the picker comes straight back so you can walk to
+ * another folder and keep going. Cancel finishes and adds the lot.
  *
  * @returns {Promise<Array<{ fileId: string, name: string, viewUrl: string, thumbUrl: string }>>}
- *   An empty array means the teacher cancelled — not an error.
+ *   An empty array means the teacher cancelled without picking anything
+ *   — not an error.
  */
+// A picker session ends the moment you press Select, and Google's own
+// multi-select does not survive navigating to a different folder -- so
+// ticking two files that live in different folders is impossible inside
+// one session, however many features are enabled. The accumulation has to
+// happen on this side.
+//
+// So the picker REOPENS after each Select, keeping everything picked so
+// far, and Cancel is what says "done". That is exactly the flow asked for
+// (Jay: "select one, then go back into the google drive folder ... go to a
+// different folder, select one from that different folder. Then both
+// assignments are added").
+//
+// The cost is one extra Cancel for a teacher who only wanted one file.
+// Worth it against reopening the picker and renavigating from the root for
+// every single file, which is what it replaced.
+//
+// Capped, because a loop that only a human ends should still terminate on
+// its own if something goes wrong with the picker.
+const MAX_PICK_ROUNDS = 20;
+
 export async function pickGoogleDriveAssignmentFiles() {
   await ensureGoogleScriptsLoaded();
   const accessToken = await requestAccessToken();
-  const docs = await openPicker(accessToken, { mimeTypes: ASSIGNMENT_MIME_TYPES, multiple: true });
-  return (docs || []).map(doc => ({
+  const docs = [];
+  const seenIds = new Set();
+  for (let round = 0; round < MAX_PICK_ROUNDS; round++) {
+    const batch = await openPicker(accessToken, { mimeTypes: ASSIGNMENT_MIME_TYPES, multiple: true });
+    if (!batch.length) break;   // Cancel (or picked nothing) -- that is "done"
+    // Deduped by file id: reopening means the same file can be picked
+    // twice, and two identical assignment cards is not what anyone meant.
+    for (const doc of batch) {
+      if (seenIds.has(doc.id)) continue;
+      seenIds.add(doc.id);
+      docs.push(doc);
+    }
+  }
+  return docs.map(doc => ({
     fileId: doc.id,
     name: doc.name.replace(/\.(pdf|docx?|gdoc)$/i, ""),
     viewUrl: `https://web.kamihq.com/web/viewer.html?state=${encodeURIComponent(JSON.stringify({ id: doc.id, action: 'open', from: 'google-drive' }))}`,
