@@ -977,12 +977,12 @@ export const designOptionKey = (area, optionId) => `${area}:${optionId}`;
 // is much worse than a new design being free for a while. Gate a design
 // by adding its id here, in the same commit that adds it to the store.
 const STORE_GATED_OPTIONS = {
-  // The store's first stock. The scalloped borders are the newest and
-  // most decorative thing on the board, and nothing shipped depends on
-  // them, so they are the safe pair to put behind the counter first.
+  // The store's stock. Both bordered styles as well as both scalloped
+  // ones, so what ships with every board is the three plain colours and
+  // anything decorative is something a teacher chose to add.
   // WHICH designs are gated is a product call, not a technical one --
   // this list is the only place it is expressed.
-  [DESIGN_AREAS.BULLETIN]: ["primaryScallop", "secondaryScallop"],
+  [DESIGN_AREAS.BULLETIN]: ["primaryTrim", "secondaryTrim", "primaryScallop", "secondaryScallop"],
   [DESIGN_AREAS.WALL_TYPE]: [],
   [DESIGN_AREAS.WALL_COLOR]: [],
   [DESIGN_AREAS.BOARD_SURFACE]: [],
