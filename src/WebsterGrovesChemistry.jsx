@@ -3315,7 +3315,7 @@ export default function App() {
   // rendering, and the warning says a hook is missing.
   const panelFieldsAt = (panelIdx) => {
     if (panelIdx >= MAX_PANELS && import.meta.env.DEV) {
-      console.warn(`[Homeroom] Board ${panelIdx + 1} has no content slot of its own (MAX_PANELS=${MAX_PANELS}) and is sharing board ${MAX_PANELS}'s. Add a p${MAX_PANELS}Fields hook.`);
+      console.warn(`[Gil-Bilt] Board ${panelIdx + 1} has no content slot of its own (MAX_PANELS=${MAX_PANELS}) and is sharing board ${MAX_PANELS}'s. Add a p${MAX_PANELS}Fields hook.`);
     }
     return allPanelFields[Math.min(panelIdx, MAX_PANELS - 1)];
   };

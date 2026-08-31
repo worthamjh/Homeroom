@@ -182,7 +182,7 @@ export default function DesignStorePage() {
 
       <div style={{ maxWidth: 1100, margin: "0 auto", padding: "18px 20px 60px" }}>
         <p style={{ fontSize: 13, color: "rgba(255,255,255,0.55)", lineHeight: 1.55, margin: "0 0 22px", maxWidth: 640 }}>
-          Everything Homeroom can put on your board. Add what you want — it turns up in Build under the matching
+          Everything Gil-Bilt Classroom can put on your board. Add what you want — it turns up in Build under the matching
           section, and nothing you don't add clutters that panel. Adding and removing are free and instant, and
           removing something never changes a board that's already using it.
         </p>

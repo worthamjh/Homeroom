@@ -240,9 +240,9 @@ export default function EditProfilePage() {
             {exporting ? "Preparing…" : "Download a backup"}
           </button>
           <p style={{ fontSize: 12, color: "rgba(255,255,255,0.45)", lineHeight: 1.5, margin: "10px 0 0" }}>
-            One JSON file with everything Homeroom stores for you — your units and
+            One JSON file with everything Gil-Bilt Classroom stores for you — your units and
             lessons, board content, assignments and settings, plus the last 30 saved
-            versions of your curriculum. Readable without Homeroom, and yours to keep.
+            versions of your curriculum. Readable without Gil-Bilt Classroom, and yours to keep.
           </p>
           {exportError && (
             <p style={{ fontSize: 12, color: "#ff9b8a", margin: "8px 0 0" }}>{exportError}</p>

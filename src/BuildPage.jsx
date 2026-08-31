@@ -176,7 +176,7 @@ function SignInPrompt() {
         Sign in to build your board
       </div>
       <div style={{ fontSize: 13, color: "rgba(255,255,255,0.5)", marginBottom: 20, maxWidth: 420, marginLeft: "auto", marginRight: "auto" }}>
-        Signing in gives you your own Homeroom — your calendar, slides, and assignments, saved under your account instead of a shared browser.
+        Signing in gives you your own Gil-Bilt Classroom — your calendar, slides, and assignments, saved under your account instead of a shared browser.
       </div>
       <SignInButton mode="modal">
         <button style={{ background: "var(--board-secondary)", color: "var(--board-secondary-fg)", border: "none", borderRadius: 6, padding: "10px 22px", fontFamily: "Oswald, sans-serif", fontSize: 14, fontWeight: 600, letterSpacing: 0.5, cursor: "pointer" }}>

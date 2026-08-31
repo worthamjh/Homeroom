@@ -42,7 +42,7 @@ function UnauthedLanding() {
     <Shell>
       <Hero />
       <button style={primaryButtonStyle} onClick={() => navigate("/board")}>
-        Enter Homeroom
+        Enter Gil-Bilt Classroom
       </button>
     </Shell>
   );
@@ -104,7 +104,7 @@ function Hero() {
   return (
     <div style={{ marginBottom: 32 }}>
       <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 40, color: "#fff", letterSpacing: 1, marginBottom: 10 }}>
-        Home<span style={{ color: "#E87722" }}>room</span>
+        Gil-Bilt <span style={{ color: "#E87722" }}>Classroom</span>
       </div>
       <div style={{ fontSize: 15, color: "rgba(255,255,255,0.55)", maxWidth: 440, margin: "0 auto", lineHeight: 1.6 }}>
         Every resource you teach from, in one place — slides, assignments, and the board itself, built up over time as your own.

@@ -90,7 +90,7 @@ export default function ProfileOnboarding({ teacherId, onComplete }) {
       }}
     >
       <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 20, color: "#fff", marginBottom: 6 }}>
-        Welcome to Homeroom
+        Welcome to Gil-Bilt Classroom
       </div>
       <div style={{ fontSize: 13, color: "rgba(255,255,255,0.55)", marginBottom: 24, lineHeight: 1.5 }}>
         A couple quick details and your own board is ready to build up.
