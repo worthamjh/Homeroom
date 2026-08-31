@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 /**
  * ChalkboardBoardRow
@@ -162,8 +162,18 @@ export default function ChalkboardBoardRow({
   // goalPanels lessons, and the real Webster Groves site, never pass it,
   // since their slides always come pre-filled from curriculum data).
   renderSlidesArea = null,
+  // Which board to open on, and a way to tell the caller which one is
+  // showing now. Both exist for one reason: Build has to be able to hand
+  // the teacher back to the SAME board they were just editing (see the
+  // `board` URL param in WebsterGrovesChemistry.jsx). Making a bell ringer
+  // on board 2 and being returned to board 1 -- which shows board 2's
+  // content nowhere, since every panel carries its own -- is what this is
+  // fixing (Jay: "the board in which number in which the bellringer was
+  // made is the current board in use on the lesson page").
+  initialPanel = 0,
+  onPanelChange = null,
 }) {
-  const [rawCurrent, setCurrent] = useState(0);
+  const [rawCurrent, setCurrent] = useState(initialPanel);
 
   // "Which board is slid into view" was previously just this raw state,
   // never reset or clamped when `panels` changes. That's fine while
@@ -186,9 +196,22 @@ export default function ChalkboardBoardRow({
   // label, for curriculum-authored panels that don't set one) is stable
   // for a given lesson's panel set and changes when the lesson does.
   const panelSetId = panels[0]?.panelKey || panels[0]?.label || null;
+  // ...but NOT on the very first panel set this instance sees, or arriving
+  // with ?board=2 would be reset to 0 by this effect the moment it ran.
+  // Only a genuine CHANGE of lesson should snap back to the first board.
+  const seenPanelSet = useRef(null);
   useEffect(() => {
+    if (seenPanelSet.current === null) { seenPanelSet.current = panelSetId; return; }
+    if (seenPanelSet.current === panelSetId) return;
+    seenPanelSet.current = panelSetId;
     setCurrent(0);
   }, [panelSetId]);
+
+  // Report the CLAMPED value, not rawCurrent -- the clamp above is what
+  // actually rendered, so it is what the caller should be told about.
+  useEffect(() => {
+    onPanelChange?.(current);
+  }, [current]); // eslint-disable-line react-hooks/exhaustive-deps
 
 
   // Derive the same left/right split the static layout uses from the shared

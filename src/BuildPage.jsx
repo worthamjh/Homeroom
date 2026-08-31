@@ -113,7 +113,7 @@ function LiveBuildBoard({ teacherId, highlightRegion, onPanelCountInfo, onViewCh
         onPanelCountInfo?.({ requestedCount: e.data.requestedCount, resolvedCount: e.data.resolvedCount });
       }
       if (e.data?.type === "homeroom-build-current-view") {
-        onViewChange?.({ unitIdx: e.data.unitIdx, lessonTitle: e.data.lessonTitle });
+        onViewChange?.({ unitIdx: e.data.unitIdx, lessonTitle: e.data.lessonTitle, panelIdx: e.data.panelIdx });
       }
       if (e.data?.type === "homeroom-drive-slides-saved") {
         // The iframe already called window.location.reload() on itself right
@@ -242,6 +242,11 @@ export default function BuildPage() {
     if (view && view.unitIdx != null) {
       params.set("unit", String(view.unitIdx));
       if (view.lessonTitle) params.set("lesson", view.lessonTitle);
+      // Which sliding board Build was on, so the teacher lands back on it
+      // rather than on board 1. Only ever set from the live postMessage:
+      // readCurrentView() is the REAL board tab's saved view and has no
+      // panel in it, so a stale 0 there must not override anything.
+      if (view.panelIdx) params.set("board", String(view.panelIdx));
     }
     const qs = params.toString();
     return qs ? `/board?${qs}` : "/board";

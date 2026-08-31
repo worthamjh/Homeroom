@@ -67,7 +67,13 @@ function readViewFromUrlParams() {
   const unitIdx = Number(unitParam);
   if (!Number.isInteger(unitIdx) || unitIdx < 0) return null;
   const lessonTitle = params.get("lesson") || null;
-  return { unitIdx, lessonTitle };
+  // Which sliding board to open on. Build puts this on "← Back to board"
+  // so a teacher who just made a bell ringer on board 2 is returned to
+  // board 2 -- every panel carries its own content, so landing on board 1
+  // showed them someone else's bell ringer, or none.
+  const boardParam = Number(params.get("board"));
+  const panelIdx = Number.isInteger(boardParam) && boardParam >= 0 ? boardParam : 0;
+  return { unitIdx, lessonTitle, panelIdx };
 }
 
 const THUMB = (id) => `https://drive.google.com/thumbnail?id=${id}&sz=w400`;
@@ -2438,14 +2444,24 @@ export default function App() {
   // above, which stays real-tab-only for the reasons explained there —
   // this is a one-way report to Build's own parent frame, not a write to
   // the shared "what's the real board looking at" value.
+  // Which sliding board is showing, and which one to open on. The first is
+  // reported up to Build (see the postMessage below) purely so "← Back to
+  // board" can put the teacher back on it; the second is how the board
+  // acts on that when it arrives. Read ONCE on mount -- it is a starting
+  // position, not a live binding, so later navigation is free to move off
+  // it without the URL fighting back.
+  const [currentPanelIdx, setCurrentPanelIdx] = useState(0);
+  const [initialPanelIdx] = useState(() => readViewFromUrlParams()?.panelIdx ?? 0);
+
   useEffect(() => {
     if (!isBuildMode) return;
     window.parent?.postMessage({
       type: "homeroom-build-current-view",
       unitIdx: activeUnitIdx,
       lessonTitle: activeLesson?.title || null,
+      panelIdx: currentPanelIdx,
     }, window.location.origin);
-  }, [activeUnitIdx, activeLesson]);
+  }, [activeUnitIdx, activeLesson, currentPanelIdx]);
 
   // Build/Preview keep a tab-local record of where they are, so ANY reload
   // comes back to the same lesson.
@@ -3461,6 +3477,8 @@ export default function App() {
                 <ChalkboardBoardRow
                   smartBoardSrc={boardSlides}
                   renderSlidesArea={renderLessonSlides}
+                  initialPanel={initialPanelIdx}
+                  onPanelChange={setCurrentPanelIdx}
                   isOverview={false}
                   overviewItems={[]}
                   onOverviewItemClick={() => {}}
