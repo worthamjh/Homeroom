@@ -8,7 +8,9 @@ import {
   WALL_TYPES, DEFAULT_WALL_TYPE, WALL_TYPE_STORAGE_KEY,
   WALL_COLORS, DEFAULT_WALL_COLOR_BY_TYPE, WALL_COLOR_STORAGE_KEY,
   wallColorSwatch, isCustomWallColor,
-  BOARD_SURFACES, DEFAULT_BOARD_SURFACE, BOARD_SURFACE_STORAGE_KEY,
+  BOARD_SURFACES, DEFAULT_BOARD_SURFACE, BOARD_SURFACE_STORAGE_KEY, surfaceColors,
+  BOARD_ACCENT_PRESETS, DEFAULT_BOARD_ACCENT, BOARD_ACCENT_STORAGE_KEY,
+  isBoardAccentKey, isCustomBoardAccent, boardAccentBaseColor,
   SLIDING_BOARDS_ENABLED_KEY, DEFAULT_SLIDING_BOARDS_ENABLED,
   SLIDING_BOARDS_COUNT_KEY, DEFAULT_SLIDING_BOARDS_COUNT, SLIDING_BOARDS_COUNT_OPTIONS,
 } from "./boardConfig";
@@ -176,6 +178,16 @@ export default function BoardSettingsPanel({ selected, onSelect, panelCountInfo,
   const [wallTypeKey, setWallTypeKey] = useScopedSetting(WALL_TYPE_STORAGE_KEY, DEFAULT_WALL_TYPE, k => !!WALL_TYPES[k]);
   const [wallColorKey, setWallColorKey] = useScopedSetting(WALL_COLOR_STORAGE_KEY, DEFAULT_WALL_COLOR_BY_TYPE[DEFAULT_WALL_TYPE], null);
   const [boardSurfaceKey, setBoardSurfaceKey] = useScopedSetting(BOARD_SURFACE_STORAGE_KEY, DEFAULT_BOARD_SURFACE, k => !!BOARD_SURFACES[k]);
+  const [boardAccentKey, setBoardAccentKey] = useScopedSetting(BOARD_ACCENT_STORAGE_KEY, DEFAULT_BOARD_ACCENT, isBoardAccentKey);
+  // Swatches show the colour AFTER the contrast pass, sitting on the board
+  // face it will actually sit on -- so the row shows what the teacher will
+  // get rather than what they asked for, and a pick that had to be
+  // corrected shows itself as corrected instead of lying.
+  const accentPreview = (key) => {
+    const base = boardAccentBaseColor(key, primaryColor, secondaryColor);
+    return surfaceColors(boardSurfaceKey, base).accent;
+  };
+  const boardFace = surfaceColors(boardSurfaceKey).face;
   const [slidingBoardsEnabled, setSlidingBoardsEnabled] = useScopedSetting(SLIDING_BOARDS_ENABLED_KEY, DEFAULT_SLIDING_BOARDS_ENABLED, k => k === "true" || k === "false");
   const [slidingBoardsCount, setSlidingBoardsCount] = useScopedSetting(SLIDING_BOARDS_COUNT_KEY, DEFAULT_SLIDING_BOARDS_COUNT, k => /^[2-5]$/.test(k));
 
@@ -314,6 +326,42 @@ export default function BoardSettingsPanel({ selected, onSelect, panelCountInfo,
                   {Object.values(BOARD_SURFACES).map(s => (
                     <RadioRow key={s.id} selected={boardSurfaceKey === s.id} onClick={() => setBoardSurfaceKey(s.id)} label={s.label} />
                   ))}
+
+                  {/* Headers, checked checkboxes, goal numbers -- the accent
+                      role on the board face. Every option here, preset or
+                      custom, is run through the same contrast pass against
+                      the surface selected above, so none of them can come
+                      out unreadable. Swatches are drawn ON that surface for
+                      the same reason. */}
+                  <SectionHeading>Header &amp; Accent Color</SectionHeading>
+                  {BOARD_ACCENT_PRESETS.map(a => (
+                    <RadioRow
+                      key={a.id}
+                      selected={boardAccentKey === a.id}
+                      onClick={() => setBoardAccentKey(a.id)}
+                      label={a.label}
+                      swatch={
+                        <span style={{ width: 16, height: 16, borderRadius: 3, flexShrink: 0, background: boardFace, display: "flex", alignItems: "center", justifyContent: "center", border: `2px solid ${boardAccentKey === a.id ? "var(--board-secondary)" : "rgba(255,255,255,0.3)"}` }}>
+                          <span style={{ width: 8, height: 8, borderRadius: 2, background: accentPreview(a.id) }} />
+                        </span>
+                      }
+                    />
+                  ))}
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 14px 2px" }}>
+                    <input
+                      type="color"
+                      value={boardAccentBaseColor(boardAccentKey, primaryColor, secondaryColor)}
+                      onChange={e => setBoardAccentKey(e.target.value)}
+                      title="Pick any header color"
+                      style={{ width: 26, height: 26, padding: 0, border: `2px solid ${isCustomBoardAccent(boardAccentKey) ? "var(--board-secondary)" : "rgba(255,255,255,0.3)"}`, borderRadius: 4, background: "transparent", cursor: "pointer", flexShrink: 0 }}
+                    />
+                    <span style={{ fontFamily: "Lato, sans-serif", fontSize: 12, color: isCustomBoardAccent(boardAccentKey) ? "#fff" : "rgba(255,255,255,0.55)" }}>
+                      {isCustomBoardAccent(boardAccentKey) ? `Custom ${boardAccentKey.toUpperCase()}` : "Custom color…"}
+                    </span>
+                  </div>
+                  <div style={{ padding: "2px 14px 4px", fontFamily: "Lato, sans-serif", fontSize: 11, color: "rgba(255,255,255,0.4)", lineHeight: 1.4 }}>
+                    Used for section headers, checked boxes and goal numbers. Any color you pick is lightened or darkened just enough to stay readable on the board surface above — so it may not render as the exact shade you chose.
+                  </div>
 
                   <SectionHeading>Number of Boards</SectionHeading>
                   <div style={{ display: "flex", gap: 8, padding: "4px 14px 10px", flexWrap: "wrap" }}>

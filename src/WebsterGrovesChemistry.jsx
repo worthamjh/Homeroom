@@ -22,6 +22,7 @@ import {
   DEFAULT_WALL_COLOR_BY_TYPE, WALL_COLOR_STORAGE_KEY,
   wallBackgroundStyle,
   BOARD_SURFACES, DEFAULT_BOARD_SURFACE, BOARD_SURFACE_STORAGE_KEY, surfaceColors,
+  BOARD_ACCENT_STORAGE_KEY, DEFAULT_BOARD_ACCENT, isBoardAccentKey, boardAccentBaseColor,
   SLIDING_BOARDS_ENABLED_KEY, DEFAULT_SLIDING_BOARDS_ENABLED,
   SLIDING_BOARDS_COUNT_KEY, DEFAULT_SLIDING_BOARDS_COUNT,
   buildSlidingPanels,
@@ -2382,6 +2383,7 @@ export default function App() {
   const [wallTypeKey] = useScopedSetting(WALL_TYPE_STORAGE_KEY, DEFAULT_WALL_TYPE, k => !!WALL_TYPES[k]);
   const [wallColorKey] = useScopedSetting(WALL_COLOR_STORAGE_KEY, DEFAULT_WALL_COLOR_BY_TYPE[DEFAULT_WALL_TYPE], null);
   const [boardSurfaceKey] = useScopedSetting(BOARD_SURFACE_STORAGE_KEY, DEFAULT_BOARD_SURFACE, k => !!BOARD_SURFACES[k]);
+  const [boardAccentKey] = useScopedSetting(BOARD_ACCENT_STORAGE_KEY, DEFAULT_BOARD_ACCENT, isBoardAccentKey);
   const [slidingBoardsEnabled] = useScopedSetting(SLIDING_BOARDS_ENABLED_KEY, DEFAULT_SLIDING_BOARDS_ENABLED, k => k === "true" || k === "false");
   const [slidingBoardsCount] = useScopedSetting(SLIDING_BOARDS_COUNT_KEY, DEFAULT_SLIDING_BOARDS_COUNT, k => /^[2-5]$/.test(k));
 
@@ -2537,7 +2539,15 @@ export default function App() {
     : bulletinStyles();
   const bulletinStyle = bulletinOptions[bulletinStyleKey] || bulletinOptions[DEFAULT_BULLETIN];
   const wallStyle = wallBackgroundStyle(wallTypeKey, wallColorKey);
-  const surface = surfaceColors(boardSurfaceKey);
+  // The accent the teacher asked for; surfaceColors then forces it to
+  // clear contrast against whichever board face is showing. Webster Groves
+  // passes no profile colours and so resolves to the app defaults, which
+  // are its own -- its board is unchanged.
+  const surface = surfaceColors(boardSurfaceKey, boardAccentBaseColor(
+    boardAccentKey,
+    isBlankTeacher ? teacherProfile?.primaryColor : undefined,
+    isBlankTeacher ? teacherProfile?.secondaryColor : undefined,
+  ));
   const slidingEnabled = slidingBoardsEnabled === "true";
   const slidingCount = parseInt(slidingBoardsCount, 10) || parseInt(DEFAULT_SLIDING_BOARDS_COUNT, 10);
 

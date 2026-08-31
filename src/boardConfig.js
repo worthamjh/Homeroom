@@ -225,6 +225,55 @@ function toHex(rgb) {
 function readableForeground(hex) {
   return relativeLuminance(hexToRgb(hex)) > 0.5 ? "#1a1a1a" : "#ffffff";
 }
+// Contrast ratio between two colors, WCAG 2.x: (L1 + 0.05) / (L2 + 0.05)
+// with L1 the lighter of the two. 1 = identical, 21 = black on white.
+function contrastRatio(hexA, hexB) {
+  const a = relativeLuminance(hexToRgb(hexA));
+  const b = relativeLuminance(hexToRgb(hexB));
+  return a > b ? (a + 0.05) / (b + 0.05) : (b + 0.05) / (a + 0.05);
+}
+
+// `hex` nudged toward white or black -- whichever direction the
+// background leaves room for -- until it clears `minRatio` against that
+// background. Returns `hex` untouched when it already does.
+//
+// This is what accentSafe() below CANNOT do, and the difference matters.
+// accentSafe clamps into a fixed luminance band, because the thing it
+// protects against is the app's own dark chrome, which never changes. A
+// board surface does change -- green chalkboard, near-black chalkboard,
+// near-white dry erase -- so one accent can be perfectly legible on one
+// surface and invisible on the next. Only measuring against the actual
+// surface catches that (Jay: "i want to make sure that no matter what the
+// color will show well against the background, that is the most
+// important").
+//
+// Blending toward pure white or pure black does not rotate hue, so a
+// teacher's red still reads as red -- just lighter or darker than the one
+// they picked. The step loop is outermost so the SMALLEST correction that
+// works wins, whichever direction it came from, rather than always
+// preferring one direction.
+//
+// 4.5 is WCAG AA for normal-size text. These headers are 12px, so the
+// looser large-text 3.0 would not honestly apply.
+export function readableOn(hex, background, minRatio = 4.5) {
+  if (contrastRatio(hex, background) >= minRatio) return hex;
+  const base = hexToRgb(hex);
+  let best = hex;
+  let bestRatio = contrastRatio(hex, background);
+  for (let amount = 0.05; amount <= 1.0001; amount += 0.05) {
+    for (const target of [[255, 255, 255], [0, 0, 0]]) {
+      const candidate = toHex(blendToward(base, target, amount));
+      const ratio = contrastRatio(candidate, background);
+      if (ratio >= minRatio) return candidate;
+      if (ratio > bestRatio) { bestRatio = ratio; best = candidate; }
+    }
+  }
+  // Only reachable for a background so mid-grey that neither pure white
+  // nor pure black clears the bar. Hand back the best of what we tried
+  // rather than something known-worse.
+  return best;
+}
+
 // A variant of `hex` clamped into a legible middle luminance band — for
 // when a color is used as an ACCENT (a label, a checkmark, a selection
 // indicator) against this app's own fixed dark chrome (settings panels,
@@ -659,6 +708,60 @@ export const BOARD_SURFACES = {
 export const DEFAULT_BOARD_SURFACE = "chalkboard";
 export const BOARD_SURFACE_STORAGE_KEY = "boardSurface";
 
+// ── Board accent (headers, checkboxes, goal numbers) ──────────────────
+// The colour of "LEARNING GOALS" / "BELL RINGER" and everything that
+// shares their accent role on the board face -- checked checkboxes, the
+// 01/02/03 goal numbering, hover states.
+//
+// This was the literal #E87722 in surfaceColors below, i.e. Webster's
+// orange on every teacher's board no matter what they had chosen. It
+// follows the profile now, and it is a SETTING rather than only a derived
+// value because a teacher may simply not want their accent there (Jay:
+// "users may not like certain colors and might want to change them").
+//
+// Same storage shape as WALL_COLORS: a preset id, or a raw hex for a
+// custom colour, told apart by looking at the value. No second key and
+// nothing to migrate.
+//
+// Whatever comes out of here is still run through readableOn() against
+// the actual board face before it is used -- a preset, a custom pick, and
+// a profile colour are all equally capable of being invisible on a green
+// chalkboard, so none of them get to skip the contrast check.
+export const BOARD_ACCENT_PRESETS = [
+  { id: "accent",  label: "School Accent" },
+  { id: "primary", label: "School Primary" },
+  { id: "chalk",   label: "Chalk White" },
+];
+// The bar every board accent has to clear against the board face. 4.5 is
+// WCAG AA for normal-size text, and these headers are 12px, so the looser
+// large-text 3.0 would not honestly apply to them.
+//
+// It is worth knowing what this costs: Webster's orange on the green
+// chalkboard measures 2.72, so the headers that have always been orange
+// there come out lightened to a pale peach. Dropping this to 3.0 would
+// leave them at ~#ea8538, near-indistinguishable from the original -- the
+// single number to change if that trade is the wrong way round.
+export const BOARD_ACCENT_MIN_CONTRAST = 4.5;
+export const DEFAULT_BOARD_ACCENT = "accent";
+export const BOARD_ACCENT_STORAGE_KEY = "boardAccent";
+const CHALK_WHITE = "#f2f2f2";
+
+export function isCustomBoardAccent(value) {
+  return /^#[0-9a-f]{6}$/i.test(String(value || "").trim());
+}
+export function isBoardAccentKey(value) {
+  return isCustomBoardAccent(value) || BOARD_ACCENT_PRESETS.some(p => p.id === value);
+}
+
+// What the setting resolves to BEFORE the contrast pass -- the colour the
+// teacher actually asked for. surfaceColors() is what makes it legible.
+export function boardAccentBaseColor(key, primaryColor, secondaryColor) {
+  if (isCustomBoardAccent(key)) return key.trim();
+  if (key === "primary") return primaryColor || DEFAULT_PRIMARY_COLOR;
+  if (key === "chalk") return CHALK_WHITE;
+  return secondaryColor || DEFAULT_SECONDARY_COLOR;
+}
+
 export const SLIDING_BOARDS_ENABLED_KEY = "slidingBoardsEnabled";
 export const DEFAULT_SLIDING_BOARDS_ENABLED = "false";
 export const SLIDING_BOARDS_COUNT_KEY = "slidingBoardsCount";
@@ -723,13 +826,26 @@ export function buildSlidingPanels(goalItems, count) {
 // Green and black chalkboards differ ONLY in the face color: same chalk
 // text, same wooden ledge, same accent. Keeping them one branch means a
 // future change to chalk legibility lands on both instead of drifting.
-export function surfaceColors(boardSurfaceKey) {
+// `accentColor` is the teacher's chosen board accent (see
+// boardAccentBaseColor above), forced to clear WCAG AA against THIS
+// surface's own face before it is handed out -- which is the whole reason
+// the face colours moved into consts here.
+//
+// Omitted, the old per-surface literal is used as the input -- but it is
+// NOT passed through untouched: it faces the same contrast check as
+// anything else. That is deliberate and it is not a no-op. #E87722 on the
+// green chalkboard measures 2.72, well under the 4.5 bar, so the headers
+// that have always been orange there come out lightened. There is no
+// "grandfathered" path; a colour that was never readable does not get to
+// stay just because it shipped first.
+export function surfaceColors(boardSurfaceKey, accentColor) {
   if (boardSurfaceKey === "dryErase") {
+    const face = "#f7f7f4";
     return {
-      face: "#f7f7f4",
+      face,
       ledgeBg: "#d8d8d3",
       ledgeBorder: "#b3b3ac",
-      accent: "#c9622b",
+      accent: readableOn(accentColor || "#c9622b", face, BOARD_ACCENT_MIN_CONTRAST),
       headerText: "rgba(30,30,30,0.65)",
       bodyText: "rgba(20,20,20,0.85)",
       bodyTextChecked: "rgba(20,20,20,0.32)",
@@ -739,13 +855,14 @@ export function surfaceColors(boardSurfaceKey) {
       checkboxBorder: "rgba(0,0,0,0.35)",
     };
   }
+  // Slate rather than pure #000 -- a true black face makes the chalk text
+  // and the board's own shadows read as one flat shape.
+  const face = boardSurfaceKey === "chalkboardBlack" ? "#1f2120" : "#2d5a2d";
   return {
-    // Slate rather than pure #000 -- a true black face makes the chalk
-    // text and the board's own shadows read as one flat shape.
-    face: boardSurfaceKey === "chalkboardBlack" ? "#1f2120" : "#2d5a2d",
+    face,
     ledgeBg: "#5c3d0e",
     ledgeBorder: "#3a2408",
-    accent: "#E87722",
+    accent: readableOn(accentColor || "#E87722", face, BOARD_ACCENT_MIN_CONTRAST),
     headerText: "rgba(255,255,255,0.6)",
     bodyText: "rgba(255,255,255,0.85)",
     bodyTextChecked: "rgba(255,255,255,0.3)",
