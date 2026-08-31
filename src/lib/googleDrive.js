@@ -152,27 +152,30 @@ function requestAccessToken() {
 // with an ARRAY. Opt-in rather than always-on: slides and calendar embed
 // exactly one thing, so letting a teacher tick three of them would only
 // raise a question the caller has no answer to.
-function openPicker(accessToken, { viewId, mimeTypes, multiple = false, parentId = null } = {}) {
+function openPicker(accessToken, { viewId, mimeTypes, multiple = false } = {}) {
   return new Promise((resolve) => {
     const makeView = () => {
-      const _view = new window.google.picker.DocsView(viewId || window.google.picker.ViewId.DOCS)
+      // No sort option here, and not for want of trying: the Picker API
+      // exposes no way to order a view. DocsView's full public surface is
+      // setParent / setIncludeFolders / setSelectFolderEnabled / setMode /
+      // setOwnedByMe / setStarred / setDocTypesDropDownEnabled /
+      // setEnableDrives / setEnableTeamDrives / setFileIds, and
+      // PickerBuilder has nothing either. There used to be a
+      // setSortCriteria call here guarded by `SortCriteria?.TITLE`, which
+      // reads like it works -- google.picker.SortCriteria does not exist,
+      // so the guard was always false and the call never ran. Removed
+      // rather than left to look like a feature. Google's own default
+      // (last modified) is what a teacher gets.
+      const view = new window.google.picker.DocsView(viewId || window.google.picker.ViewId.DOCS)
         .setSelectFolderEnabled(false)
         .setMode(window.google.picker.DocsViewMode.LIST);
-      const view = window.google.picker.SortCriteria?.TITLE
-        ? _view.setSortCriteria(window.google.picker.SortCriteria.TITLE)
-        : _view;
       if (mimeTypes) view.setMimeTypes(mimeTypes);
       return view;
     };
     const recentView = makeView();
-    // `parentId` reopens the browser in the folder the teacher was last
-    // picking from instead of My Drive root. Without it, gathering files
-    // from two folders means walking the whole tree again for the second
-    // one, which is most of the work the picker was supposed to save
-    // (Jay: "i have to click all the way back through my google folders").
     const browseView = makeView()
       .setIncludeFolders(true)
-      .setParent(parentId || "root")
+      .setParent("root")   // start at My Drive root so navigation is hierarchical
       .setLabel("Browse Folders");
     // setAppId is what makes picking GRANT this app drive.file access to the
     // chosen file. Without it the picker still returns the file's id, and
@@ -190,15 +193,9 @@ function openPicker(accessToken, { viewId, mimeTypes, multiple = false, parentId
     // the OAuth client id -- derived here rather than added as another env
     // var that could drift out of step with the client id it must match.
     const appId = (CLIENT_ID || "").split("-")[0];
-    // Whichever view is added FIRST is the tab the picker opens on, and
-    // there is no API to select one afterwards. So once we know where the
-    // teacher was working, the folder browser leads -- landing them back
-    // where they were rather than on the recent list.
-    let builder = new window.google.picker.PickerBuilder();
-    builder = parentId
-      ? builder.addView(browseView).addView(recentView)
-      : builder.addView(recentView).addView(browseView);
-    builder = builder
+    let builder = new window.google.picker.PickerBuilder()
+      .addView(recentView)
+      .addView(browseView)
       .setOAuthToken(accessToken)
       .setAppId(appId)
       .setDeveloperKey(API_KEY)
@@ -322,62 +319,42 @@ const ASSIGNMENT_MIME_TYPES = "application/pdf,application/vnd.google-apps.docum
  * no Cloudinary upload. The caller stores fileId + viewUrl + thumbUrl
  * directly to MongoDB; cloudinaryPublicId is omitted for Drive picks.
  *
- * MULTI-SELECT, ACROSS FOLDERS. Tick as many as you like in one folder,
- * press Select, and the picker comes straight back OPEN IN THAT SAME
- * FOLDER so the next one is a click away rather than a walk down from My
- * Drive again. Cancel finishes and adds the lot.
+ * MULTI-SELECT. Click as many files as you want, in as many folders as
+ * you want, navigating with the picker's own breadcrumb -- then press
+ * Select once and every one of them is added.
  *
  * @returns {Promise<Array<{ fileId: string, name: string, viewUrl: string, thumbUrl: string }>>}
  *   An empty array means the teacher cancelled without picking anything
  *   — not an error.
  */
-// A picker session ends the moment you press Select, and Google's own
-// multi-select does not survive navigating to a different folder -- so
-// ticking two files that live in different folders is impossible inside
-// one session, however many features are enabled. The accumulation has to
-// happen on this side.
+// ONE picker session, with Google's own multi-select doing the work.
 //
-// So the picker REOPENS after each Select, keeping everything picked so
-// far, and Cancel is what says "done". That is exactly the flow asked for
-// (Jay: "select one, then go back into the google drive folder ... go to a
-// different folder, select one from that different folder. Then both
-// assignments are added").
+// This replaced a loop that reopened the picker after every Select, built
+// on my assumption that a Picker selection could not survive navigating to
+// another folder. I never verified that, and it cost two rounds: the loop
+// dumped the teacher back at My Drive root each time, and rooting the
+// reopened view at the last file's folder then trapped them in a folder
+// with no breadcrumb to climb out of (Jay: "it takes me to this Browser
+// Folders tab where i cant navigate to any folders").
 //
-// The cost is one extra Cancel for a teacher who only wanted one file.
-// Worth it against reopening the picker and renavigating from the root for
-// every single file, which is what it replaced.
-//
-// Capped, because a loop that only a human ends should still terminate on
-// its own if something goes wrong with the picker.
-const MAX_PICK_ROUNDS = 20;
+// What is actually true, checked against the loaded API rather than
+// assumed: google.picker.Feature.MULTISELECT_ENABLED exists and resolves,
+// so a session genuinely does allow many files. Which means the behaviour
+// asked for -- pick a file, stay where you are, climb the breadcrumb, pick
+// another, and see what is selected before committing -- is Picker's own
+// multi-select, and the loop was working against it.
 
 export async function pickGoogleDriveAssignmentFiles() {
   await ensureGoogleScriptsLoaded();
   const accessToken = await requestAccessToken();
-  const docs = [];
+  const batch = await openPicker(accessToken, { mimeTypes: ASSIGNMENT_MIME_TYPES, multiple: true });
+  // Deduped anyway: cheap, and nothing downstream wants two identical cards.
   const seenIds = new Set();
-  // Where the last pick came from, so the next round opens there.
-  let lastParentId = null;
-  for (let round = 0; round < MAX_PICK_ROUNDS; round++) {
-    const batch = await openPicker(accessToken, {
-      mimeTypes: ASSIGNMENT_MIME_TYPES,
-      multiple: true,
-      parentId: lastParentId,
-    });
-    if (!batch.length) break;   // Cancel (or picked nothing) -- that is "done"
-    // Picker reports each file's folder. Take the last one picked: with a
-    // multi-pick they are usually all from the same folder anyway, and if
-    // they are not, the most recent is the best guess at where the teacher
-    // still is.
-    lastParentId = batch[batch.length - 1]?.parentId || lastParentId;
-    // Deduped by file id: reopening means the same file can be picked
-    // twice, and two identical assignment cards is not what anyone meant.
-    for (const doc of batch) {
-      if (seenIds.has(doc.id)) continue;
-      seenIds.add(doc.id);
-      docs.push(doc);
-    }
-  }
+  const docs = (batch || []).filter(doc => {
+    if (seenIds.has(doc.id)) return false;
+    seenIds.add(doc.id);
+    return true;
+  });
   return docs.map(doc => ({
     fileId: doc.id,
     name: doc.name.replace(/\.(pdf|docx?|gdoc)$/i, ""),
