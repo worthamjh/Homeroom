@@ -3387,6 +3387,31 @@ export default function App() {
               {bulletinStyle.trim && (
                 <div style={{ height: 10, flexShrink: 0, backgroundImage: bulletinStyle.trim, backgroundRepeat: "repeat-x", backgroundSize: "24px 10px" }} />
               )}
+              {/* Scalloped border, all four inside edges. Absolutely
+                  positioned rather than flex children like the dot trim,
+                  because this one has to run down the sides too -- which is
+                  what makes it read as a bulletin board rather than as two
+                  stripes. The parent is already position: relative.
+
+                  Sides are inset by the band thickness at top and bottom so
+                  the horizontal strips lie OVER them at the corners, the way
+                  a real border pack overlaps when you staple it up.
+
+                  pointerEvents none throughout: this is paper, nothing in
+                  the strip should become unclickable because of it. */}
+              {bulletinStyle.scallop && (() => {
+                const sc = bulletinStyle.scallop;
+                const b = sc.band;
+                const common = { position: "absolute", pointerEvents: "none" };
+                return (
+                  <>
+                    <div style={{ ...common, top: 0, left: 0, right: 0, height: b, backgroundImage: sc.top, backgroundRepeat: "repeat-x", backgroundSize: `${b * 2}px ${b}px` }} />
+                    <div style={{ ...common, bottom: 0, left: 0, right: 0, height: b, backgroundImage: sc.bottom, backgroundRepeat: "repeat-x", backgroundSize: `${b * 2}px ${b}px` }} />
+                    <div style={{ ...common, top: b, bottom: b, left: 0, width: b, backgroundImage: sc.left, backgroundRepeat: "repeat-y", backgroundSize: `${b}px ${b * 2}px` }} />
+                    <div style={{ ...common, top: b, bottom: b, right: 0, width: b, backgroundImage: sc.right, backgroundRepeat: "repeat-y", backgroundSize: `${b}px ${b * 2}px` }} />
+                  </>
+                );
+              })()}
             </div>
 
             {/* Chalkboard */}

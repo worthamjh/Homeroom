@@ -288,7 +288,10 @@ export default function BoardSettingsPanel({ selected, onSelect, panelCountInfo,
                       selected={bulletinStyleKey === b.id}
                       onClick={() => setBulletinStyleKey(b.id)}
                       label={b.label}
-                      swatch={<span style={{ width: 16, height: 16, borderRadius: 3, flexShrink: 0, background: b.background, backgroundImage: b.trim || undefined, backgroundSize: b.trim ? "10px 5px" : undefined, border: `2px solid ${bulletinStyleKey === b.id ? "var(--board-secondary)" : "rgba(255,255,255,0.3)"}` }} />}
+                      /* A scallop swatch shows its top edge tile, scaled down
+                         so a couple of bumps land inside 16px -- the dot
+                         swatches already work this way. */
+                      swatch={<span style={{ width: 16, height: 16, borderRadius: 3, flexShrink: 0, background: b.background, backgroundImage: b.scallop?.top || b.trim || undefined, backgroundSize: b.scallop ? "10px 5px" : b.trim ? "10px 5px" : undefined, backgroundRepeat: "repeat", border: `2px solid ${bulletinStyleKey === b.id ? "var(--board-secondary)" : "rgba(255,255,255,0.3)"}` }} />}
                     />
                   ))}
                 </>

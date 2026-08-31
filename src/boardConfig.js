@@ -458,6 +458,51 @@ const DOT_TRIM = (dot, bg) =>
   )}")`;
 
 export const NEUTRAL_BULLETIN_NAVY = "#1a2a4a";
+// The scalloped paper border strip that runs around the inside of a real
+// classroom bulletin board (Jay: "this style of border on the inside of a
+// bulletin board is a classic school type of thing"). Plain for now --
+// the polka-dot version of the same shape is the obvious follow-on.
+//
+// One tile PER EDGE rather than one tile rotated, because the scallops
+// have to bulge INWARD on all four sides and a rotated tile would send
+// two of them outward.
+//
+// Drawn as circles centred exactly on the band's inner edge, not as arc
+// paths: half of each circle then falls behind the solid band and half
+// stands proud of it, which is precisely a scallop, with no arc sweep
+// flags to get backwards. The tile is transparent apart from the border
+// itself, so the strip's own colour shows through between the bumps.
+export const SCALLOP_BAND = 14;             // band thickness, px
+const SCALLOP_TILE = SCALLOP_BAND * 2;      // two scallops per tile
+function scallopTile(color, edge) {
+  const t = SCALLOP_BAND;
+  const r = t / 2;
+  const horizontal = edge === "top" || edge === "bottom";
+  const w = horizontal ? SCALLOP_TILE : t;
+  const h = horizontal ? t : SCALLOP_TILE;
+  // The solid part hugs the OUTER edge; the circles sit on its inner line.
+  const rect =
+    edge === "top"    ? `<rect width='${w}' height='${r}'/>` :
+    edge === "bottom" ? `<rect y='${r}' width='${w}' height='${r}'/>` :
+    edge === "left"   ? `<rect width='${r}' height='${h}'/>` :
+                        `<rect x='${r}' width='${r}' height='${h}'/>`;
+  const circles = horizontal
+    ? `<circle cx='${r}' cy='${r}' r='${r}'/><circle cx='${r * 3}' cy='${r}' r='${r}'/>`
+    : `<circle cx='${r}' cy='${r}' r='${r}'/><circle cx='${r}' cy='${r * 3}' r='${r}'/>`;
+  return `url("data:image/svg+xml,${encodeURIComponent(
+    `<svg xmlns='http://www.w3.org/2000/svg' width='${w}' height='${h}' fill='${color}'>${rect}${circles}</svg>`
+  )}")`;
+}
+function scallopTiles(color) {
+  return {
+    band: SCALLOP_BAND,
+    top: scallopTile(color, "top"),
+    bottom: scallopTile(color, "bottom"),
+    left: scallopTile(color, "left"),
+    right: scallopTile(color, "right"),
+  };
+}
+
 
 export function bulletinStyles(primaryColor, secondaryColor) {
   const primary   = primaryColor   || DEFAULT_PRIMARY_COLOR;
@@ -467,13 +512,15 @@ export function bulletinStyles(primaryColor, secondaryColor) {
     secondary:     { id: "secondary",     label: "Accent Color",          background: secondary, trim: null },
     primaryTrim:   { id: "primaryTrim",   label: "Primary + Accent Trim", background: primary,   trim: DOT_TRIM(secondary, primary) },
     secondaryTrim: { id: "secondaryTrim", label: "Accent + Primary Trim", background: secondary, trim: DOT_TRIM(primary, secondary) },
+    primaryScallop:   { id: "primaryScallop",   label: "Primary + Accent Scallop", background: primary,   trim: null, scallop: scallopTiles(secondary) },
+    secondaryScallop: { id: "secondaryScallop", label: "Accent + Primary Scallop", background: secondary, trim: null, scallop: scallopTiles(primary) },
     navy:          { id: "navy",          label: "Navy (Neutral)",        background: NEUTRAL_BULLETIN_NAVY, trim: null },
   };
 }
 
 // Colour-independent, so useScopedSetting can validate a saved key without
 // having loaded the profile first.
-export const BULLETIN_STYLE_IDS = ["primary", "secondary", "primaryTrim", "secondaryTrim", "navy"];
+export const BULLETIN_STYLE_IDS = ["primary", "secondary", "primaryTrim", "secondaryTrim", "primaryScallop", "secondaryScallop", "navy"];
 export const isBulletinStyleId = k => BULLETIN_STYLE_IDS.includes(k);
 
 // Boards saved a preset id back when those ids named a specific Webster
