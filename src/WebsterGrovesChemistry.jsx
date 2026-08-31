@@ -1293,7 +1293,13 @@ export function AssignmentThumb({ label, url, thumb, hidden, onRemove, onRename,
           className="aDrag"
           title="Drag to reorder"
           aria-hidden="true"
-          style={{ ...buildActionStyle("reorder", { size: 22 }), position: "absolute", bottom: 26, left: 4, cursor: "grab", opacity: 0, fontSize: 12 }}
+          // Sits clear ABOVE the .aLabel bar rather than tight against it.
+          // That bar has no fixed height -- it is padding plus one line of the
+          // teacher's chosen heading font, which measures 21px (Raleway) to
+          // 25px (Oswald, Anton). The old 26 left exactly 1px over the tallest
+          // of those, so with the default font the grip's drop shadow landed on
+          // the orange bar and it read as half-hidden behind the title.
+          style={{ ...buildActionStyle("reorder", { size: 22 }), position: "absolute", bottom: 34, left: 4, cursor: "grab", opacity: 0, fontSize: 12 }}
         >
           ☰
         </span>
