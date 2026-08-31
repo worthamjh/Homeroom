@@ -1247,6 +1247,16 @@ export function useScopedSetting(storageKeyName, defaultValue, isValid, migrate)
     try { window.localStorage.setItem(key, value); } catch { /* ignore */ }
     if (hasLoadedRemote.current) {
       saveBoardSetting(teacherId, storageKeyName, value).catch(() => {});
+      // Keep the shared fetch cache in step with what we just wrote. Without
+      // this the cache is a snapshot of page-load time that never ages, and
+      // ANY component mounting later in the same page session -- which is
+      // every client-side route change, since the module is not reloaded --
+      // reads that snapshot and calls setValue() with it, silently undoing
+      // the write. Adding a design in the store and routing to Build took
+      // exactly that path: the option was added, then un-added before it
+      // could be seen (Jay: "I selected cork from the store and it is not
+      // showing up in my bulliten board options").
+      patchCachedBoardSetting(teacherId, storageKeyName, value);
     }
   }, [key, value]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -1284,6 +1294,25 @@ export function useScopedSetting(storageKeyName, defaultValue, isValid, migrate)
 // within one page's lifetime, and localStorage/the `storage` event still
 // handle same-session cross-tab sync same as before.
 const boardSettingsFetchCache = new Map();
+
+// Fold a just-written setting into the cached blob, so the cache stays a
+// view of current truth rather than of whenever the page happened to
+// load. Maps the promise rather than awaiting it, so a write that lands
+// while the first fetch is still in flight is still applied on top of it
+// instead of racing with it.
+//
+// Only touches an EXISTING entry: with no cache there is nothing stale to
+// correct, and seeding one here would invent a remote fetch that never
+// happened.
+function patchCachedBoardSetting(teacherId, storageKeyName, value) {
+  const pending = boardSettingsFetchCache.get(teacherId);
+  if (!pending) return;
+  boardSettingsFetchCache.set(
+    teacherId,
+    pending.then(remote => ({ ...(remote || {}), [storageKeyName]: value })).catch(() => null),
+  );
+}
+
 function getRemoteBoardSettingsOnce(teacherId) {
   if (!boardSettingsFetchCache.has(teacherId)) {
     boardSettingsFetchCache.set(teacherId, fetchBoardSettings(teacherId).catch(() => null));
