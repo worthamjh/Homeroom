@@ -148,7 +148,11 @@ function requestAccessToken() {
 // ViewId.DOCS view to specific MIME types instead (used by the
 // assignment picker, which needs "PDF or Google Doc" rather than any one
 // built-in category).
-function openPicker(accessToken, { viewId, mimeTypes } = {}) {
+// `multiple` turns on Picker's MULTISELECT_ENABLED and makes this resolve
+// with an ARRAY. Opt-in rather than always-on: slides and calendar embed
+// exactly one thing, so letting a teacher tick three of them would only
+// raise a question the caller has no answer to.
+function openPicker(accessToken, { viewId, mimeTypes, multiple = false } = {}) {
   return new Promise((resolve) => {
     const makeView = () => {
       const _view = new window.google.picker.DocsView(viewId || window.google.picker.ViewId.DOCS)
@@ -181,7 +185,7 @@ function openPicker(accessToken, { viewId, mimeTypes } = {}) {
     // the OAuth client id -- derived here rather than added as another env
     // var that could drift out of step with the client id it must match.
     const appId = (CLIENT_ID || "").split("-")[0];
-    const picker = new window.google.picker.PickerBuilder()
+    let builder = new window.google.picker.PickerBuilder()
       .addView(recentView)
       .addView(browseView)
       .setOAuthToken(accessToken)
@@ -189,12 +193,16 @@ function openPicker(accessToken, { viewId, mimeTypes } = {}) {
       .setDeveloperKey(API_KEY)
       .setCallback((data) => {
         if (data.action === window.google.picker.Action.PICKED) {
-          resolve(data.docs[0]);
+          // An array for `multiple` callers, the single doc for everyone
+          // else -- so this stays a drop-in for the pickers that only ever
+          // wanted one.
+          resolve(multiple ? (data.docs || []) : data.docs[0]);
         } else if (data.action === window.google.picker.Action.CANCEL) {
-          resolve(null);
+          resolve(multiple ? [] : null);
         }
-      })
-      .build();
+      });
+    if (multiple) builder = builder.enableFeature(window.google.picker.Feature.MULTISELECT_ENABLED);
+    const picker = builder.build();
     picker.setVisible(true);
   });
 }
@@ -299,24 +307,28 @@ const ASSIGNMENT_MIME_TYPES = "application/pdf,application/vnd.google-apps.docum
 
 /**
  * Opens the Drive picker scoped to PDFs and Google Docs, then returns
- * just the Drive metadata needed to save the assignment — no download,
+ * just the Drive metadata needed to save each assignment — no download,
  * no Cloudinary upload. The caller stores fileId + viewUrl + thumbUrl
  * directly to MongoDB; cloudinaryPublicId is omitted for Drive picks.
  *
- * @returns {Promise<{ fileId: string, name: string, viewUrl: string, thumbUrl: string } | null>}
- *   null means the teacher cancelled the picker — not an error.
+ * MULTI-SELECT. A teacher handing out a set of worksheets was reopening
+ * the picker and renavigating their Drive folder once per file (Jay:
+ * "right now you can only select one assignment, then you have to go back
+ * through your google drive to select another").
+ *
+ * @returns {Promise<Array<{ fileId: string, name: string, viewUrl: string, thumbUrl: string }>>}
+ *   An empty array means the teacher cancelled — not an error.
  */
-export async function pickGoogleDriveAssignmentFile() {
+export async function pickGoogleDriveAssignmentFiles() {
   await ensureGoogleScriptsLoaded();
   const accessToken = await requestAccessToken();
-  const doc = await openPicker(accessToken, { mimeTypes: ASSIGNMENT_MIME_TYPES });
-  if (!doc) return null;
-  return {
+  const docs = await openPicker(accessToken, { mimeTypes: ASSIGNMENT_MIME_TYPES, multiple: true });
+  return (docs || []).map(doc => ({
     fileId: doc.id,
     name: doc.name.replace(/\.(pdf|docx?|gdoc)$/i, ""),
     viewUrl: `https://web.kamihq.com/web/viewer.html?state=${encodeURIComponent(JSON.stringify({ id: doc.id, action: 'open', from: 'google-drive' }))}`,
     thumbUrl: `https://drive.google.com/thumbnail?id=${doc.id}&sz=w400`,
-  };
+  }));
 }
 
 
@@ -714,7 +726,7 @@ export async function createKamiBellRingerDoc({ title, templateId } = {}) {
 
   // Kami's web viewer opens Drive files via a state parameter containing
   // the Drive file ID — the same pattern the rest of Homeroom already uses
-  // for assignment files (see pickGoogleDriveAssignmentFile above).
+  // for assignment files (see pickGoogleDriveAssignmentFiles above).
   const kamiUrl = `https://web.kamihq.com/web/viewer.html?state=${encodeURIComponent(
     JSON.stringify({ id: file.id, action: "open", from: "google-drive" })
   )}`;

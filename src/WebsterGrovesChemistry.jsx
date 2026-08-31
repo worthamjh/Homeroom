@@ -3,7 +3,7 @@ import ChalkboardBoardRow, { toGoalPanels } from "./ChalkboardBoardRow";
 import { useFullAgendaFields, ObjectivesChecklist, EditableField, ResetBoardButton } from "./FullAgendaBoard";
 import { fetchExtraAssignments, createExtraAssignment, deleteExtraAssignment, updateExtraAssignment, reorderExtraAssignments } from "./lib/extraAssignments";
 import { uploadAssignmentPdf } from "./lib/cloudinary";
-import { googleDriveConfigured, ensureGoogleScriptsLoaded, pickGoogleSlidesEmbed, pickGoogleDriveAssignmentFile, pickGoogleCalendar } from "./lib/googleDrive";
+import { googleDriveConfigured, ensureGoogleScriptsLoaded, pickGoogleSlidesEmbed, pickGoogleDriveAssignmentFiles, pickGoogleCalendar } from "./lib/googleDrive";
 import { fetchProfile } from "./lib/profileApi";
 import { fetchCurriculum, saveCurriculum } from "./lib/curriculumApi";
 import { fetchCheckedGoals, saveCheckedGoals } from "./lib/checkedGoalsApi";
@@ -1376,19 +1376,32 @@ export function AddAssignmentCard({ open, busy, error, onOpen, onCancel, onSubmi
     // NOTE: After the Google Picker closes its SDK does DOM cleanup that
     // corrupts React's fiber tree inside the iframe. To avoid a black
     // screen we must NOT call any React state setters after
-    // pickGoogleDriveAssignmentFile() returns. Instead we:
+    // pickGoogleDriveAssignmentFiles() returns. Instead we:
     //   1. Call onDrivePick (saves to DB without touching React state)
     //   2. Send postMessage → parent BuildPage reloads the iframe cleanly
     // Declared outside the try so the catch below can still read it —
     // its whole job is deciding whether to reload, and a try-scoped
     // `const` would make that a ReferenceError instead.
-    let result = null;
+    let results = [];
     try {
-      result = await pickGoogleDriveAssignmentFile();
-      if (result) {
-        const assignmentLabel = label.trim() || result.name;
+      results = await pickGoogleDriveAssignmentFiles();
+      if (results.length) {
+        // A typed label can only name ONE thing, so it applies only to a
+        // single pick. Several files each keep their own filename, which
+        // is what the teacher would have typed anyway -- stamping one
+        // label on all of them would just produce a set of identical
+        // cards nobody could tell apart.
+        const useTypedLabel = results.length === 1 && label.trim();
         if (onDrivePick) {
-          await onDrivePick({ label: assignmentLabel, driveResult: result });
+          // Sequential rather than Promise.all: these are writes to the
+          // same lesson's assignment list, and the reload below must not
+          // happen until every one of them has actually landed.
+          for (const result of results) {
+            await onDrivePick({
+              label: useTypedLabel ? label.trim() : result.name,
+              driveResult: result,
+            });
+          }
         }
         // Tell the parent BuildPage to scroll to top before the reload lands.
         if (window.parent !== window) {
@@ -1396,17 +1409,17 @@ export function AddAssignmentCard({ open, busy, error, onOpen, onCancel, onSubmi
         }
         // Self-reload to cut off any pending React re-render before it hits
         // the Picker SDK's corrupted fiber tree (same pattern as AddSlidesCard).
-        // MongoDB save above is awaited so the reloaded page picks up the new
-        // assignment immediately.
-        if (!result.noReload) window.location.reload();
+        // MongoDB saves above are awaited so the reloaded page picks up every
+        // new assignment immediately.
+        window.location.reload();
       }
     } catch (err) {
       // Cannot safely call setDriveError here — DOM may already be
       // corrupted by the Picker SDK. Always reload so we escape the
-      // corrupted state; the assignment save may not have completed
-      // but the board will at least render again.
+      // corrupted state; some assignments may not have saved but the
+      // board will at least render again.
       console.error("Drive assignment pick failed:", err);
-      if (!result?.noReload) window.location.reload();
+      window.location.reload();
     }
   };
 
