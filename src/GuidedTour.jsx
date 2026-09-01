@@ -133,6 +133,20 @@ const STEPS = [
     ackLabel: "Got it",
   },
   {
+    // Assignments live BELOW the fold, which is the strongest case there
+    // is for a tour step: something important a new teacher will not
+    // stumble on. Jay, walking a fresh signup: "there is no add
+    // assignments tutorial section."
+    id: "add-assignment",
+    frame: "board",
+    selector: '[data-tour="tour-add-assignment"]',
+    gate: "ack",
+    missingHint: "Open a lesson from the unit above — assignments live on a lesson's board, below the slides.",
+    title: "Assignments and classwork",
+    body: "Scroll down and you'll find this under the board. Add a worksheet, a PDF, anything from your Drive — it sits with the lesson it belongs to, so it's there when you need it in class.",
+    ackLabel: "Got it",
+  },
+  {
     id: "sidebar-intro",
     frame: "sidebar",
     selector: '[data-tour="tour-sidebar"]',
@@ -166,7 +180,13 @@ const STEPS = [
     frame: "none",
     gate: "ack",
     title: "You're all set!",
-    body: "Come back to Build any time from the 🛠 icon on your board to add more units, lessons, and content. Have a great class!",
+    // Names the two things the tour deliberately does NOT walk through --
+    // the calendar and the Store. Both are optional, and spending a new
+    // teacher's patience on them before they have any real content would
+    // invert the priority; but leaving them entirely unmentioned meant
+    // they might never be found. One sentence at the end, when the
+    // teacher is done rather than being led.
+    body: "Come back to Build any time from the 🛠 icon on your board. Two things we skipped: a unit page can hold a class calendar, and the Store up top has more board styles when you feel like decorating. Have a great class!",
     ackLabel: "Finish",
   },
 ];

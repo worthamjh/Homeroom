@@ -3845,6 +3845,10 @@ export default function App() {
                     dragProps={isBuildMode ? assignmentDragProps(a, dragAssignmentOrder ?? extraAssignments) : undefined} />
                 ))}
                 {isBuildMode && (
+                  // Wrapped so the guided tour has something to spotlight:
+                  // assignments live BELOW the fold, which is exactly the
+                  // kind of thing a new teacher never scrolls down to find.
+                  <div data-tour="tour-add-assignment">
                   <AddAssignmentCard
                     open={addAssignmentOpen}
                     busy={addAssignmentBusy}
@@ -3854,6 +3858,7 @@ export default function App() {
                     onSubmit={handleAddAssignment}
                     onDrivePick={handleAddAssignmentFromDrive}
                   />
+                  </div>
                 )}
               </div>
             )}
