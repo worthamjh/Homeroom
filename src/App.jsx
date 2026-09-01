@@ -18,10 +18,10 @@ import WebsterGrovesChemistry from './WebsterGrovesChemistry'
  *
  * The one exception is an EXPLICIT ?teacher= in the URL. That is already
  * this app's "I mean this identity on purpose" signal — useSyncAuthIdentity
- * in boardConfig.js bails out on it for the same reason — and it is what
- * the landing page's own "View the Webster Groves demo" link now carries.
- * Without that carve-out the demo link would bounce straight back to the
- * page it was clicked from.
+ * in boardConfig.js bails out on it for the same reason. It is what
+ * BuildPage's iframe passes, and it is how the Webster demo is still
+ * reachable at /board?teacher=local-teacher for a pitch, now that the
+ * landing page no longer links to it at all.
  */
 function App() {
   const { isLoaded, isSignedIn } = useUser()

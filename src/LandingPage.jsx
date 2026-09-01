@@ -14,9 +14,11 @@ import ProfileOnboarding from "./ProfileOnboarding";
  *
  * Three states, in order:
  *   1. Signed out (or Clerk not configured at all) → hero + Sign In /
- *      Sign Up, plus a secondary link to the public Webster Groves demo
- *      at /board — that link keeps working exactly as before for the
- *      publisher pitch, unauthenticated.
+ *      Sign Up, and nothing else. There used to be a secondary link to
+ *      the public Webster Groves demo here; it was removed because an
+ *      arriving teacher clicking it landed in somebody else's chemistry
+ *      class. The demo still exists at /board?teacher=local-teacher for
+ *      a pitch, it is just not advertised.
  *   2. Signed in, no profile yet (GET /api/profile came back empty for
  *      this teacherId) → ProfileOnboarding, once.
  *   3. Signed in, profile exists → auto-redirect to /board, where
@@ -81,11 +83,13 @@ function ClerkAwareLanding() {
             <button style={secondaryButtonStyle}>Sign Up</button>
           </SignUpButton>
         </div>
-        {/* Carries ?teacher= on purpose. /board now sends a signed-out
-            visitor back here (see App.jsx), and an explicit teacher in the
-            URL is the signal that says "yes, I meant the demo" — without
-            it this link would bounce straight back to this page. */}
-        <a href="/board?teacher=local-teacher" style={demoLinkStyle}>→ View the Webster Groves demo</a>
+        {/* No demo link here any more (Jay: "can we get rid of the webster
+            groves demo link on the main page altogether"). The front door
+            offers exactly one thing now: make an account. The demo board
+            itself still exists and is still reachable at
+            /board?teacher=local-teacher for a pitch — it is just not
+            advertised to arriving teachers, who were only ever going to be
+            confused by landing on somebody else's chemistry class. */}
       </SignedOut>
 
       <SignedIn>
@@ -164,11 +168,3 @@ const secondaryButtonStyle = {
   cursor: "pointer",
 };
 
-const demoLinkStyle = {
-  display: "block",
-  marginTop: 22,
-  color: "rgba(255,255,255,0.4)",
-  fontFamily: "Lato, sans-serif",
-  fontSize: 13,
-  textDecoration: "none",
-};
