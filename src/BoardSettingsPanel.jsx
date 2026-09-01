@@ -258,9 +258,14 @@ export default function BoardSettingsPanel({ selected, onSelect, panelCountInfo,
   return (
     <div data-tour="tour-sidebar" style={{ background: "#191919", borderRadius: 10, overflow: "hidden" }}>
       {BOARD_SETTINGS_CATEGORIES.map(cat => (
-        <div key={cat.id}>
+        // data-tour sits on this WRAPPER, not on the header row inside it,
+        // so the tour's spotlight covers the category AND the options it
+        // reveals. On the header alone the options stayed dimmed while the
+        // bar above them was lit, which read as though they belonged to
+        // something else (Jay: "the dropdown options in the board content
+        // should be as bright as the board content tab itself").
+        <div key={cat.id} data-tour={`tour-cat-${cat.id}`}>
           <div
-            data-tour={`tour-cat-${cat.id}`}
             onClick={() => onSelect(prev => prev === cat.id ? null : cat.id)}
             style={{
               padding: "14px 20px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between",
