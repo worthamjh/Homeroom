@@ -989,6 +989,66 @@ function SmartBoard({ src }) {
 // collapsed empty tile and the expanded paste form. See googleDrive.js for
 // the actual OAuth+Picker flow this triggers; this component only owns
 // the loading/error UI around calling it.
+/**
+ * Accepts either a bare URL or a whole <iframe> snippet, and returns the
+ * URL to embed.
+ *
+ * Google hands a teacher a bare URL. Microsoft Office hands them the
+ * entire iframe tag -- that is what its Embed button copies -- and this
+ * field used to be type="url", so pasting Office's snippet was rejected
+ * by the browser with "Please enter a URL" and no hint as to why. Worse,
+ * the obvious workaround (paste the *share* link instead) gives a URL
+ * Microsoft refuses to frame at all: "onedrive.live.com refused to
+ * connect". The src INSIDE the snippet is a different address
+ * (onedrive.live.com/embed?...) which is meant to be framed.
+ *
+ * So take the snippet and pull the src out of it. Also helps anyone who
+ * copies Google's embed code rather than its URL.
+ */
+/**
+ * Microsoft will not let its own pages be framed by us.
+ *
+ * Tested against production: onedrive.live.com sends a frame-ancestors
+ * list of its own (teams/office/sharepoint hosts) that no third-party
+ * site is on, so a OneDrive or 1drv.ms link put straight in an iframe
+ * is refused no matter what OUR policy allows -- exactly like Outlook
+ * calendars. The bare embed endpoint answers 403 to anyone.
+ *
+ * The one route Microsoft does support is the Office Web Viewer, which
+ * sends no X-Frame-Options and no frame-ancestors at all: it exists to
+ * be embedded. It renders a document from a direct, publicly reachable
+ * file URL, and *.officeapps.live.com is already in our frame-src.
+ *
+ * So rather than tell a teacher to hand-assemble that URL, recognise a
+ * OneDrive/SharePoint link and wrap it. "?download=1" is what makes a
+ * OneDrive share link resolve to the file itself instead of the HTML
+ * page around it, which is what the viewer needs.
+ */
+const OFFICE_VIEWER = "https://view.officeapps.live.com/op/embed.aspx?src=";
+
+function wrapOfficeDoc(url) {
+  let host;
+  try { host = new URL(url).hostname.toLowerCase(); } catch { return url; }
+
+  // Already a viewer URL, or a Google embed -- leave it be.
+  if (host.endsWith("officeapps.live.com")) return url;
+
+  const isOneDrive = host === "1drv.ms" || host.endsWith("onedrive.live.com");
+  const isSharePoint = host.endsWith("sharepoint.com");
+  if (!isOneDrive && !isSharePoint) return url;
+
+  const direct = isOneDrive && !/[?&]download=1\b/.test(url)
+    ? url + (url.includes("?") ? "&" : "?") + "download=1"
+    : url;
+  return OFFICE_VIEWER + encodeURIComponent(direct);
+}
+
+function embedUrlFromPaste(raw) {
+  const text = String(raw || "").trim();
+  const match = text.match(/<iframe[^>]*\ssrc\s*=\s*["']([^"']+)["']/i);
+  return wrapOfficeDoc(match ? match[1].trim() : text);
+}
+
 function AddEmbedCard({ open, label, promptText, placeholder, initialUrl, onOpen, onCancel, onSave, dataTour, onBrowseDrive, browseLabel = "Browse Google Drive", browseBusyLabel = "Connecting to Google Drive…" }) {
   const [url, setUrl] = useState(initialUrl || "");
   const [driveBusy, setDriveBusy] = useState(false);
@@ -1061,7 +1121,7 @@ function AddEmbedCard({ open, label, promptText, placeholder, initialUrl, onOpen
 
   return (
     <form
-      onSubmit={e => { e.preventDefault(); if (url.trim()) onSave(url.trim()); }}
+      onSubmit={e => { e.preventDefault(); const v = embedUrlFromPaste(url); if (v) onSave(v); }}
       style={{ width: "100%", maxWidth: 480, boxSizing: "border-box", border: "2px solid var(--board-secondary)", borderRadius: 8, background: "#242424", padding: 16, display: "flex", flexDirection: "column", gap: 10 }}
     >
       {driveButton && (
@@ -1078,7 +1138,10 @@ function AddEmbedCard({ open, label, promptText, placeholder, initialUrl, onOpen
         {promptText}
       </div>
       <input
-        type="url" placeholder={placeholder} value={url} onChange={e => setUrl(e.target.value)}
+        // NOT type="url": Office's Embed button copies a whole <iframe>
+        // tag, and the browser rejected that outright before the teacher
+        // ever reached our code. Validation happens in embedUrlFromPaste.
+        type="text" placeholder={placeholder} value={url} onChange={e => setUrl(e.target.value)}
         autoFocus
         style={{ background: "var(--board-primary)", border: "1px solid #444", borderRadius: 2, color: "var(--board-primary-fg)", fontSize: 12, padding: "8px 10px", fontFamily: "Lato, sans-serif" }}
       />
@@ -1178,7 +1241,7 @@ export function AddSlidesCard(props) {
       // board's iframe, and nothing about it is Google-specific. The
       // copy said otherwise, which told half the audience this was not
       // for them. (The Browse button below is still Drive-only.)
-      promptText="Paste a Google Slides or PowerPoint embed URL (in either, File → Share → Embed / Publish to web)"
+      promptText="Paste a link or embed code — Google Slides (File → Share → Publish to web) or PowerPoint on OneDrive (Share → Copy link). Pasting the whole <iframe> code is fine."
       placeholder="https://docs.google.com/presentation/d/.../embed"
       onBrowseDrive={driveReady ? pickGoogleSlidesEmbed : undefined}
     />
