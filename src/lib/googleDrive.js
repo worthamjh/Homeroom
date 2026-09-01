@@ -20,6 +20,7 @@
 // vendor, no SDK" spirit as cloudinary.js.
 
 import { isBuiltInPaper, buildBuiltInPaperPdf } from "./paperTemplates";
+import { apiFetch } from "./apiClient";
 
 const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 const API_KEY = import.meta.env.VITE_GOOGLE_PICKER_API_KEY;
@@ -536,10 +537,18 @@ function requestCalendarToken() {
 }
 
 async function fetchCalendarList(accessToken) {
-  // Proxy through our own Vercel API to avoid browser CORS issues inside the iframe
+  // Proxy through our own Vercel API to avoid browser CORS issues inside the iframe.
+  //
+  // The Google token goes in a HEADER, never the query string: a URL is
+  // recorded by request logs, proxies, browser history and Referer, and a
+  // credential must not be in any of them. It rides in its own header
+  // because apiFetch already uses Authorization for the Clerk session
+  // token, which the endpoint needs too.
   let res;
   try {
-    res = await fetch(`/api/calendarList?accessToken=${encodeURIComponent(accessToken)}`);
+    res = await apiFetch("/api/calendarList", {
+      headers: { "X-Google-Access-Token": accessToken },
+    });
   } catch (netErr) {
     localStorage.removeItem("homeroom_google_calendar_v3_token");
     throw new Error(`Network error reaching calendar proxy: ${netErr.message}`);

@@ -57,6 +57,12 @@ import GuidedTour from "./GuidedTour";
 const BOARD_W = 1600;
 const BOARD_H = 900;
 
+// Ceiling for the height the board iframe asks this page to grow to.
+// Generous -- a long unit with many lessons legitimately runs to several
+// screens -- but finite, so a bad number can never strand a teacher in an
+// endlessly tall page.
+const MAX_BUILD_CONTENT_HEIGHT = 20000;
+
 function LiveBuildBoard({ teacherId, highlightRegion, onPanelCountInfo, onViewChange, iframeRef }) {
   const wrapRef = useRef(null);
   const [scale, setScale] = useState(0.5);
@@ -84,12 +90,26 @@ function LiveBuildBoard({ teacherId, highlightRegion, onPanelCountInfo, onViewCh
   // normally, instead of content being trapped in a fixed-size box.
   useEffect(() => {
     const handler = (e) => {
+      // Origin AND source, both checked. This page frames third-party
+      // documents a teacher chose -- Google Slides, Drive previews, Kami,
+      // YouTube -- and every one of those can postMessage to this window.
+      // Without these two lines any of them could drive the build page's
+      // layout height. The board iframe is same-origin, so a message that
+      // is genuinely from it satisfies both.
+      if (e.origin !== window.location.origin) return;
+      if (e.source !== iframeRef.current?.contentWindow) return;
       if (e.data?.type !== "homeroom-build-content-height") return;
-      if (typeof e.data.height === "number" && e.data.height > 0) setContentHeight(e.data.height);
+      // Bounded, not just positive: an absurd height from a confused
+      // sender used to be applied verbatim, leaving a teacher scrolling
+      // through miles of empty page with no way back.
+      const h = e.data.height;
+      if (typeof h === "number" && Number.isFinite(h) && h > 0) {
+        setContentHeight(Math.min(h, MAX_BUILD_CONTENT_HEIGHT));
+      }
     };
     window.addEventListener("message", handler);
     return () => window.removeEventListener("message", handler);
-  }, []);
+  }, [iframeRef]);
 
   // Same highlight-region wiring as Settings' old LiveBoardPreview: send
   // whichever BoardSettingsPanel category is expanded into the iframe so
