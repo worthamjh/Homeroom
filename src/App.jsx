@@ -37,9 +37,25 @@ function App() {
     navigate('/', { replace: true })
   }, [isLoaded, isSignedIn, explicitTeacher, navigate])
 
-  // Render nothing while the redirect is pending, so a signed-out visitor
-  // never sees a flash of someone else's board on the way out.
-  if (isLoaded && !isSignedIn && !explicitTeacher) return null
+  // An explicit ?teacher= needs no session, so it renders straight away --
+  // the demo link and Build's iframe both take this path and must not wait
+  // on Clerk.
+  if (explicitTeacher) return <WebsterGrovesChemistry />
+
+  // Everything below deliberately renders NOTHING until Clerk has
+  // answered. The first version of this guard read
+  // `if (isLoaded && !isSignedIn) return null`, which left the board
+  // rendering during the window where isLoaded is still false -- so a
+  // signed-out visitor got a flash of the Webster board and only then the
+  // redirect. Showing another teacher's content for even a moment is the
+  // exact thing this route was changed to stop, so waiting is right even
+  // though it costs a signed-in teacher a brief blank on a cold load.
+  //
+  // Blank, not a spinner: the body already paints var(--bg), so this is a
+  // still page rather than a white flash, and Clerk resolves fast enough
+  // that a spinner would itself be the flicker.
+  if (!isLoaded) return null
+  if (!isSignedIn) return null   // redirect above is pending
 
   return <WebsterGrovesChemistry />
 }
