@@ -418,7 +418,18 @@ export default function GuidedTour({ active, onDone, iframeRef, selected, boardW
             width: rect.width + 12,
             height: rect.height + 12,
             borderRadius: 8,
-            boxShadow: "0 0 0 9999px rgba(0,0,0,0.6), 0 0 0 3px var(--board-secondary, #e87722)",
+            // Sidebar steps get the ring WITHOUT the dark scrim. The board
+            // already dims itself to match the selected category (see
+            // dimUnless in WebsterGrovesChemistry.jsx), and laying a second
+            // blanket of darkness over the top stamped that out -- so the
+            // teacher was told to look at the Blackboard settings while the
+            // blackboard itself sat dark. Jay: "the blackboard area on the
+            // left side should be normal brightness." Two dimming systems
+            // fighting; the board's own is the one that knows which region
+            // the category controls, so it wins.
+            boxShadow: step.frame === "sidebar"
+              ? "0 0 0 3px var(--board-secondary, #e87722)"
+              : "0 0 0 9999px rgba(0,0,0,0.6), 0 0 0 3px var(--board-secondary, #e87722)",
             pointerEvents: "none",
             zIndex: 9998,
             transition: "left 0.2s, top 0.2s, width 0.2s, height 0.2s",
