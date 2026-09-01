@@ -6,6 +6,7 @@ import { uploadAssignmentPdf } from "./lib/cloudinary";
 import { googleDriveConfigured, ensureGoogleScriptsLoaded, pickGoogleSlidesEmbed, pickGoogleDriveAssignmentFiles, pickGoogleCalendar, driveErrorMessage } from "./lib/googleDrive";
 import { fetchProfile } from "./lib/profileApi";
 import { fetchCurriculum, saveCurriculum } from "./lib/curriculumApi";
+import CurriculumHistory from "./CurriculumHistory";
 import { fetchCheckedGoals, saveCheckedGoals } from "./lib/checkedGoalsApi";
 import { fetchBoardContent, saveBoardContent } from "./lib/boardContentApi";
 import {
@@ -1835,7 +1836,7 @@ function KamiOverlay({ url, state, onToggleFullscreen, onClose, contained = fals
   );
 }
 
-function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropdown, setOpenDropdown, handleUnitOverview, handleLessonClick, goHome, titleMain, titleAccent, isBlankTeacher, onAddUnit, onAddLesson, onRenameUnit, onDeleteUnit, onMoveUnit, onRenameLesson, onDeleteLesson, onMoveLesson, onReorderLesson, onSetLessonOrder, onToggleUnitVisibility, onToggleLessonVisibility }) {
+function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropdown, setOpenDropdown, handleUnitOverview, handleLessonClick, goHome, titleMain, titleAccent, isBlankTeacher, onOpenHistory, onAddUnit, onAddLesson, onRenameUnit, onDeleteUnit, onMoveUnit, onRenameLesson, onDeleteLesson, onMoveLesson, onReorderLesson, onSetLessonOrder, onToggleUnitVisibility, onToggleLessonVisibility }) {
   // Build-mode-only local state for inline rename and two-step delete.
   const [renamingUnit, setRenamingUnit] = useState(null);   // unitIdx being renamed
   const [renameUnitVal, setRenameUnitVal] = useState("");
@@ -2277,6 +2278,24 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
           </div>
           )
           ))}
+
+        {isBuildMode && isBlankTeacher && onOpenHistory && (
+          // Next to "+ Add Unit" because this is where units are changed,
+          // and a teacher looking to undo one looks where they did it --
+          // not in a settings page they would have to think to open.
+          <button
+            onClick={onOpenHistory}
+            title="See and restore an earlier version of your units"
+            style={{
+              flex: "0 0 auto", background: "transparent", border: "1px solid rgba(255,255,255,0.2)",
+              borderRadius: 6, color: "rgba(255,255,255,0.6)", cursor: "pointer",
+              fontFamily: "Oswald, sans-serif", fontSize: 11, letterSpacing: "0.04em",
+              padding: "6px 10px", marginLeft: SPACE.xs, whiteSpace: "nowrap",
+            }}
+          >
+            ⟲ HISTORY
+          </button>
+        )}
 
         {isBuildMode && isBlankTeacher && (
           <div data-tour="tour-add-unit" style={{ flex: "0 0 auto", display: "flex", alignItems: "center", padding: `0 ${SPACE.sm}px` }}>
@@ -3134,6 +3153,23 @@ export default function App() {
   // shows locally for the rest of this session (same as the rest of
   // Build's "changes save automatically" controls assume success rather
   // than surfacing a save-failed state for every click).
+  // Restoring is an ordinary save: the units being replaced get
+  // snapshotted by api/curriculum.js on the way in, exactly as any other
+  // edit would, so a restore can itself be undone from this same dialog.
+  // Errors are NOT swallowed here (unlike the add/rename handlers, which
+  // are best-effort) -- the dialog reports a failed restore, because a
+  // teacher who thinks their old units are back when they are not is
+  // worse off than one told it did not work.
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const handleRestoreVersion = async (units) => {
+    const restored = await saveCurriculum(activeTeacherId, units);
+    setBlankUnits(restored || units);
+    // The unit/lesson being viewed may not exist in the restored set.
+    setActiveUnitIdx(null);
+    setActiveLesson(null);
+    setOpenDropdown(null);
+  };
+
   const handleAddUnit = (title) => {
     const next = [...blankUnits, { unit: title, overview: [], lessons: [] }];
     setBlankUnits(next);
@@ -3512,6 +3548,7 @@ export default function App() {
     curriculum: activeCurriculum, activeUnitIdx, isOverview, activeLesson, openDropdown, setOpenDropdown, handleUnitOverview, handleLessonClick, goHome,
     titleMain: boardTitleMain, titleAccent: boardTitleAccent,
     isBlankTeacher, onAddUnit: handleAddUnit, onAddLesson: handleAddLesson,
+    onOpenHistory: isBlankTeacher ? () => setHistoryOpen(true) : undefined,
     onRenameUnit: handleRenameUnit, onDeleteUnit: handleDeleteUnit, onMoveUnit: handleMoveUnit,
     onRenameLesson: handleRenameLesson, onDeleteLesson: handleDeleteLesson, onMoveLesson: handleMoveLesson, onReorderLesson: handleReorderLesson, onSetLessonOrder: handleSetLessonOrder,
     onToggleUnitVisibility: handleToggleUnitVisibility,
@@ -3991,6 +4028,12 @@ export default function App() {
       )}
 
       <ToolsFooter />
+
+      <CurriculumHistory
+        open={historyOpen}
+        onClose={() => setHistoryOpen(false)}
+        onRestore={handleRestoreVersion}
+      />
     </div>
   );
 }

@@ -19,3 +19,19 @@ export async function saveCurriculum(teacherId, units) {
   if (!res.ok) throw new Error(`Failed to save curriculum (${res.status})`);
   return res.json();
 }
+
+// Previous versions of this teacher's units (see api/curriculumHistory.js).
+// The list carries names and counts only; fetchCurriculumVersion pulls the
+// units for the one version a teacher actually picks.
+export async function fetchCurriculumHistory() {
+  const res = await apiFetch("/api/curriculumHistory");
+  if (!res.ok) throw new Error(`Failed to load history (${res.status})`);
+  return res.json();
+}
+
+export async function fetchCurriculumVersion(id) {
+  const params = new URLSearchParams({ id });
+  const res = await apiFetch(`/api/curriculumHistory?${params}`);
+  if (!res.ok) throw new Error(`Failed to load that version (${res.status})`);
+  return res.json();
+}
