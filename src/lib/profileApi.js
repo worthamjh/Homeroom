@@ -52,3 +52,23 @@ export async function downloadMyData() {
     URL.revokeObjectURL(url);
   }
 }
+
+/**
+ * Deletes this teacher's account and everything stored for it.
+ *
+ * Irreversible, and there is deliberately no undo: the confirm string is
+ * required by the server too (see api/deleteAccount.js), so a stray call
+ * from anywhere cannot do this by accident.
+ */
+export async function deleteMyAccount() {
+  const res = await apiFetch("/api/deleteAccount", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ confirm: "DELETE" }),
+  });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => ({}));
+    throw new Error(detail.error || `Couldn't delete your account (${res.status}).`);
+  }
+  return res.json();
+}

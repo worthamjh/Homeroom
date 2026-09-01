@@ -8,7 +8,7 @@ import {
   HEADING_FONT_OPTIONS, BODY_FONT_OPTIONS,
   ensureFontsLoaded,
 } from "./boardConfig";
-import { fetchProfile, saveProfile, downloadMyData } from "./lib/profileApi";
+import { fetchProfile, saveProfile, downloadMyData, deleteMyAccount } from "./lib/profileApi";
 
 /**
  * EditProfilePage — /profile route, linked from the Build page header.
@@ -35,6 +35,10 @@ export default function EditProfilePage() {
 
   const [exporting,      setExporting]      = useState(false);
   const [exportError,    setExportError]    = useState("");
+  const [deleteOpen,     setDeleteOpen]     = useState(false);
+  const [deleteTyped,    setDeleteTyped]    = useState("");
+  const [deleting,       setDeleting]       = useState(false);
+  const [deleteError,    setDeleteError]    = useState("");
   const [teacherName,    setTeacherName]    = useState("");
   const [school,         setSchool]         = useState("");
   const [subject,        setSubject]        = useState("");
@@ -247,6 +251,82 @@ export default function EditProfilePage() {
           {exportError && (
             <p style={{ fontSize: 12, color: "#ff9b8a", margin: "8px 0 0" }}>{exportError}</p>
           )}
+
+          {/* Deleting, below exporting and on purpose: a teacher who lands
+              here wanting out sees "take a copy with you" before "destroy
+              it". Not a browser confirm() -- Jay asked for in-app dialogs
+              rather than browser alerts, and a native confirm gives no room
+              to say what is actually about to happen. */}
+          <div style={{ marginTop: 22, paddingTop: 16, borderTop: "1px solid #333" }}>
+            {!deleteOpen ? (
+              <button
+                type="button"
+                onClick={() => { setDeleteError(""); setDeleteTyped(""); setDeleteOpen(true); }}
+                style={{ background: "transparent", border: "1px solid rgba(255,120,100,0.4)", color: "#ff9b8a", borderRadius: 6, padding: "9px 16px", fontFamily: "Lato, sans-serif", fontSize: 13, cursor: "pointer" }}
+              >
+                Delete my account
+              </button>
+            ) : (
+              <div style={{ border: "1px solid rgba(255,120,100,0.45)", borderRadius: 8, padding: 16, background: "rgba(255,120,100,0.06)" }}>
+                <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 14, color: "#ff9b8a", marginBottom: 8 }}>
+                  Delete your account?
+                </div>
+                <p style={{ fontSize: 13, color: "rgba(255,255,255,0.75)", lineHeight: 1.5, margin: "0 0 12px" }}>
+                  This removes your units and lessons, board content, assignments, settings and
+                  saved curriculum versions, and closes your sign-in. It cannot be undone and
+                  there is no backup on our side — download one first if you might want it.
+                </p>
+                <label style={{ display: "block", fontSize: 12, color: "rgba(255,255,255,0.55)", marginBottom: 6 }}>
+                  Type DELETE to confirm
+                </label>
+                <input
+                  value={deleteTyped}
+                  onChange={e => setDeleteTyped(e.target.value)}
+                  disabled={deleting}
+                  autoFocus
+                  style={{ background: "#1a1a1a", border: "1px solid #444", borderRadius: 6, color: "#fff", fontFamily: "Lato, sans-serif", fontSize: 13, padding: "8px 10px", width: 160 }}
+                />
+                <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
+                  <button
+                    type="button"
+                    disabled={deleteTyped !== "DELETE" || deleting}
+                    onClick={async () => {
+                      setDeleteError("");
+                      setDeleting(true);
+                      try {
+                        await deleteMyAccount();
+                        // Straight out, not back to the profile of an
+                        // account that no longer exists.
+                        window.location.href = "/";
+                      } catch (err) {
+                        setDeleteError(err.message || "Couldn't delete your account.");
+                        setDeleting(false);
+                      }
+                    }}
+                    style={{
+                      background: deleteTyped === "DELETE" && !deleting ? "#c0392b" : "#3a2a28",
+                      border: "none", borderRadius: 6, color: deleteTyped === "DELETE" && !deleting ? "#fff" : "rgba(255,255,255,0.35)",
+                      padding: "9px 16px", fontFamily: "Lato, sans-serif", fontSize: 13,
+                      cursor: deleteTyped === "DELETE" && !deleting ? "pointer" : "default",
+                    }}
+                  >
+                    {deleting ? "Deleting…" : "Delete everything"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDeleteOpen(false)}
+                    disabled={deleting}
+                    style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.28)", color: "rgba(255,255,255,0.8)", borderRadius: 6, padding: "9px 16px", fontFamily: "Lato, sans-serif", fontSize: 13, cursor: "pointer" }}
+                  >
+                    Keep my account
+                  </button>
+                </div>
+                {deleteError && (
+                  <p style={{ fontSize: 12, color: "#ff9b8a", margin: "10px 0 0" }}>{deleteError}</p>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </Shell>
