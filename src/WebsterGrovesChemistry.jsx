@@ -2602,8 +2602,15 @@ export default function App() {
   // Takes the regions that count as "this area", because one area answers
   // to several categories: the chalkboard stays lit for Blackboard, Board
   // Content AND Board Layout, all of which change something inside it.
+  // Background is deliberately exempt. Its "region" is the wall, which sits
+  // BEHIND everything, so the only way to make it stand out was to darken
+  // the whole classroom interior -- which draws the eye to a big dark
+  // rectangle rather than to the wall. Jay: "it darkened the inside of the
+  // classroom, I'd rather leave the other parts of the classroom the same
+  // brightness." So selecting Background dims nothing and relies on the
+  // outline instead; every other category still dims its neighbours.
   const dimUnless = (...regions) =>
-    (isPreviewMode || isBuildMode) && highlightRegion && !regions.includes(highlightRegion)
+    (isPreviewMode || isBuildMode) && highlightRegion && highlightRegion !== "background" && !regions.includes(highlightRegion)
       ? { filter: "brightness(0.4)", transition: "filter 0.18s" }
       : { transition: "filter 0.18s" };
 
