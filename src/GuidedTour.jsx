@@ -143,7 +143,8 @@ const STEPS = [
     gate: "select",
     matchSelected: "content",
     title: "Board Content",
-    body: "Click “Board Content” to see it — this is where you turn Essential Question, Agenda, and Bell Ringer on or off, and drag to reorder them.",
+    body: "Open “Board Content”. Turn Essential Question, Agenda and Bell Ringer on or off, and drag the ≡ handles to put them in the order you want — the board updates as you go. Take your time; press Got it when you’re done.",
+    ackLabel: "Got it",
   },
   {
     id: "blackboard",
@@ -152,7 +153,8 @@ const STEPS = [
     gate: "select",
     matchSelected: "blackboard",
     title: "Blackboard",
-    body: "Click “Blackboard” — this is where you pick your board surface and how many sliding boards you want (1 is a single flat board; 2–5 slide).",
+    body: "Open “Blackboard”. Pick your board surface, and how many sliding boards you want — 1 is a single flat board, 2–5 slide across. Try a couple and watch the board change.",
+    ackLabel: "Got it",
   },
   {
     id: "done",
@@ -320,13 +322,19 @@ export default function GuidedTour({ active, onDone, iframeRef, selected, boardW
     return () => clearInterval(interval);
   }, [active, step, iframeRef, advance]);
 
-  // "gate: select" steps: complete the instant the sidebar's own
-  // `selected` category (already lifted state in BuildPage.jsx) matches
-  // what this step is waiting for.
-  useEffect(() => {
-    if (!active || !step || step.gate !== "select") return;
-    if (selected === step.matchSelected) advance();
-  }, [active, step, selected, advance]);
+  // "gate: select" steps used to advance the INSTANT the sidebar's
+  // `selected` category matched -- so the panel opened and the tour
+  // immediately moved on, before a teacher could look at what had just
+  // appeared, let alone try it (Jay: "it opens up the options but the text
+  // moves on to the blackboard tab, rather than give the user time to add
+  // or move the order of board content").
+  //
+  // Now selecting the category only UNLOCKS the step: the button appears
+  // and the teacher advances when they are ready. The category is still
+  // genuinely required -- until it is open there is no button to press --
+  // so the step still cannot be skipped past without doing the thing.
+  const selectSatisfied =
+    step?.gate === "select" && selected === step.matchSelected;
 
   if (!active || !step) return null;
 
@@ -431,7 +439,7 @@ export default function GuidedTour({ active, onDone, iframeRef, selected, boardW
           >
             Skip tour
           </button>
-          {step.gate === "ack" ? (
+          {step.gate === "ack" || selectSatisfied ? (
             <button
               type="button"
               onClick={advance}

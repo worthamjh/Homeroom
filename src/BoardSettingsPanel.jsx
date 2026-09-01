@@ -399,7 +399,7 @@ export default function BoardSettingsPanel({ selected, onSelect, panelCountInfo,
                     ))}
                   </div>}
                   {hasLessonOpen && <div style={{ padding: "0 14px 4px", fontFamily: "Lato, sans-serif", fontSize: 11, color: "rgba(255,255,255,0.4)", lineHeight: 1.4 }}>
-                    Applies to this lesson only — every lesson keeps its own count, and a newly created one starts at 1. 1 board is a single flat board, no sliding; 2-5 slide one at a time on the classic rail-and-handle mechanic. Lessons that define their own boards (Unit 10's Testing lessons) keep theirs. This is a fixed count — you'll always get exactly this many, even if the lesson has fewer learning goals than that (the extra boards are simply blank, or carry only whatever else is turned on in Board Content) or Learning Goals is toggled off entirely.
+                    Sets how many boards this lesson has — just this one; every lesson keeps its own count and new ones start at 1. Pick 1 for a single flat board, or 2–5 to slide between them in class the way a real sliding chalkboard does. You always get exactly the number you pick, so any board you don't fill simply stays blank.
                   </div>}
                 </>
               )}
