@@ -123,11 +123,49 @@ function ToggleRow({ checked, onClick, label, draggable, onDragStart, onDragOver
   );
 }
 
-function SectionHeading({ children }) {
+/**
+ * A section label, optionally with a "?" that reveals an explanation.
+ *
+ * These explanations used to sit permanently under the controls, and
+ * several of them ran to a dense paragraph -- so the panel read as a wall
+ * of small grey text and the actual controls got lost in it. Jay: "I don't
+ * mind having a written out explanation of things but maybe there is a way
+ * where we can have a help button or ? button that then opens the box."
+ *
+ * Collapsed by default: a teacher who knows what a setting does never has
+ * to read past it, and the detail is one click away when they don't.
+ */
+function SectionHeading({ children, help }) {
+  const [helpOpen, setHelpOpen] = useState(false);
   return (
-    <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 11, color: "rgba(255,255,255,0.45)", letterSpacing: 1.5, textTransform: "uppercase", padding: "12px 14px 4px" }}>
-      {children}
-    </div>
+    <>
+      <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 11, color: "rgba(255,255,255,0.45)", letterSpacing: 1.5, textTransform: "uppercase", padding: "12px 14px 4px", display: "flex", alignItems: "center", gap: 7 }}>
+        <span>{children}</span>
+        {help && (
+          <button
+            type="button"
+            onClick={() => setHelpOpen(o => !o)}
+            aria-expanded={helpOpen}
+            aria-label={helpOpen ? "Hide explanation" : "What does this do?"}
+            title={helpOpen ? "Hide explanation" : "What does this do?"}
+            style={{
+              width: 15, height: 15, flexShrink: 0, borderRadius: "50%", cursor: "pointer",
+              border: `1px solid ${helpOpen ? "var(--board-secondary, #e87722)" : "rgba(255,255,255,0.3)"}`,
+              background: helpOpen ? "var(--board-secondary, #e87722)" : "transparent",
+              color: helpOpen ? "var(--board-secondary-fg, #1c1c1c)" : "rgba(255,255,255,0.5)",
+              fontFamily: "Lato, sans-serif", fontSize: 10, fontWeight: 700, lineHeight: 1,
+              display: "flex", alignItems: "center", justifyContent: "center", padding: 0,
+              transition: "background 0.15s, color 0.15s, border-color 0.15s",
+            }}
+          >?</button>
+        )}
+      </div>
+      {help && helpOpen && (
+        <div style={{ padding: "0 14px 8px", fontFamily: "Lato, sans-serif", fontSize: 11, color: "rgba(255,255,255,0.45)", lineHeight: 1.5 }}>
+          {help}
+        </div>
+      )}
+    </>
   );
 }
 
@@ -309,7 +347,7 @@ export default function BoardSettingsPanel({ selected, onSelect, panelCountInfo,
 
               {cat.id === "content" && (
                 <>
-                  <SectionHeading>Board Content</SectionHeading>
+                  <SectionHeading help="Turn any combination on — each gets its own space on the board. Drag the ☰ handle to reorder them; that order applies whether Sliding Boards is on or off. Turning one off keeps whatever you've written there, and it comes back if you turn it on again.">Board Content</SectionHeading>
                   {boardContentOrder.map((key) => {
                     const [value, setValue] = boardContentState[key];
                     return (
@@ -326,9 +364,6 @@ export default function BoardSettingsPanel({ selected, onSelect, panelCountInfo,
                       />
                     );
                   })}
-                  <div style={{ fontFamily: "Lato, sans-serif", fontSize: 11, color: "rgba(255,255,255,0.4)", padding: "8px 14px 0", lineHeight: 1.5 }}>
-                    Turn any combination on — each has its own space on the board. Drag the ☰ handle to reorder them; this order applies whether Sliding Boards (below) is on or off. Turning one off keeps whatever you've written there; it comes back if you turn it on again.
-                  </div>
 
                 </>
               )}
@@ -346,7 +381,7 @@ export default function BoardSettingsPanel({ selected, onSelect, panelCountInfo,
                       the surface selected above, so none of them can come
                       out unreadable. Swatches are drawn ON that surface for
                       the same reason. */}
-                  <SectionHeading>Header &amp; Accent Color</SectionHeading>
+                  <SectionHeading help="Used for section headers and goal numbers. Any colour you pick is lightened or darkened just enough to stay readable on the board surface above — so it may not render as the exact shade you chose.">Header &amp; Accent Color</SectionHeading>
                   {BOARD_ACCENT_PRESETS.filter(a => shows(DESIGN_AREAS.BOARD_ACCENT, a.id, boardAccentKey)).map(a => (
                     <RadioRow
                       key={a.id}
@@ -370,11 +405,8 @@ export default function BoardSettingsPanel({ selected, onSelect, panelCountInfo,
                       {isCustomBoardAccent(boardAccentKey) ? `Custom ${boardAccentKey.toUpperCase()}` : "Custom color…"}
                     </span>
                   </div>
-                  <div style={{ padding: "2px 14px 4px", fontFamily: "Lato, sans-serif", fontSize: 11, color: "rgba(255,255,255,0.4)", lineHeight: 1.4 }}>
-                    Used for section headers and goal numbers. Any color you pick is lightened or darkened just enough to stay readable on the board surface above — so it may not render as the exact shade you chose.
-                  </div>
 
-                  <SectionHeading>Number of Boards{hasLessonOpen ? ` — ${currentLesson.lessonTitle}` : ""}</SectionHeading>
+                  <SectionHeading help="Sets how many boards this lesson has — just this one; every lesson keeps its own count and new ones start at 1. Pick 1 for a single flat board, or 2–5 to slide between them in class the way a real sliding chalkboard does. You always get exactly the number you pick, so any board you don't fill simply stays blank.">Number of Boards{hasLessonOpen ? ` — ${currentLesson.lessonTitle}` : ""}</SectionHeading>
                   {!hasLessonOpen && (
                     <div style={{ padding: "2px 14px 10px", fontFamily: "Lato, sans-serif", fontSize: 11, color: "rgba(255,255,255,0.4)", lineHeight: 1.4 }}>
                       Open a lesson on the board above to set how many boards it uses. Each lesson keeps its own count.
@@ -397,9 +429,6 @@ export default function BoardSettingsPanel({ selected, onSelect, panelCountInfo,
                         {n}
                       </button>
                     ))}
-                  </div>}
-                  {hasLessonOpen && <div style={{ padding: "0 14px 4px", fontFamily: "Lato, sans-serif", fontSize: 11, color: "rgba(255,255,255,0.4)", lineHeight: 1.4 }}>
-                    Sets how many boards this lesson has — just this one; every lesson keeps its own count and new ones start at 1. Pick 1 for a single flat board, or 2–5 to slide between them in class the way a real sliding chalkboard does. You always get exactly the number you pick, so any board you don't fill simply stays blank.
                   </div>}
                 </>
               )}
