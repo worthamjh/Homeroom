@@ -15,16 +15,13 @@
 // api/checkedGoals.js, for the same reason: these settings aren't scoped
 // to any one lesson.
 //
-// Same trust model as every other Mongo endpoint here today: this stores
-// whatever teacherId the client sends, without independently verifying
-// the caller's Clerk session server-side. Real hardening (verify via
-// @clerk/backend's verifyToken) is the same flagged future work as
-// api/assignments.js, api/profile.js, api/curriculum.js, api/boardContent.js,
-// and api/checkedGoals.js.
+// Identity comes from the verified Clerk session, never from the request
+// -- see api/_auth.js. Setting keys are percent-encoded before they become
+// part of a Mongo field path -- see api/_validate.js.
 import { MongoClient } from "mongodb";
 import { resolveTeacherId } from "./_auth.js";
+import { isValidSettingKey, encodeSettingKey, decodeSettingKey, LIMITS } from "./_validate.js";
 
-const DEFAULT_TEACHER_ID = "local-teacher";
 const DB_NAME = process.env.MONGODB_DB || "homeroom";
 const COLLECTION = "boardSettings";
 
@@ -59,7 +56,15 @@ export default async function handler(req, res) {
       // 200 + null (not 404) when nothing's saved yet — same convention as
       // every other endpoint here. The client keeps whatever it already
       // has (its localStorage value, or the hardcoded default) in that case.
-      res.status(200).json(doc ? doc.settings || {} : null);
+      // Keys are stored percent-encoded so a dot in a lesson title cannot
+      // become a nested Mongo path (see _validate.js). Decode on the way
+      // out so the client sees exactly the key it wrote. Keys stored
+      // before this encoding existed contain none of those characters and
+      // decode to themselves.
+      const settings = doc?.settings
+        ? Object.fromEntries(Object.entries(doc.settings).map(([k, v]) => [decodeSettingKey(k), v]))
+        : null;
+      res.status(200).json(doc ? settings || {} : null);
       return;
     }
 
@@ -67,6 +72,18 @@ export default async function handler(req, res) {
       const { key, value } = req.body || {};
       if (!key || typeof key !== "string" || typeof value !== "string") {
         res.status(400).json({ error: "key and value (both strings) are required" });
+        return;
+      }
+      // Only length and control characters are rejected. The characters
+      // Mongo treats specially in a field path are ENCODED rather than
+      // refused, because a legitimate per-lesson key carries the teacher's
+      // own lesson title -- punctuation, spaces and all. See _validate.js.
+      if (!isValidSettingKey(key)) {
+        res.status(400).json({ error: "That setting key is empty, too long, or contains control characters." });
+        return;
+      }
+      if (value.length > LIMITS.SETTING_VALUE) {
+        res.status(413).json({ error: "That setting value is too large." });
         return;
       }
       const col = await getCollection();
@@ -77,7 +94,7 @@ export default async function handler(req, res) {
       // setting on every save.
       await col.updateOne(
         { teacherId: teacherId },
-        { $set: { teacherId: teacherId, [`settings.${key}`]: value, updatedAt: now }, $setOnInsert: { createdAt: now } },
+        { $set: { teacherId: teacherId, [`settings.${encodeSettingKey(key)}`]: value, updatedAt: now }, $setOnInsert: { createdAt: now } },
         { upsert: true }
       );
       res.status(200).json({ key, value });

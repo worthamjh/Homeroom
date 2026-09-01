@@ -14,6 +14,7 @@
 // future work flagged there, not done in this pass.
 import { MongoClient } from "mongodb";
 import { resolveTeacherId } from "./_auth.js";
+import { capString, LIMITS } from "./_validate.js";
 
 const DB_NAME = process.env.MONGODB_DB || "homeroom";
 const COLLECTION = "profiles";
@@ -80,9 +81,12 @@ export default async function handler(req, res) {
       const now = new Date();
       const update = {
         teacherId: String(teacherId),
-        teacherName: String(teacherName),
-        school: school ? String(school) : null,
-        subject: subject ? String(subject) : null,
+        // Capped rather than rejected: these are free text a teacher
+        // typed, and silently trimming an absurd one beats refusing to
+        // save their whole profile over it.
+        teacherName: capString(String(teacherName), LIMITS.NAME),
+        school: school ? capString(String(school), LIMITS.NAME) : null,
+        subject: subject ? capString(String(subject), LIMITS.NAME) : null,
         // Silently falls back to null (→ the board's own defaults, see
         // boardConfig.js) rather than erroring on a malformed value — a
         // stray hex typo shouldn't block saving the rest of the profile.

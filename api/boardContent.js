@@ -19,6 +19,7 @@
 // api/assignments.js, api/profile.js, and api/curriculum.js.
 import { MongoClient } from "mongodb";
 import { resolveTeacherId } from "./_auth.js";
+import { capString, LIMITS } from "./_validate.js";
 
 const DEFAULT_TEACHER_ID = "local-teacher";
 const DB_NAME = process.env.MONGODB_DB || "homeroom";
@@ -100,7 +101,7 @@ export default async function handler(req, res) {
       // document with undefined.
       const set = {};
       for (const field of TEXT_FIELDS) {
-        if (typeof rest[field] === "string") set[field] = rest[field];
+        if (typeof rest[field] === "string") set[field] = capString(rest[field], LIMITS.TEXT_FIELD);
       }
       if (checkedAgendaLines && typeof checkedAgendaLines === "object") {
         set.checkedAgendaLines = checkedAgendaLines;

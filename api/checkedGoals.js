@@ -24,6 +24,7 @@
 // api/boardContent.js.
 import { MongoClient } from "mongodb";
 import { resolveTeacherId } from "./_auth.js";
+import { payloadTooBig } from "./_validate.js";
 
 const DEFAULT_TEACHER_ID = "local-teacher";
 const DB_NAME = process.env.MONGODB_DB || "homeroom";
@@ -78,6 +79,10 @@ export default async function handler(req, res) {
 
     if (req.method === "POST") {
       const { checkedGoals } = req.body || {};
+      if (payloadTooBig(checkedGoals)) {
+        res.status(413).json({ error: "That checked-goals payload is too large to save." });
+        return;
+      }
       const clean = sanitizeCheckedGoals(checkedGoals);
       if (!clean) {
         res.status(400).json({ error: "a checkedGoals object is required" });

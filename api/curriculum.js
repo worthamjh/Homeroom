@@ -21,6 +21,7 @@
 // api/assignments.js and api/profile.js.
 import { MongoClient } from "mongodb";
 import { resolveTeacherId } from "./_auth.js";
+import { payloadTooBig } from "./_validate.js";
 
 const DB_NAME = process.env.MONGODB_DB || "homeroom";
 const COLLECTION = "curricula";
@@ -99,6 +100,12 @@ export default async function handler(req, res) {
 
     if (req.method === "POST") {
       const { units } = req.body || {};
+      // Checked before sanitising: a cap that only applies after the
+      // payload has been walked has already done the expensive part.
+      if (payloadTooBig(units)) {
+        res.status(413).json({ error: "That curriculum is too large to save." });
+        return;
+      }
       const cleanUnits = sanitizeUnits(units);
       if (!cleanUnits) {
         res.status(400).json({ error: "a non-empty units array is required" });
