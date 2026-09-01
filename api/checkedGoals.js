@@ -38,7 +38,17 @@ function getClientPromise() {
   }
   if (!global._homeroomMongoClientPromise) {
     const client = new MongoClient(process.env.MONGODB_URI);
-    global._homeroomMongoClientPromise = client.connect();
+    // Deliberately NOT a bare client.connect(). A REJECTED promise cached
+    // here is replayed by every later request on the same warm lambda, so a
+    // single failed connection -- a wrong credential, a cluster mid-upgrade
+    // -- becomes permanent downtime that outlives the fix and clears only on
+    // the next deploy. Found exactly that way: after an Atlas Flex
+    // conversion dropped the stored credential, production kept answering
+    // "bad auth" long after the password had been restored.
+    global._homeroomMongoClientPromise = client.connect().catch((err) => {
+      global._homeroomMongoClientPromise = undefined;
+      throw err;
+    });
   }
   return global._homeroomMongoClientPromise;
 }
