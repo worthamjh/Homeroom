@@ -299,6 +299,7 @@ function KamiUrlInput({ kamiUrl, onSaveKamiUrl, lessonLabel, surface = DEFAULT_S
   // paper tomorrow -- so it is asked here rather than being a setting a
   // teacher has to go and change first.
   const [pickingTemplate, setPickingTemplate] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   useEffect(() => { setDraft(""); setPasting(false); setPickingTemplate(false); }, [kamiUrl]);
 
   const handleSave = () => {
@@ -402,7 +403,44 @@ function KamiUrlInput({ kamiUrl, onSaveKamiUrl, lessonLabel, surface = DEFAULT_S
             )}
           </>
         )}
+
+        {/* Jay: teachers already know what a bell ringer IS -- that is not
+            what needs explaining. What is not obvious is what Gil-Bilt
+            does when you press the button: that it creates a folder in
+            your Drive, and that closing the doc saves it rather than
+            discarding it. So this describes the mechanics and says
+            nothing about formative assessment.
+
+            A "?" that opens a box, matching the pattern Jay asked for on
+            the sidebar sections, and placed here rather than in the
+            sidebar because all three steps happen on the board. */}
+        <button
+          onClick={() => setHelpOpen(v => !v)}
+          aria-expanded={helpOpen}
+          title="How the Bell Ringer works"
+          style={{
+            ...chip, marginLeft: "auto", padding: "2px 7px", borderRadius: "50%",
+            lineHeight: 1.3, opacity: helpOpen ? 1 : 0.6,
+          }}
+        >?</button>
       </div>
+
+      {helpOpen && (
+        <div style={{
+          fontFamily: "Lato, sans-serif", fontSize: 11, lineHeight: 1.6,
+          color: surface.placeholderText, border: `1px dashed ${surface.dividerBorder}`,
+          borderRadius: 4, padding: "8px 10px",
+        }}>
+          <strong>Create Bell Ringer doc</strong> makes a Google Doc and saves it in a
+          &ldquo;Bell Ringer&rdquo; folder in your Drive &mdash; it creates that folder for you
+          the first time. If more than one paper style is available, the button offers the list.
+          <br /><br />
+          Once a doc exists, clicking <strong>Bell Ringer</strong> on the board opens it here.
+          <strong> Full Screen</strong> fills the screen to write in or project;
+          <strong> Close</strong> puts it away and saves what you wrote. Click Bell Ringer again
+          and it comes back.
+        </div>
+      )}
 
       {pasting && !kamiUrl && (
         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
