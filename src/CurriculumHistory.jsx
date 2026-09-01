@@ -12,6 +12,13 @@
 import { useEffect, useState } from "react";
 import { fetchCurriculumHistory, fetchCurriculumVersion } from "./lib/curriculumApi";
 
+// Restoring keeps a unit's hidden state rather than revealing
+// everything. Hiding is a deliberate choice -- next semester's units
+// parked out of sight -- and a restore that silently un-hid them would
+// put the lot on the board in front of a class. The cost is that a
+// restored hidden unit looks, to someone who was not expecting it, like
+// a restore that did not work; so hidden is labelled here, before the
+// teacher commits to it, rather than changed behind their back.
 const PANEL = "#1c1c1c";
 const ACCENT = "var(--board-secondary, #e87722)";
 
@@ -89,6 +96,11 @@ export default function CurriculumHistory({ open, onClose, onRestore }) {
   };
 
   const label = { fontFamily: "Oswald, sans-serif", color: ACCENT };
+  const tag = {
+    fontFamily: "Lato, sans-serif", fontSize: 10.5, letterSpacing: "0.04em",
+    color: "rgba(255,255,255,0.5)", border: "1px solid rgba(255,255,255,0.2)",
+    borderRadius: 4, padding: "1px 5px", marginLeft: 7, verticalAlign: "middle",
+  };
   const btn = {
     background: ACCENT, color: "var(--board-secondary-fg, #1c1c1c)", border: "none",
     borderRadius: 6, padding: "8px 16px", fontFamily: "Oswald, sans-serif",
@@ -162,6 +174,7 @@ export default function CurriculumHistory({ open, onClose, onRestore }) {
               <div style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", marginTop: 3 }}>
                 {v.unitCount} {v.unitCount === 1 ? "unit" : "units"} · {v.lessonCount}{" "}
                 {v.lessonCount === 1 ? "lesson" : "lessons"}
+                {v.hiddenUnitCount ? ` · ${v.hiddenUnitCount} hidden` : ""}
                 {v.unitNames?.length ? ` — ${v.unitNames.join(", ")}` : ""}
               </div>
             </button>
@@ -175,10 +188,13 @@ export default function CurriculumHistory({ open, onClose, onRestore }) {
               </div>
               {chosen.units.map((u, i) => (
                 <div key={i} style={{ marginBottom: 10 }}>
-                  <div style={{ ...label, fontSize: 13.5 }}>{u.unit}</div>
+                  <div style={{ ...label, fontSize: 13.5 }}>
+                    {u.unit}
+                    {u.hidden && <span style={tag}>HIDDEN</span>}
+                  </div>
                   <div style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", marginTop: 2, lineHeight: 1.6 }}>
                     {u.lessons?.length
-                      ? u.lessons.map(l => l.title).join(" · ")
+                      ? u.lessons.map(l => l.hidden ? `${l.title} (hidden)` : l.title).join(" · ")
                       : "no lessons"}
                   </div>
                 </div>

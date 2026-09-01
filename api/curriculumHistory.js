@@ -95,6 +95,10 @@ export default async function handler(req, res) {
         id: String(doc._id),
         replacedAt: doc.replacedAt,
         unitCount: typeof doc.unitCount === "number" ? doc.unitCount : units.length,
+        // Surfaced so a teacher is not restoring a hidden unit blind and
+        // then wondering why the board looks empty. Restoring keeps
+        // hidden state on purpose -- see CurriculumHistory.jsx.
+        hiddenUnitCount: units.filter(u => u?.hidden === true).length,
         lessonCount: units.reduce(
           (n, u) => n + (Array.isArray(u?.lessons) ? u.lessons.length : 0), 0),
         unitNames: units
