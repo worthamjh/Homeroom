@@ -330,21 +330,55 @@ export default function GuidedTour({ active, onDone, iframeRef, selected, boardW
 
   if (!active || !step) return null;
 
-  // Tooltip placement: right next to the spotlighted rect when there is
-  // one, clamped to stay on-screen; centered when there's no target
-  // (welcome/done). Deliberately simple (below-right, or above if that
-  // would run off the bottom) rather than a full collision-avoidance
-  // engine — every real target here sits in the upper-to-middle part of
-  // the page.
+  // Tooltip placement: beside the spotlighted rect, never on top of it.
+  //
+  // This used to try below, then flip above if below overflowed. That
+  // assumed "every real target here sits in the upper-to-middle part of
+  // the page", which is false for the sidebar step: the settings panel is
+  // full-height on the right, so neither below nor above fits, the flip
+  // clamped to the top of the screen, and the tooltip landed squarely over
+  // the options it was describing (Jay, walking a fresh signup: "the
+  // location of the text box moves in front of some of the options").
+  //
+  // So there is now a third case. When the target is too tall for either
+  // side, sit BESIDE it -- to its left where there is room, which is where
+  // a right-hand sidebar wants it.
   const TOOLTIP_W = 320;
+  const TOOLTIP_H = 180;   // generous estimate; only used to choose a side
+  const GAP = 14;
+  const EDGE = 16;
   const viewportW = typeof window !== "undefined" ? window.innerWidth : 1200;
   const viewportH = typeof window !== "undefined" ? window.innerHeight : 800;
   let tooltipStyle;
   if (rect) {
-    let left = rect.left;
-    let top = rect.top + rect.height + 14;
-    if (left + TOOLTIP_W > viewportW - 16) left = Math.max(16, viewportW - TOOLTIP_W - 16);
-    if (top + 160 > viewportH - 16) top = Math.max(16, rect.top - 160 - 14);
+    // The sidebar is a special case, and forcing it here is what stops the
+    // tooltip jumping. Its height changes every time a teacher expands or
+    // collapses a category, so a placement re-derived from the rect flips
+    // between below / above / beside on every poll and the tooltip hops
+    // around the screen (Jay: "the text box also moves up and down
+    // depending on what is clicked, it is kind of not ideal"). Its LEFT
+    // and TOP are stable, so anchoring beside it holds still.
+    const besideSidebar = step.frame === "sidebar";
+    const fitsBelow = !besideSidebar && rect.top + rect.height + GAP + TOOLTIP_H <= viewportH - EDGE;
+    const fitsAbove = !besideSidebar && rect.top - GAP - TOOLTIP_H >= EDGE;
+    let left;
+    let top;
+    if (fitsBelow) {
+      left = rect.left;
+      top = rect.top + rect.height + GAP;
+    } else if (fitsAbove) {
+      left = rect.left;
+      top = rect.top - GAP - TOOLTIP_H;
+    } else {
+      const roomOnLeft = rect.left - GAP - TOOLTIP_W >= EDGE;
+      left = roomOnLeft ? rect.left - GAP - TOOLTIP_W : rect.left + rect.width + GAP;
+      // Near the target's top rather than centred on it: a full-height
+      // target centred would put the tooltip mid-screen, far from the
+      // controls the step is actually talking about.
+      top = rect.top + 24;
+    }
+    left = Math.max(EDGE, Math.min(left, viewportW - TOOLTIP_W - EDGE));
+    top = Math.max(EDGE, Math.min(top, viewportH - TOOLTIP_H - EDGE));
     tooltipStyle = { position: "fixed", left, top, width: TOOLTIP_W };
   } else {
     tooltipStyle = { position: "fixed", left: "50%", top: "50%", width: TOOLTIP_W, transform: "translate(-50%, -50%)" };
