@@ -26,6 +26,44 @@ const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 const API_KEY = import.meta.env.VITE_GOOGLE_PICKER_API_KEY;
 const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.file";
 
+/**
+ * Turns Google's auth failures into something a teacher can act on.
+ *
+ * The raw ones are useless at best and misleading at worst: a browser
+ * blocking third-party cookies makes the Picker announce "The API
+ * developer key is invalid", which is not true, is not the teacher's
+ * problem, and gives them nothing to do. Found in an incognito window,
+ * where third-party cookies are blocked by default -- but plenty of
+ * districts push the same setting to managed browsers, so real teachers
+ * will see it.
+ *
+ * Every message ends by pointing at the card's OTHER route, because that
+ * route needs no Google session at all and always works. Which route
+ * differs: the slides and calendar cards take a pasted link, the
+ * assignment card takes a file upload -- so the caller says which, and
+ * naming the wrong one would send a teacher looking for a control that
+ * is not on their screen.
+ */
+export function driveErrorMessage(err, altRoute = "paste a link") {
+  const raw = String(err?.message || err || "").toLowerCase();
+  const fallback = ` You can ${altRoute} instead.`;
+  if (raw.includes("popup_closed") || raw.includes("cancel")) {
+    return "The Google window closed before finishing." + fallback;
+  }
+  if (raw.includes("popup_failed") || raw.includes("blocked")) {
+    return "Your browser blocked the Google popup. Allow popups for this site and try again." + fallback;
+  }
+  if (raw.includes("access_denied")) {
+    return "Google access wasn't granted." + fallback;
+  }
+  if (raw.includes("developer key") || raw.includes("idpiframe") || raw.includes("cookie")) {
+    return "Google Drive couldn't start — your browser may be blocking third-party cookies, which Drive needs here." + fallback;
+  }
+  // Anything unrecognised still gets the escape hatch appended, because
+  // the one thing every one of these has in common is that pasting works.
+  return (err?.message || "Couldn't open Google Drive.") + fallback;
+}
+
 export function googleDriveConfigured() {
   return Boolean(CLIENT_ID && API_KEY);
 }

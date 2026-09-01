@@ -3,7 +3,7 @@ import ChalkboardBoardRow, { toGoalPanels } from "./ChalkboardBoardRow";
 import { useFullAgendaFields, ObjectivesChecklist, EditableField, ResetBoardButton } from "./FullAgendaBoard";
 import { fetchExtraAssignments, createExtraAssignment, deleteExtraAssignment, updateExtraAssignment, reorderExtraAssignments } from "./lib/extraAssignments";
 import { uploadAssignmentPdf } from "./lib/cloudinary";
-import { googleDriveConfigured, ensureGoogleScriptsLoaded, pickGoogleSlidesEmbed, pickGoogleDriveAssignmentFiles, pickGoogleCalendar } from "./lib/googleDrive";
+import { googleDriveConfigured, ensureGoogleScriptsLoaded, pickGoogleSlidesEmbed, pickGoogleDriveAssignmentFiles, pickGoogleCalendar, driveErrorMessage } from "./lib/googleDrive";
 import { fetchProfile } from "./lib/profileApi";
 import { fetchCurriculum, saveCurriculum } from "./lib/curriculumApi";
 import { fetchCheckedGoals, saveCheckedGoals } from "./lib/checkedGoalsApi";
@@ -1017,7 +1017,7 @@ function AddEmbedCard({ open, label, promptText, placeholder, initialUrl, onOpen
         if (!result.noReload) window.location.reload();
       }
     } catch (err) {
-      setDriveError(err.message || "Something went wrong opening Google Drive.");
+      setDriveError(driveErrorMessage(err));
     } finally {
       setDriveBusy(false);
     }
@@ -1430,11 +1430,27 @@ export function AddAssignmentCard({ open, busy, error, onOpen, onCancel, onSubmi
         window.location.reload();
       }
     } catch (err) {
-      // Cannot safely call setDriveError here — DOM may already be
-      // corrupted by the Picker SDK. Always reload so we escape the
-      // corrupted state; some assignments may not have saved but the
-      // board will at least render again.
       console.error("Drive assignment pick failed:", err);
+      // Two different failures wear the same catch.
+      //
+      // Auth ones happen BEFORE the Picker renders anything, so the DOM is
+      // intact and a reload just teleports the teacher back to a blank
+      // board with no idea what went wrong -- which is what happened when
+      // a browser blocking third-party cookies made Google announce "The
+      // API developer key is invalid". Those get a message they can act on.
+      //
+      // Anything else may have come from the Picker SDK, which can corrupt
+      // React's tree on the way out; those still reload, because escaping
+      // the corrupted state matters more than explaining it.
+      const raw = String(err?.message || "").toLowerCase();
+      const prePicker = raw.includes("auth error") || raw.includes("popup")
+        || raw.includes("access_denied") || raw.includes("cookie")
+        || raw.includes("developer key") || raw.includes("isn't configured");
+      if (prePicker) {
+        setDriveBusy(false);
+        setDriveError(driveErrorMessage(err, "upload a file from your computer"));
+        return;
+      }
       window.location.reload();
     }
   };
