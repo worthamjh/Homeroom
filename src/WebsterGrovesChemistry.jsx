@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, cloneElement } from "react";
 import ChalkboardBoardRow, { toGoalPanels } from "./ChalkboardBoardRow";
 import { useFullAgendaFields, ObjectivesChecklist, EditableField, ResetBoardButton } from "./FullAgendaBoard";
 import { fetchExtraAssignments, createExtraAssignment, deleteExtraAssignment, updateExtraAssignment, reorderExtraAssignments } from "./lib/extraAssignments";
@@ -2809,6 +2809,24 @@ export default function App() {
   // classroom, I'd rather leave the other parts of the classroom the same
   // brightness." So selecting Background dims nothing and relies on the
   // outline instead; every other category still dims its neighbours.
+  // Board Content only ever changes what is in the content column --
+  // Essential Question, Agenda, Bell Ringer, the goals list. Lighting the
+  // whole chalkboard for it therefore lights the slides beside it, which
+  // that category cannot touch. Jay: "the right side of the chalkboard
+  // should be brighter".
+  //
+  // Keyed to the COLUMN, not to the side. Under the Inverse arrangement
+  // the content column is on the LEFT, so lighting "the right side"
+  // literally would light the slides and dim the thing being edited --
+  // right for one preset and backwards for the other.
+  const contentFocus = (isPreviewMode || isBuildMode) && highlightRegion === "content";
+  const dimColumn = (key, node) =>
+    contentFocus && key !== "goals"
+      ? cloneElement(node, {
+          style: { ...(node.props.style || {}), filter: "brightness(0.4)", transition: "filter 0.18s" },
+        })
+      : node;
+
   const dimUnless = (...regions) =>
     (isPreviewMode || isBuildMode) && highlightRegion && highlightRegion !== "background" && !regions.includes(highlightRegion)
       ? { filter: "brightness(0.4)", transition: "filter 0.18s" }
@@ -3997,7 +4015,7 @@ export default function App() {
                 const nodesByKey = { slides: slidesNode, goals: goalsNode };
                 return (
                   <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: arrangement.gridTemplateColumns, columnGap: SPACE.md, ...highlightStyle("layout") }}>
-                    {arrangement.order.map(k => nodesByKey[k])}
+                    {arrangement.order.map(k => dimColumn(k, nodesByKey[k]))}
                   </div>
                 );
               })()}
