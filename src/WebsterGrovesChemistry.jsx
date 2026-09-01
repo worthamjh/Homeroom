@@ -1153,7 +1153,13 @@ export function AddSlidesCard(props) {
     <AddEmbedCard
       {...props}
       label="Add Slides / Presentation"
-      promptText="Paste a Google Slides embed URL (File → Share → Publish to web)"
+      // Not Google-only. A teacher who signed in with Microsoft keeps
+      // their deck in OneDrive or SharePoint, and the embed URL Office
+      // gives them works here too -- the URL goes straight into the
+      // board's iframe, and nothing about it is Google-specific. The
+      // copy said otherwise, which told half the audience this was not
+      // for them. (The Browse button below is still Drive-only.)
+      promptText="Paste a Google Slides or PowerPoint embed URL (in either, File → Share → Embed / Publish to web)"
       placeholder="https://docs.google.com/presentation/d/.../embed"
       onBrowseDrive={driveReady ? pickGoogleSlidesEmbed : undefined}
     />
