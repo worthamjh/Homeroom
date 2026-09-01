@@ -1368,7 +1368,12 @@ export function AssignmentThumb({ label, url, thumb, hidden, onRemove, onRename,
 // (label + file picker) rather than opening a separate modal, since the
 // whole point of this pattern (established by Full Agenda's click-to-edit
 // fields) is keeping edits in place rather than navigating away.
-export function AddAssignmentCard({ open, busy, error, onOpen, onCancel, onSubmit, onDrivePick }) {
+// dataTour goes on the card's OWN root, not on a wrapper around it.
+// Wrapping it made that wrapper the grid item, so this tile stopped
+// filling its cell and visibly shrank (Jay: "the add assignment button
+// shrunk"). Its aspectRatio only works while the card itself is the
+// grid child.
+export function AddAssignmentCard({ open, busy, error, onOpen, onCancel, onSubmit, onDrivePick, dataTour }) {
   const [label, setLabel] = useState("");
   const [file, setFile] = useState(null);
   const [driveBusy, setDriveBusy] = useState(false);
@@ -1437,6 +1442,7 @@ export function AddAssignmentCard({ open, busy, error, onOpen, onCancel, onSubmi
   if (!open) {
     return (
       <button
+        data-tour={dataTour}
         onClick={onOpen}
         style={{
           background: "transparent", borderRadius: 3, cursor: "pointer", aspectRatio: "8.5/11",
@@ -1456,6 +1462,7 @@ export function AddAssignmentCard({ open, busy, error, onOpen, onCancel, onSubmi
 
   return (
     <form
+      data-tour={dataTour}
       onSubmit={e => { e.preventDefault(); if (label.trim() && file) onSubmit({ label: label.trim(), file }); }}
       style={{
         background: "#242424", borderRadius: 3, aspectRatio: "8.5/11", border: "2px solid var(--board-secondary)",
@@ -3854,8 +3861,8 @@ export default function App() {
                   // Wrapped so the guided tour has something to spotlight:
                   // assignments live BELOW the fold, which is exactly the
                   // kind of thing a new teacher never scrolls down to find.
-                  <div data-tour="tour-add-assignment">
                   <AddAssignmentCard
+                    dataTour="tour-add-assignment"
                     open={addAssignmentOpen}
                     busy={addAssignmentBusy}
                     error={addAssignmentError}
@@ -3864,7 +3871,6 @@ export default function App() {
                     onSubmit={handleAddAssignment}
                     onDrivePick={handleAddAssignmentFromDrive}
                   />
-                  </div>
                 )}
               </div>
             )}
