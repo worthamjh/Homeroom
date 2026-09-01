@@ -353,6 +353,21 @@ export default function BoardSettingsPanel({ selected, onSelect, panelCountInfo,
               {cat.id === "content" && (
                 <>
                   <SectionHeading help="Turn any combination on — each gets its own space on the board. Drag the ☰ handle to reorder them; that order applies whether Sliding Boards is on or off. Turning one off keeps whatever you've written there, and it comes back if you turn it on again.">Board Content</SectionHeading>
+                  {!hasLessonOpen && (
+                    // These toggles are global, unlike Number of Boards
+                    // below -- they DO take effect from here, they just
+                    // cannot be seen from here, because a unit page shows
+                    // its calendar and lesson list rather than the board
+                    // content. Jay: "the learning goals and stuff do not
+                    // appear on the board (they don't need to on the unit
+                    // board) but it is a bit confusing for someone new."
+                    // So this says where they went, and does NOT disable
+                    // the rows the way the no-lesson case does above.
+                    <div style={{ padding: "2px 14px 10px", fontFamily: "Lato, sans-serif", fontSize: 11, color: "rgba(255,255,255,0.4)", lineHeight: 1.5 }}>
+                      These appear on lesson boards. The unit page above shows its calendar and
+                      lesson list instead, so changes here won&rsquo;t show until you open a lesson.
+                    </div>
+                  )}
                   {boardContentOrder.map((key) => {
                     const [value, setValue] = boardContentState[key];
                     return (
