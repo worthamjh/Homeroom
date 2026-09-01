@@ -114,6 +114,7 @@ const STEPS = [
   },
   {
     id: "learning-goals",
+    missingHint: "Open a lesson from the unit above — this one lives on a lesson's board.",
     frame: "board",
     selector: '[data-tour="tour-learning-goals"]',
     gate: "ack",
@@ -123,6 +124,7 @@ const STEPS = [
   },
   {
     id: "add-slides",
+    missingHint: "Open a lesson from the unit above — this one lives on a lesson's board.",
     frame: "board",
     selector: '[data-tour="tour-add-slides"]',
     gate: "ack",
@@ -339,6 +341,16 @@ export default function GuidedTour({ active, onDone, iframeRef, selected, boardW
   const selectSatisfied =
     step?.gate === "select" && selected === step.matchSelected;
 
+  // A step whose target is not on screen must not read as if it were.
+  // "gate: ack" steps show their body and a Got it button unconditionally,
+  // so navigating back to the unit overview left the tour cheerfully
+  // saying "Paste a Google Slides link here" with nothing spotlighted and
+  // no such field anywhere -- Jay: "I managed to be on a unit page, not a
+  // lesson page, and it is running me through the tutorial for a lesson
+  // page." Now such a step shows where to go instead, and withholds its
+  // button until the teacher is somewhere it makes sense.
+  const targetMissing = !!step?.selector && !rect;
+
   if (!active || !step) return null;
 
   // Tooltip placement: beside the spotlighted rect, never on top of it.
@@ -432,7 +444,9 @@ export default function GuidedTour({ active, onDone, iframeRef, selected, boardW
           {step.title}
         </div>
         <div style={{ fontSize: 13, color: "rgba(255,255,255,0.8)", lineHeight: 1.5, marginBottom: 16 }}>
-          {step.body}
+          {targetMissing
+            ? (step.missingHint || "This one lives somewhere else on the board — head there and this step will pick up again.")
+            : step.body}
         </div>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
           <button
@@ -442,7 +456,7 @@ export default function GuidedTour({ active, onDone, iframeRef, selected, boardW
           >
             Skip tour
           </button>
-          {step.gate === "ack" || selectSatisfied ? (
+          {(step.gate === "ack" || selectSatisfied) && !targetMissing ? (
             <button
               type="button"
               onClick={advance}
