@@ -1118,7 +1118,11 @@ export function AddCalendarCard(props) {
     <AddEmbedCard
       {...props}
       label="Add Calendar"
-      promptText="Paste your Google Calendar embed URL"
+      // Same reasoning as the slides card: the URL goes straight into the
+      // board's iframe and nothing here is Google-specific, so a teacher on
+      // Outlook can paste theirs too. Only the wording was Google-only, and
+      // the CSP had to be told about Outlook's hosts before it would render.
+      promptText="Paste your Google Calendar or Outlook Calendar embed URL"
       placeholder="https://calendar.google.com/calendar/embed?src=..."
       onBrowseDrive={driveReady ? pickGoogleCalendar : undefined}
       browseLabel="Browse Google Calendar"
