@@ -147,7 +147,13 @@ const STEPS = [
     selector: '[data-tour="tour-add-slides"]',
     gate: "ack",
     title: "Add your slides",
-    body: "Paste a Google Slides link here (File → Share → Publish to web) and it'll show up right on the board, full-size, ready to project.",
+    // Named both routes, and both ecosystems. The old line described only
+    // pasting, when the card's first and easier option is browsing Drive
+    // -- and said "Google Slides" to a teacher who may well be on
+    // PowerPoint (Jay, signed in with Microsoft: "technically they don't
+    // have to paste a link, that is one option but they can just connect
+    // google drive").
+    body: "Browse your Google Drive and pick a deck, or paste a link — Google Slides and PowerPoint both work. Either way it shows up full-size on the board, ready to project.",
     ackLabel: "Got it",
   },
   {
@@ -161,7 +167,9 @@ const STEPS = [
     gate: "ack",
     missingHint: "Open a lesson from the unit above — assignments live on a lesson's board, below the slides.",
     title: "Assignments and classwork",
-    body: "Scroll down and you'll find this under the board. Add a worksheet, a PDF, anything from your Drive — it sits with the lesson it belongs to, so it's there when you need it in class.",
+    // Same correction: the card takes a direct upload as well as a Drive
+    // pick, and upload is the route a teacher without Google uses.
+    body: "Scroll down and you'll find this under the board. Pick a worksheet from your Drive, or upload a file straight from your computer — it stays with the lesson it belongs to, ready when you need it in class.",
     ackLabel: "Got it",
   },
   {
