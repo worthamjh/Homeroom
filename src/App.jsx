@@ -29,18 +29,35 @@ function App() {
   const navigate = useNavigate()
   const explicitTeacher = searchParams.get('teacher')
 
+  // Only the PUBLIC demo may be viewed without a session. The carve-out
+  // used to accept any ?teacher= at all, so a board URL carrying a real
+  // account id -- which is exactly what Build links and a teacher's own
+  // address bar contain -- rendered for a signed-out visitor, and a tab
+  // left open did not react to signing out at all. Jay: "I signed out,
+  // it closed the tab with the build page but the other page is still
+  // open and useable."
+  //
+  // The server already refuses the data (every endpoint 401s without a
+  // session), so nothing loaded from Mongo. But the board kept showing
+  // what was cached locally -- on a classroom machine, that is a
+  // teacher's board still projected after they signed out and walked
+  // away, which is the one place this must not happen.
+  //
+  // Build's iframe passes ?teacher=<their own id> and is same-origin, so
+  // it shares the Clerk session and satisfies isSignedIn like any other
+  // page.
+  const publicDemo = explicitTeacher === 'local-teacher'
+
   useEffect(() => {
     // Waits for isLoaded: Clerk reports signed-out before it has restored
     // the session, so acting early would bounce a signed-in teacher off
     // their own board on every refresh.
-    if (!isLoaded || isSignedIn || explicitTeacher) return
+    if (!isLoaded || isSignedIn || publicDemo) return
     navigate('/', { replace: true })
-  }, [isLoaded, isSignedIn, explicitTeacher, navigate])
+  }, [isLoaded, isSignedIn, publicDemo, navigate])
 
-  // An explicit ?teacher= needs no session, so it renders straight away --
-  // the demo link and Build's iframe both take this path and must not wait
-  // on Clerk.
-  if (explicitTeacher) return <WebsterGrovesChemistry />
+  // The public demo needs no session, so it renders straight away.
+  if (publicDemo) return <WebsterGrovesChemistry />
 
   // Everything below deliberately renders NOTHING until Clerk has
   // answered. The first version of this guard read
