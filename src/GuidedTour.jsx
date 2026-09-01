@@ -99,7 +99,7 @@ const STEPS = [
     // every poll tick while this step needs it.
     id: "row-controls",
     frame: "board",
-    selector: '[data-tour="tour-unit-tab"]',
+    selector: '[data-tour="tour-unit-actions"]',
     gate: "ack",
     title: "Rename, hide, delete",
     body: "See the three buttons on the right of the unit? ✎ renames it, the eye hides it from the board without deleting anything, and × removes it. Lessons and assignments carry the same three.",

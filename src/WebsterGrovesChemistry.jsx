@@ -1960,7 +1960,13 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
                      was the thing Jay reported as unresponsive.
                      A hidden unit's eye stays lit so it is obvious at a
                      glance which units are hidden. */
-                  <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "0 6px 0 2px", flexShrink: 0 }}>
+                  // The tour's "Rename, hide, delete" step spotlights THIS
+                  // group, not the unit tab. Pointing it at tour-unit-tab
+                  // ringed the unit's name instead -- the buttons the step
+                  // is entirely about sat outside the highlight (Jay: "the
+                  // buttons on the right are not highlighted, perhaps have
+                  // only the buttons highlighted for this portion?").
+                  <div data-tour={ui === 0 ? "tour-unit-actions" : undefined} style={{ display: "flex", alignItems: "center", gap: 4, padding: "0 6px 0 2px", flexShrink: 0 }}>
                     {/* Rename. Lives here rather than tucked against the name
                         so it wears the same circle as its neighbours -- the
                         lesson rows already group rename / hide / delete like this
