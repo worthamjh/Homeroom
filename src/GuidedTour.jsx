@@ -97,6 +97,24 @@ const STEPS = [
     // closes the instant the teacher's cursor leaves it to click into the
     // tooltip or type into the input — the self-heal below re-opens it on
     // every poll tick while this step needs it.
+    id: "row-controls",
+    frame: "board",
+    selector: '[data-tour="tour-unit-tab"]',
+    gate: "ack",
+    title: "Rename, hide, delete",
+    body: "See the three buttons on the right of the unit? ✎ renames it, the eye hides it from the board without deleting anything, and × removes it. Lessons and assignments carry the same three.",
+    ackLabel: "Got it",
+  },
+  {
+    // The rename / hide / delete group is the only way to rename anything,
+    // and it is small, unlabelled and easy to scroll past. Explained on the
+    // unit tab above because that is the FIRST place it appears, and the
+    // same three buttons then turn up on lessons and assignments -- so one
+    // explanation covers all of them (Jay: "would like users to know about
+    // the rename, hide, show, and delete buttons. At least on one of the
+    // instances where they show up"). It reuses the unit tab's existing
+    // target rather than adding a hook of its own: the buttons live inside
+    // that row, so spotlighting the row shows them where they act.
     id: "add-lesson",
     frame: "board",
     selector: '[data-tour="tour-add-lesson"]',
