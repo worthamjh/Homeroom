@@ -33,7 +33,20 @@ const COLLECTION = "boardContent";
 // more, but leaving it means whatever a teacher had typed there is still
 // sitting in Mongo rather than dropped on the next save. Costs one unused
 // key; buys back the text if that component ever returns.
-const TEXT_FIELDS = ["essentialQuestion", "agenda", "bellRinger", "homeLearning", "bellRingerKamiUrl", "learningGoals"];
+//
+// THIS LIST IS AN ALLOW-LIST, AND ANYTHING MISSING FROM IT IS SILENTLY
+// DROPPED. `customSlidesUrl` and `calendarUrl` were both absent for a
+// long time while the client happily POSTed them and read them back: the
+// request returned 200, the field never reached Mongo, and the value
+// survived only in that browser's localStorage. So a teacher who set up
+// their slides at home opened the board on the classroom machine to a
+// blank screen -- and the comments around those save calls promised the
+// opposite ("Persist globally to MongoDB so it survives clearing site
+// data"). Found by loading a real board in an incognito window, where
+// the assignment appeared and the presentation did not.
+//
+// If you add a field the client sends here, add it to this list too.
+const TEXT_FIELDS = ["essentialQuestion", "agenda", "bellRinger", "homeLearning", "bellRingerKamiUrl", "learningGoals", "customSlidesUrl", "calendarUrl"];
 
 function getClientPromise() {
   if (!process.env.MONGODB_URI) {
