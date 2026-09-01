@@ -1122,7 +1122,14 @@ export function AddCalendarCard(props) {
       // board's iframe and nothing here is Google-specific, so a teacher on
       // Outlook can paste theirs too. Only the wording was Google-only, and
       // the CSP had to be told about Outlook's hosts before it would render.
-      promptText="Paste your Google Calendar or Outlook Calendar embed URL"
+      // Says WHERE to get the link, for both. The slides card has always
+      // told teachers "File → Share → Publish to web"; this one named the
+      // two products and left them to guess. Outlook especially needs it:
+      // a calendar is not embeddable at all until it has been published,
+      // which is why there is no "Browse Outlook Calendar" button to match
+      // the Google one -- Graph cannot hand back an embed URL for a
+      // calendar the teacher has not published yet.
+      promptText="Paste a calendar embed URL — Google Calendar: Settings → your calendar → Integrate calendar. Outlook: Settings → Calendar → Shared calendars → Publish a calendar."
       placeholder="https://calendar.google.com/calendar/embed?src=..."
       onBrowseDrive={driveReady ? pickGoogleCalendar : undefined}
       browseLabel="Browse Google Calendar"
