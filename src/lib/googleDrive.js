@@ -606,14 +606,19 @@ async function fetchCalendarList(accessToken) {
  *
  * Returns { embedUrl, name, shareWarning } or null (cancelled).
  *
- * @returns {Promise<{ embedUrl: string, name: string, shareWarning: null } | null>}
+ * @returns {Promise<{ embedUrl: string, name: string, shareWarning: string|null } | null>}
  */
 export async function pickGoogleCalendar() {
   await ensureGoogleScriptsLoaded();
   const accessToken = await requestCalendarToken();
   const calendars = await fetchCalendarList(accessToken);
 
-  if (!calendars.length) {
+  // A deleted calendar still comes back in the list and can never render;
+  // offering it is the calendar version of the bug the assignment picker
+  // had, where the picker showed file types the board could not display.
+  const usable = calendars.filter(cal => cal.deleted !== true);
+
+  if (!usable.length) {
     throw new Error("No calendars found on this Google account.");
   }
 
@@ -656,7 +661,9 @@ export async function pickGoogleCalendar() {
 
     // sub-hint
     const hint = document.createElement("div");
-    hint.textContent = "Pick the calendar to embed on the unit overview page.";
+    hint.textContent = "Pick the calendar to embed on the unit overview page. "
+      + "A Google calendar is private until you share it — if this one is not "
+      + "public, it shows on your own screen but stays blank for everyone else.";
     Object.assign(hint.style, {
       fontSize: "12px",
       color: "rgba(255,255,255,0.45)",
@@ -689,7 +696,7 @@ export async function pickGoogleCalendar() {
       transition: "border-color 0.12s",
     };
 
-    calendars.forEach(cal => {
+    usable.forEach(cal => {
       const btn = document.createElement("button");
       Object.assign(btn.style, BASE_BTN);
 
@@ -727,10 +734,26 @@ export async function pickGoogleCalendar() {
 
       btn.onclick = () => {
         document.body.removeChild(overlay);
+        // shareWarning has always existed here and was always null, while
+        // the slides picker beside it populates the same field and the
+        // board already displays it. The embed URL renders only for
+        // someone who can already see the calendar -- which the signed-in
+        // teacher always can, so this fails in the one place they cannot
+        // see it: a student's device, or the classroom machine signed out.
+        // We cannot read a calendar's sharing without the ACL scope, so
+        // say it conditionally rather than asserting a state we did not
+        // check.
+        const owned = cal.accessRole === "owner" || cal.accessRole === "writer";
+        const shareWarning = cal.accessRole === "freeBusyReader"
+          ? `You can only see free/busy times on "${cal.summary || cal.id}", so the board will show blocks with no detail.`
+          : owned
+            ? `If "${cal.summary || cal.id}" is not shared publicly, students will see an empty box. Google Calendar → Settings → that calendar → Access permissions → "Make available to public".`
+            : `You do not own "${cal.summary || cal.id}", so you cannot change its sharing. If it is not already public, it will be blank for anyone but you.`;
+
         resolve({
           embedUrl: `https://calendar.google.com/calendar/embed?src=${encodeURIComponent(cal.id)}&showTitle=0&showNav=1&showDate=1&showPrint=0&showTabs=1&showCalendars=0`,
           name: cal.summary || cal.id,
-          shareWarning: null, noReload: true,
+          shareWarning, noReload: true,
         });
       };
 

@@ -27,7 +27,11 @@ const UPSTREAM_TIMEOUT_MS = 10000;
 
 const CALENDAR_LIST_URL =
   "https://www.googleapis.com/calendar/v3/users/me/calendarList" +
-  "?minAccessRole=reader&fields=items(id,summary,backgroundColor,primary)";
+  "?minAccessRole=reader&fields=items(id,summary,backgroundColor,primary,accessRole,deleted)";
+// accessRole and deleted are not decoration: a teacher cannot change the
+// sharing on a calendar they only read, and a deleted one cannot be
+// embedded at all. Without these the picker cannot tell either case from
+// a calendar that will work, so it offered all of them alike.
 
 function googleToken(req) {
   const header = req.headers?.authorization || req.headers?.Authorization || "";
