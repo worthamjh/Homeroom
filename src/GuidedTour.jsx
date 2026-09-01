@@ -60,7 +60,7 @@ const STEPS = [
     frame: "none",
     gate: "ack",
     title: "Let's set up your board",
-    body: "This will only take a couple of minutes — we'll walk through creating your first unit, your first lesson, and a bit of content, one step at a time. You can skip this any time.",
+    body: "We'll make your first unit, your first lesson, and a bit of content. A couple of minutes, and you can skip any time.",
     ackLabel: "Let's go",
   },
   {
@@ -76,7 +76,7 @@ const STEPS = [
     selector: '[data-tour="tour-add-unit"]',
     gate: "auto",
     title: "Create your first unit",
-    body: "Click “+ Add Unit” below. A name is already filled in (“Unit 1”) — you can keep it or type your own, then press Enter.",
+    body: "Click “+ Add Unit”. A name is filled in already — keep it or type your own, then Enter.",
   },
   {
     id: "open-unit",
@@ -102,7 +102,7 @@ const STEPS = [
     selector: '[data-tour="tour-unit-actions"]',
     gate: "ack",
     title: "Rename, hide, delete",
-    body: "See the three buttons on the right of the unit? ✎ renames it, the eye hides it from the board without deleting anything, and × removes it. Lessons and assignments carry the same three.",
+    body: "The three buttons on the right: ✎ renames, the eye hides it from the board without deleting, × removes it. Lessons and assignments have the same three.",
     ackLabel: "Got it",
   },
   {
@@ -120,7 +120,7 @@ const STEPS = [
     selector: '[data-tour="tour-add-lesson"]',
     gate: "auto",
     title: "Add your first lesson",
-    body: "A lesson is one day (or one class period) of content — slides, learning goals, assignments. Click “+ Add Lesson” below. A name is already filled in (“Lesson 1”) — keep it or type your own, then press Enter.",
+    body: "A lesson is one class period — slides, goals, assignments. Click “+ Add Lesson”, then keep the name or type your own and press Enter.",
   },
   {
     id: "open-lesson",
@@ -137,7 +137,7 @@ const STEPS = [
     selector: '[data-tour="tour-learning-goals"]',
     gate: "ack",
     title: "Learning Goals",
-    body: "Type your goals for the lesson here — each goal gets its own checkbox that students can check off as you go through class. Press Enter to add another goal. Come back and edit any time.",
+    body: "Your goals for the day. Each one gets a checkbox students can watch you tick off. Enter adds another; edit them any time.",
     ackLabel: "Got it",
   },
   {
@@ -153,7 +153,7 @@ const STEPS = [
     // PowerPoint (Jay, signed in with Microsoft: "technically they don't
     // have to paste a link, that is one option but they can just connect
     // google drive").
-    body: "Browse your Google Drive and pick a deck, or paste a link — Google Slides and PowerPoint both work. Either way it shows up full-size on the board, ready to project.",
+    body: "Browse your Drive or paste a link. Google Slides works, and so does a PowerPoint saved in Drive. It fills the board, ready to project.",
     ackLabel: "Got it",
   },
   {
@@ -169,7 +169,7 @@ const STEPS = [
     title: "Assignments and classwork",
     // Same correction: the card takes a direct upload as well as a Drive
     // pick, and upload is the route a teacher without Google uses.
-    body: "Scroll down and you'll find this under the board. Pick a worksheet from your Drive, or upload a file straight from your computer — it stays with the lesson it belongs to, ready when you need it in class.",
+    body: "Below the board. Pick a worksheet from your Drive or upload one from your computer — it stays with this lesson.",
     ackLabel: "Got it",
   },
   {
@@ -178,7 +178,7 @@ const STEPS = [
     selector: '[data-tour="tour-sidebar"]',
     gate: "ack",
     title: "Change how your board looks",
-    body: "Over here you can change the wall, the board layout, and what content shows on the board — separate from what's actually in your lessons.",
+    body: "This side changes how the board looks — the wall, the layout, what’s on it. Separate from what’s in your lessons.",
     ackLabel: "Next",
   },
   {
@@ -188,7 +188,7 @@ const STEPS = [
     gate: "select",
     matchSelected: "content",
     title: "Board Content",
-    body: "Open “Board Content”. Turn Essential Question, Agenda and Bell Ringer on or off, and drag the ≡ handles to put them in the order you want — the board updates as you go. Take your time; press Got it when you’re done.",
+    body: "Open “Board Content”. Switch Essential Question, Agenda and Bell Ringer on or off, and drag ≡ to reorder them. Press Got it when you’re done.",
     ackLabel: "Got it",
   },
   {
@@ -198,7 +198,7 @@ const STEPS = [
     gate: "select",
     matchSelected: "blackboard",
     title: "Blackboard",
-    body: "Open “Blackboard”. Pick your board surface, and how many sliding boards you want — 1 is a single flat board, 2–5 slide across. Try a couple and watch the board change.",
+    body: "Open “Blackboard”. Pick your surface and how many sliding boards — 1 is flat, 2–5 slide across.",
     ackLabel: "Got it",
   },
   {
@@ -212,7 +212,7 @@ const STEPS = [
     // invert the priority; but leaving them entirely unmentioned meant
     // they might never be found. One sentence at the end, when the
     // teacher is done rather than being led.
-    body: "Come back to Build any time from the 🛠 icon on your board. Two things we skipped: a unit page can hold a class calendar, and the Store up top has more board styles when you feel like decorating. Have a great class!",
+    body: "The 🛠 icon on your board brings you back here. Two things we skipped: a unit can hold a class calendar, and the Store has more board styles. Have a great class!",
     ackLabel: "Finish",
   },
 ];

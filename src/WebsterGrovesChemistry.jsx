@@ -1019,10 +1019,21 @@ function SmartBoard({ src }) {
  * be embedded. It renders a document from a direct, publicly reachable
  * file URL, and *.officeapps.live.com is already in our frame-src.
  *
- * So rather than tell a teacher to hand-assemble that URL, recognise a
- * OneDrive/SharePoint link and wrap it. "?download=1" is what makes a
- * OneDrive share link resolve to the file itself instead of the HTML
- * page around it, which is what the viewer needs.
+ * So recognise a OneDrive/SharePoint link and wrap it rather than ask a
+ * teacher to hand-assemble that URL.
+ *
+ * WHAT THIS IS AND IS NOT KNOWN TO DO. The wrapping works: the viewer
+ * loads and renders inside our board, which direct OneDrive framing
+ * never does. But a CONSUMER OneDrive share link then fails inside the
+ * viewer with "the document is not publicly accessible" -- the viewer
+ * cannot resolve a 1drv.ms link to the file, and "?download=1" was not
+ * enough. Untested, and the reason this is kept: a school SharePoint
+ * link is served differently and may well resolve. It costs nothing to
+ * leave in, and without it these links fail EARLIER, with a bare
+ * "refused to connect" instead of Microsoft explaining itself.
+ *
+ * The card no longer promises PowerPoint-from-OneDrive. It points at
+ * Google Drive, which renders .pptx and is verified.
  */
 const OFFICE_VIEWER = "https://view.officeapps.live.com/op/embed.aspx?src=";
 
@@ -1241,7 +1252,7 @@ export function AddSlidesCard(props) {
       // board's iframe, and nothing about it is Google-specific. The
       // copy said otherwise, which told half the audience this was not
       // for them. (The Browse button below is still Drive-only.)
-      promptText="Paste a link or embed code — Google Slides (File → Share → Publish to web) or PowerPoint on OneDrive (Share → Copy link). Pasting the whole <iframe> code is fine."
+      promptText="Paste a Google Slides link (File → Share → Publish to web); the whole embed code is fine too. For a PowerPoint, save it to Google Drive and use Browse Google Drive above."
       placeholder="https://docs.google.com/presentation/d/.../embed"
       onBrowseDrive={driveReady ? pickGoogleSlidesEmbed : undefined}
     />
