@@ -81,7 +81,11 @@ function ClerkAwareLanding() {
             <button style={secondaryButtonStyle}>Sign Up</button>
           </SignUpButton>
         </div>
-        <a href="/board" style={demoLinkStyle}>→ View the Webster Groves demo</a>
+        {/* Carries ?teacher= on purpose. /board now sends a signed-out
+            visitor back here (see App.jsx), and an explicit teacher in the
+            URL is the signal that says "yes, I meant the demo" — without
+            it this link would bounce straight back to this page. */}
+        <a href="/board?teacher=local-teacher" style={demoLinkStyle}>→ View the Webster Groves demo</a>
       </SignedOut>
 
       <SignedIn>
