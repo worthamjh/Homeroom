@@ -1063,6 +1063,25 @@ function embedUrlFromPaste(raw) {
 
 // Survives the post-picker reload; see handleBrowseDrive below.
 const DRIVE_NOTICE_KEY = "homeroom_drive_notice";
+const DRIVE_NOTICE_EVENT = "homeroom-drive-notice";
+
+// A picker warning has to outlive the card that raised it, and the card
+// goes away by TWO different routes: the slides path reloads the page,
+// and the calendar path saves a URL which makes the parent render the
+// calendar in place of the card, unmounting it. Either way the message
+// dies with the component that was holding it, which is why neither
+// warning was ever seen.
+//
+// So it goes somewhere neither route can take with it: sessionStorage
+// carries it across a reload, and an event carries it to a notice that
+// is already mounted when there is no reload.
+function raiseDriveNotice(message, { willReload }) {
+  if (willReload) {
+    try { sessionStorage.setItem(DRIVE_NOTICE_KEY, message); } catch { /* noop */ }
+    return;
+  }
+  window.dispatchEvent(new CustomEvent(DRIVE_NOTICE_EVENT, { detail: message }));
+}
 
 // A page-level notice rather than something attached to one slot: the
 // card that raised it has been replaced by the content it just saved, so
@@ -1071,10 +1090,15 @@ const DRIVE_NOTICE_KEY = "homeroom_drive_notice";
 function DriveNotice() {
   const [message, setMessage] = useState(null);
   useEffect(() => {
+    // Left behind by a reload...
     try {
       const stashed = sessionStorage.getItem(DRIVE_NOTICE_KEY);
       if (stashed) { setMessage(stashed); sessionStorage.removeItem(DRIVE_NOTICE_KEY); }
     } catch { /* noop */ }
+    // ...or raised by a card that is about to unmount without one.
+    const onNotice = (e) => setMessage(e.detail);
+    window.addEventListener(DRIVE_NOTICE_EVENT, onNotice);
+    return () => window.removeEventListener(DRIVE_NOTICE_EVENT, onNotice);
   }, []);
   if (!message) return null;
   return (
@@ -1112,16 +1136,7 @@ function AddEmbedCard({ open, label, promptText, placeholder, initialUrl, onOpen
       if (result) {
         if (result.shareWarning) {
           setDriveError(result.shareWarning);
-          // This message only ever appears when the automatic share or
-          // publish FAILED -- meaning the board is about to show a blank
-          // frame. Setting React state and then reloading a few lines
-          // later threw it away every time, so the teacher got a blank
-          // frame and no reason for it. Hand it to the next page load
-          // instead. (Paths that do not reload, like the calendar picker,
-          // keep showing it inline and never reach this.)
-          if (!result.noReload) {
-            try { sessionStorage.setItem(DRIVE_NOTICE_KEY, result.shareWarning); } catch { /* noop */ }
-          }
+          raiseDriveNotice(result.shareWarning, { willReload: !result.noReload });
         }
         onSave(result.embedUrl);
         // Tell the parent BuildPage to scroll to the top before the reload
