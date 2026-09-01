@@ -40,7 +40,11 @@ export async function downloadMyData() {
   try {
     const a = document.createElement("a");
     a.href = url;
-    a.download = `homeroom-backup-${stamp}.json`;
+    // Named for the product, not the old project name. This file is the
+    // one artefact of the app a teacher holds in their hand -- and the one
+    // they would hand to district IT to show their data is portable -- so
+    // it should not arrive called "homeroom".
+    a.download = `gil-bilt-backup-${stamp}.json`;
     document.body.appendChild(a);
     a.click();
     a.remove();

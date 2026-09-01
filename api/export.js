@@ -77,7 +77,11 @@ export default async function handler(req, res) {
       teacherId,
       // Named so a future import knows what it is looking at, and so a
       // human opening the file can tell what produced it.
-      format: "homeroom-teacher-export",
+      // Renamed with the product. Nothing imports these yet, so there is
+      // no reader to break; if an importer is ever written it should also
+      // accept the old "homeroom-teacher-export" value, which appears in
+      // any backup downloaded before 2026-09-01.
+      format: "gil-bilt-teacher-export",
       formatVersion: 1,
       data,
     });
