@@ -21,6 +21,7 @@
 // api/assignments.js and api/profile.js.
 import { MongoClient } from "mongodb";
 import { resolveTeacherId } from "./_auth.js";
+import { enforceRateLimit } from "./_rateLimit.js";
 import { payloadTooBig } from "./_validate.js";
 
 const DB_NAME = process.env.MONGODB_DB || "homeroom";
@@ -101,6 +102,8 @@ export default async function handler(req, res) {
   // ignored, so a caller cannot name a teacher they are not.
   const teacherId = await resolveTeacherId(req, res);
   if (!teacherId) return;   // 401/503 already sent
+  // Fails open if the limiter itself is unavailable -- see _rateLimit.js.
+  if (!(await enforceRateLimit(req, res, { teacherId, bucket: "curriculum" }))) return;
     if (req.method === "GET") {
       const col = await getCollection();
       const doc = await col.findOne({ teacherId: String(teacherId) });

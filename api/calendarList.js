@@ -18,6 +18,7 @@
 // their own token at our infrastructure and using it as a free, unlogged
 // relay to googleapis.com.
 import { resolveTeacherId } from "./_auth.js";
+import { enforceRateLimit } from "./_rateLimit.js";
 
 // Google's own call gets a ceiling well under Vercel's function timeout,
 // so a hung upstream returns a clean 504 instead of holding the lambda
@@ -44,6 +45,8 @@ export default async function handler(req, res) {
   try {
     const teacherId = await resolveTeacherId(req, res);
     if (!teacherId) return;   // 401/503 already sent
+    // Fails open if the limiter itself is unavailable -- see _rateLimit.js.
+    if (!(await enforceRateLimit(req, res, { teacherId, bucket: "calendarList" }))) return;
 
     if (req.method !== "GET") {
       res.status(405).json({ error: "Method not allowed" });

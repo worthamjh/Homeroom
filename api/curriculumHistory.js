@@ -14,6 +14,7 @@
 // the history capture, and would drift.
 import { MongoClient, ObjectId } from "mongodb";
 import { resolveTeacherId, PUBLIC_TEACHER_ID } from "./_auth.js";
+import { enforceRateLimit } from "./_rateLimit.js";
 
 const DB_NAME = process.env.MONGODB_DB || "homeroom";
 const HISTORY_COLLECTION = "curriculaHistory";
@@ -42,6 +43,8 @@ export default async function handler(req, res) {
   try {
     const teacherId = await resolveTeacherId(req, res);
     if (!teacherId) return;   // 401/503 already sent
+    // Fails open if the limiter itself is unavailable -- see _rateLimit.js.
+    if (!(await enforceRateLimit(req, res, { teacherId, bucket: "curriculumHistory" }))) return;
 
     // _auth lets an unauthenticated GET through as the public demo, which
     // is right for reading a demo board and wrong here: version history is

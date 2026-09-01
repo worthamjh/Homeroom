@@ -9,6 +9,7 @@
 // arriving in the query or body is ignored for identity.
 import { MongoClient } from "mongodb";
 import { resolveTeacherId } from "./_auth.js";
+import { enforceRateLimit } from "./_rateLimit.js";
 
 const DB_NAME = process.env.MONGODB_DB || "homeroom";
 const COLLECTION = "assignments";
@@ -57,6 +58,8 @@ export default async function handler(req, res) {
     // is ignored, so a caller cannot name a teacher they are not.
     const teacherId = await resolveTeacherId(req, res);
     if (!teacherId) return;   // 401/503 already sent
+    // Fails open if the limiter itself is unavailable -- see _rateLimit.js.
+    if (!(await enforceRateLimit(req, res, { teacherId, bucket: "assignments" }))) return;
 
     if (req.method === "GET") {
       const { unitIdx, lessonTitle } = req.query;

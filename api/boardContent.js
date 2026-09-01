@@ -19,6 +19,7 @@
 // api/assignments.js, api/profile.js, and api/curriculum.js.
 import { MongoClient } from "mongodb";
 import { resolveTeacherId } from "./_auth.js";
+import { enforceRateLimit } from "./_rateLimit.js";
 import { capString, LIMITS } from "./_validate.js";
 
 const DEFAULT_TEACHER_ID = "local-teacher";
@@ -95,6 +96,8 @@ export default async function handler(req, res) {
   // ignored, so a caller cannot name a teacher they are not.
   const teacherId = await resolveTeacherId(req, res);
   if (!teacherId) return;   // 401/503 already sent
+  // Fails open if the limiter itself is unavailable -- see _rateLimit.js.
+  if (!(await enforceRateLimit(req, res, { teacherId, bucket: "boardContent" }))) return;
     if (req.method === "GET") {
       const { unitIdx, lessonTitle, panelIdx } = req.query;
       if (unitIdx == null || !lessonTitle) {

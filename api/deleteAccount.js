@@ -18,6 +18,7 @@
 import { MongoClient } from "mongodb";
 import { createClerkClient } from "@clerk/backend";
 import { resolveTeacherId, PUBLIC_TEACHER_ID } from "./_auth.js";
+import { enforceRateLimit } from "./_rateLimit.js";
 
 const DB_NAME = process.env.MONGODB_DB || "homeroom";
 
@@ -53,6 +54,8 @@ export default async function handler(req, res) {
   try {
     const teacherId = await resolveTeacherId(req, res);
     if (!teacherId) return;   // 401/503 already sent
+    // Fails open if the limiter itself is unavailable -- see _rateLimit.js.
+    if (!(await enforceRateLimit(req, res, { teacherId, bucket: "deleteAccount" }))) return;
 
     // The public demo has no account to delete, and must never be
     // deletable by a passing visitor.
