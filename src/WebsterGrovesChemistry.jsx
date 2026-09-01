@@ -1129,7 +1129,15 @@ export function AddCalendarCard(props) {
       // which is why there is no "Browse Outlook Calendar" button to match
       // the Google one -- Graph cannot hand back an embed URL for a
       // calendar the teacher has not published yet.
-      promptText="Paste a calendar embed URL — Google Calendar: Settings → your calendar → Integrate calendar. Outlook: Settings → Calendar → Shared calendars → Publish a calendar."
+      // Google only, and it says so. An Outlook calendar CANNOT be embedded:
+      // its published page loads fine in a tab but, inside a frame, tries to
+      // open login.microsoftonline.com and Microsoft's own CSP forbids that
+      // nesting. Tested end to end -- published a real calendar, allowed
+      // every Microsoft host our policy could allow, and it still failed on
+      // their block, which is not ours to lift. Saying nothing would leave
+      // an Outlook teacher publishing a calendar, pasting it, and getting a
+      // grey box with no explanation.
+      promptText="Paste a Google Calendar embed URL — in Google Calendar: Settings → your calendar → Integrate calendar. (Outlook calendars can't be embedded: Microsoft blocks their published calendars from loading inside another site.)"
       placeholder="https://calendar.google.com/calendar/embed?src=..."
       onBrowseDrive={driveReady ? pickGoogleCalendar : undefined}
       browseLabel="Browse Google Calendar"
