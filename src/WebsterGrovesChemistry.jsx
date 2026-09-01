@@ -1061,6 +1061,42 @@ function embedUrlFromPaste(raw) {
   return wrapOfficeDoc(match ? match[1].trim() : text);
 }
 
+// Survives the post-picker reload; see handleBrowseDrive below.
+const DRIVE_NOTICE_KEY = "homeroom_drive_notice";
+
+// A page-level notice rather than something attached to one slot: the
+// card that raised it has been replaced by the content it just saved, so
+// there is no longer a card to put it in, and the problem it reports is
+// about what the whole board will show.
+function DriveNotice() {
+  const [message, setMessage] = useState(null);
+  useEffect(() => {
+    try {
+      const stashed = sessionStorage.getItem(DRIVE_NOTICE_KEY);
+      if (stashed) { setMessage(stashed); sessionStorage.removeItem(DRIVE_NOTICE_KEY); }
+    } catch { /* noop */ }
+  }, []);
+  if (!message) return null;
+  return (
+    <div style={{
+      position: "fixed", top: 12, left: "50%", transform: "translateX(-50%)",
+      zIndex: 9997, maxWidth: "min(560px, 92vw)",
+      background: "#2a2418", border: "1px solid #e8a722", borderRadius: 8,
+      padding: "10px 14px", display: "flex", alignItems: "flex-start", gap: 10,
+      fontFamily: "Lato, sans-serif", fontSize: 12.5, lineHeight: 1.5, color: "#e8a722",
+      boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
+    }}>
+      <span style={{ flex: 1 }}>{message}</span>
+      <button
+        onClick={() => setMessage(null)}
+        aria-label="Dismiss"
+        style={{ background: "transparent", border: "none", color: "#e8a722",
+                 cursor: "pointer", fontSize: 15, lineHeight: 1, padding: 0 }}
+      >×</button>
+    </div>
+  );
+}
+
 function AddEmbedCard({ open, label, promptText, placeholder, initialUrl, onOpen, onCancel, onSave, dataTour, onBrowseDrive, browseLabel = "Browse Google Drive", browseBusyLabel = "Connecting to Google Drive…" }) {
   const [url, setUrl] = useState(initialUrl || "");
   const [driveBusy, setDriveBusy] = useState(false);
@@ -1074,7 +1110,19 @@ function AddEmbedCard({ open, label, promptText, placeholder, initialUrl, onOpen
       // null means the teacher opened the Google picker and cancelled —
       // not an error, just nothing to do.
       if (result) {
-        if (result.shareWarning) setDriveError(result.shareWarning);
+        if (result.shareWarning) {
+          setDriveError(result.shareWarning);
+          // This message only ever appears when the automatic share or
+          // publish FAILED -- meaning the board is about to show a blank
+          // frame. Setting React state and then reloading a few lines
+          // later threw it away every time, so the teacher got a blank
+          // frame and no reason for it. Hand it to the next page load
+          // instead. (Paths that do not reload, like the calendar picker,
+          // keep showing it inline and never reach this.)
+          if (!result.noReload) {
+            try { sessionStorage.setItem(DRIVE_NOTICE_KEY, result.shareWarning); } catch { /* noop */ }
+          }
+        }
         onSave(result.embedUrl);
         // Tell the parent BuildPage to scroll to the top before the reload
         // lands — without this the browser keeps its current scroll position,
@@ -4028,6 +4076,8 @@ export default function App() {
       )}
 
       <ToolsFooter />
+
+      <DriveNotice />
 
       <CurriculumHistory
         open={historyOpen}
