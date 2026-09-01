@@ -246,12 +246,19 @@ export default function BuildPage() {
   // any time from the "Take the tour" link below.
   const [tourDone] = useScopedSetting(BUILD_TOUR_DONE_KEY, DEFAULT_BUILD_TOUR_DONE, k => k === "true" || k === "false");
   const [tourActive, setTourActive] = useState(false);
+  // tourDone MUST be in the deps. It used to be excluded, so this read it
+  // once on mount -- and in a browser with empty localStorage that read is
+  // always the default "false", because the teacher's real value is still
+  // in flight from Mongo. The timer fired regardless of what came back, so
+  // a teacher who had finished the tour got it again on every new browser
+  // or computer, forever. With tourDone in the deps the arriving "true"
+  // re-runs this, the cleanup clears the pending timer, and the tour never
+  // starts.
   useEffect(() => {
     if (!isBlankTeacher || tourDone === "true") return;
     const t = setTimeout(() => setTourActive(true), 1200);
     return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isBlankTeacher]);
+  }, [isBlankTeacher, tourDone]);
 
   const backHref = (() => {
     const params = new URLSearchParams();

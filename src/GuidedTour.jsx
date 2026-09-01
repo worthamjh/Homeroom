@@ -84,7 +84,10 @@ const STEPS = [
     selector: '[data-tour="tour-unit-tab"]',
     gate: "auto",
     title: "There's your unit",
-    body: "Click it to open it.",
+    // "Click it to open it" said what to do and not why, and leaned on
+    // "it" twice. Naming the unit would be worse -- a teacher may have
+    // renamed it, and then the copy is simply wrong.
+    body: "Open it to start adding lessons.",
   },
   {
     // Also a real gate now, not "ack" — the unit was just created empty,
