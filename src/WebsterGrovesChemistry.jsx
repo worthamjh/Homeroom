@@ -2584,6 +2584,25 @@ export default function App() {
       ? { boxShadow: "inset 0 0 0 3px var(--board-secondary)" }
       : {};
 
+  // Dim the parts of the board the selected settings category will NOT
+  // change, so what a teacher is about to affect is obvious before they
+  // touch anything. Jay's ask: "the bulletin board section would have its
+  // normal brightness and every other part of the board would be less
+  // bright, emphasizing the part of the homeroom that is going to be
+  // changed."
+  //
+  // The inverse of highlightStyle above, which outlines the selected
+  // region but leaves everything equally bright -- readable only if you
+  // already know which outline to look for.
+  //
+  // Takes the regions that count as "this area", because one area answers
+  // to several categories: the chalkboard stays lit for Blackboard, Board
+  // Content AND Board Layout, all of which change something inside it.
+  const dimUnless = (...regions) =>
+    (isPreviewMode || isBuildMode) && highlightRegion && !regions.includes(highlightRegion)
+      ? { filter: "brightness(0.4)", transition: "filter 0.18s" }
+      : { transition: "filter 0.18s" };
+
   // Close any open video player when navigating to a different lesson,
   // rather than leaving the previous lesson's video paused-but-open behind.
   useEffect(() => {
@@ -3431,7 +3450,7 @@ export default function App() {
                 along the top/bottom edges, both driven by the selected
                 bulletinStyles() preset, whose colours come from the
                 teacher's profile. */}
-            <div style={{ background: bulletinStyle.background, position: "relative", minHeight: 112, flexShrink: 0, display: "flex", flexDirection: "column", ...highlightStyle("bulletin") }}>
+            <div style={{ background: bulletinStyle.background, position: "relative", minHeight: 112, flexShrink: 0, display: "flex", flexDirection: "column", ...dimUnless("bulletin"), ...highlightStyle("bulletin") }}>
               {bulletinStyle.trim && (
                 <div style={{ height: 10, flexShrink: 0, backgroundImage: bulletinStyle.trim, backgroundRepeat: "repeat-x", backgroundSize: "24px 10px" }} />
               )}
@@ -3497,7 +3516,7 @@ export default function App() {
                 darker #6B4F10, which made the divider look like a shadow
                 rather than part of the frame. Still thinner than the 7px
                 perimeter, which is what an inner member should be. */}
-            <div style={{ flex: 1, minHeight: 0, background: surface.face, borderTop: "4px solid #8B6914", display: "flex", flexDirection: "column", ...highlightStyle("blackboard"), ...highlightStyle("content") }}>
+            <div style={{ flex: 1, minHeight: 0, background: surface.face, borderTop: "4px solid #8B6914", display: "flex", flexDirection: "column", ...dimUnless("blackboard", "content", "layout"), ...highlightStyle("blackboard"), ...highlightStyle("content") }}>
               {!isOverview && (activeLesson?.goalPanels || slidingEnabled) ? (
                 // Sliding multi-panel chalkboard — the exact same rail/dock
                 // mechanic regardless of content template. A lesson that
