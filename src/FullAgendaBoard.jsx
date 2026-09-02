@@ -431,12 +431,17 @@ function KamiUrlInput({ kamiUrl, onSaveKamiUrl, lessonLabel, surface = DEFAULT_S
           color: surface.placeholderText, border: `1px dashed ${surface.dividerBorder}`,
           borderRadius: 4, padding: "8px 10px",
         }}>
-          <strong>Create Bell Ringer doc</strong> makes a Google Doc and saves it in a
-          &ldquo;Bell Ringer&rdquo; folder in your Drive &mdash; it creates that folder for you
-          the first time. If more than one paper style is available, the button offers the list.
+          {/* It is a PDF, and the copy says so. It used to say "a Google
+              Doc", and Jay -- seeing a PDF land in his Drive -- read that as
+              a doc being converted. Nothing converts: uploadPdfToDrive in
+              googleDrive.js writes the paper template as a PDF from the
+              start, because Kami annotates fixed pages. */}
+          <strong>Create Bell Ringer doc</strong> makes a PDF &mdash; a blank sheet of paper &mdash;
+          and saves it in a &ldquo;Bell Ringer&rdquo; folder in your Drive; it creates that folder
+          for you the first time. If more than one paper style is available, the button offers the list.
           <br /><br />
-          Once a doc exists, clicking <strong>Bell Ringer</strong> on the board opens it here.
-          <strong> Full Screen</strong> fills the screen to write in or project;
+          Once that PDF exists, clicking <strong>Bell Ringer</strong> on the board opens it here
+          to write on. <strong>Full Screen</strong> fills the screen to write in or project;
           <strong> Close</strong> puts it away and saves what you wrote. Click Bell Ringer again
           and it comes back.
         </div>
