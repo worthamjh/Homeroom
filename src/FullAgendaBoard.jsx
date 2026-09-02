@@ -60,6 +60,8 @@ export function defaultFullAgendaContent() {
     agenda: "",
     bellRinger: "",
     bellRingerKamiUrl: "",
+    exitSlip: "",
+    exitSlipKamiUrl: "",
     learningGoals: "",
   };
 }
@@ -253,7 +255,10 @@ export const FULL_AGENDA_FIELD_META = {
   // there is no empty white box sitting on the board waiting to be typed
   // into. Any bellRinger TEXT saved before this still lives in the record;
   // it just is not shown or editable here any more.
-  bellRinger: { label: "Bell Ringer", placeholder: "", rows: 2, docOnly: true },
+  bellRinger: { label: "Bell Ringer", placeholder: "", rows: 2, docOnly: true, folderName: "Bell Ringers" },
+  // The Bell Ringer's twin for the end of class -- see BOARD_COMPONENTS in
+  // boardConfig.js. Same docOnly shape; its docs land in their own folder.
+  exitSlip: { label: "Exit Slip", placeholder: "", rows: 2, docOnly: true, folderName: "Exit Slips" },
   // Editable Learning Goals -- for lessons with no curriculum-authored
   // goals at all (see useEditableLearningGoals in WebsterGrovesChemistry
   // .jsx), a teacher can type their own goals list here instead of the
@@ -291,7 +296,7 @@ function splitGoalLines(raw) {
 // Pasting a link still works for teachers moving an existing Kami doc
 // over, but it is tucked behind a toggle now that auto-create (both this
 // button and useAutoCreateKamiDoc's type-to-attach) is the normal path.
-function KamiUrlInput({ kamiUrl, onSaveKamiUrl, lessonLabel, surface = DEFAULT_SURFACE }) {
+function KamiUrlInput({ kamiUrl, onSaveKamiUrl, lessonLabel, surface = DEFAULT_SURFACE, docLabel = "Bell Ringer", folderName = "Bell Ringers" }) {
   const [draft, setDraft] = useState("");
   const [pasting, setPasting] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -315,8 +320,8 @@ function KamiUrlInput({ kamiUrl, onSaveKamiUrl, lessonLabel, surface = DEFAULT_S
     setPickingTemplate(false);
     try {
       const dateStr = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-      const title = lessonLabel ? `Bell Ringer — ${lessonLabel} — ${dateStr}` : undefined;
-      const { kamiUrl: newUrl, templateError } = await createKamiBellRingerDoc({ title, templateId });
+      const title = `${docLabel} — ${lessonLabel ? lessonLabel + " — " : ""}${dateStr}`;
+      const { kamiUrl: newUrl, templateError } = await createKamiBellRingerDoc({ title, templateId, folderName });
       // The doc was still made, just without the template -- say so rather
       // than handing back a blank page with no explanation.
       if (templateError) setCreateError(templateError);
@@ -350,16 +355,16 @@ function KamiUrlInput({ kamiUrl, onSaveKamiUrl, lessonLabel, surface = DEFAULT_S
             {/* The doc itself, not its address. */}
             <a
               href={kamiUrl} target="_blank" rel="noreferrer"
-              title="Open this Bell Ringer in Kami"
+              title={`Open this ${docLabel} in Kami`}
               style={{ ...chip, color: "#ffb347", borderColor: "rgba(255,165,0,0.45)" }}
               onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,165,0,0.12)"; }}
               onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}
             >
-              📄 Bell Ringer doc
+              📄 {docLabel} doc
             </a>
             <button
               onClick={() => onSaveKamiUrl("")}
-              title="Unlink this doc from the Bell Ringer (the file stays in your Drive)"
+              title={`Unlink this doc from the ${docLabel} (the file stays in your Drive)`}
               style={chip}
               onMouseEnter={e => { e.currentTarget.style.color = "#ff9b9b"; e.currentTarget.style.borderColor = "rgba(255,120,120,0.5)"; }}
               onMouseLeave={e => { e.currentTarget.style.color = surface.placeholderText; e.currentTarget.style.borderColor = surface.dividerBorder; }}
@@ -384,7 +389,7 @@ function KamiUrlInput({ kamiUrl, onSaveKamiUrl, lessonLabel, surface = DEFAULT_S
                   cursor: creating ? "default" : "pointer",
                 }}
               >
-                {creating ? "⏳ Creating…" : templates.length > 1 ? "⚡ Create Bell Ringer doc ▾" : "⚡ Create Bell Ringer doc"}
+                {creating ? "⏳ Creating…" : templates.length > 1 ? `⚡ Create ${docLabel} doc ▾` : `⚡ Create ${docLabel} doc`}
               </button>
             )}
             {pickingTemplate && templates.length > 1 && (
@@ -428,7 +433,7 @@ function KamiUrlInput({ kamiUrl, onSaveKamiUrl, lessonLabel, surface = DEFAULT_S
         <button
           onClick={() => setHelpOpen(v => !v)}
           aria-expanded={helpOpen}
-          title="How the Bell Ringer works"
+          title={`How the ${docLabel} works`}
           style={{
             ...chip, marginLeft: "auto", padding: "2px 7px", borderRadius: "50%",
             lineHeight: 1.3, opacity: helpOpen ? 1 : 0.6,
@@ -447,14 +452,14 @@ function KamiUrlInput({ kamiUrl, onSaveKamiUrl, lessonLabel, surface = DEFAULT_S
               a doc being converted. Nothing converts: uploadPdfToDrive in
               googleDrive.js writes the paper template as a PDF from the
               start, because Kami annotates fixed pages. */}
-          <strong>Create Bell Ringer doc</strong> makes a PDF &mdash; a blank sheet of paper &mdash;
-          and saves it in a &ldquo;Bell Ringer&rdquo; folder in your Drive; it creates that folder
+          <strong>Create {docLabel} doc</strong> makes a PDF &mdash; a blank sheet of paper &mdash;
+          and saves it in a &ldquo;{folderName}&rdquo; folder in your Drive; it creates that folder
           for you the first time. Plain, wide ruled and graph paper come to start with; the Store has more,
           and is also where you take a paper off this list. Plain always stays.
           <br /><br />
-          Once that PDF exists, clicking <strong>Bell Ringer</strong> on the board opens it here
+          Once that PDF exists, clicking <strong>{docLabel}</strong> on the board opens it here
           to write on. <strong>Full Screen</strong> fills the screen to write in or project;
-          <strong> Close</strong> puts it away and saves what you wrote. Click Bell Ringer again
+          <strong> Close</strong> puts it away and saves what you wrote. Click {docLabel} again
           and it comes back.
         </div>
       )}
@@ -491,39 +496,50 @@ function KamiUrlInput({ kamiUrl, onSaveKamiUrl, lessonLabel, surface = DEFAULT_S
 // own checkbox so a teacher can tick it off with the rest of the agenda;
 // that tick lives in checkedLines under the key "bellRinger", beside the
 // numbered ones.
-function PinnedBellRingerLine({ surface, interactive, checkedLines, onToggleLine, kamiUrl, onSaveKamiUrl, onKamiOpen, lessonLabel }) {
-  const checked = !!(checkedLines && checkedLines.bellRinger);
+// Generalised for the Exit Slip: `docKey` is "bellRinger" or "exitSlip",
+// and doubles as the checkbox's key in checkedLines; `label` is what the
+// line says. Which END of the list a doc pins to is the caller's choice
+// (Bell Ringer first, Exit Slip last -- start and end of class).
+function PinnedDocLine({ docKey = "bellRinger", label = "Bell Ringer", folderName, surface, interactive, checkedLines, onToggleLine, kamiUrl, onSaveKamiUrl, onKamiOpen, lessonLabel }) {
+  const checked = !!(checkedLines && checkedLines[docKey]);
   const canToggle = typeof onToggleLine === "function";
   const tapOpens = !interactive && !!kamiUrl && !!onKamiOpen;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 2, paddingBottom: interactive ? 4 : 0 }}>
       <div style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "3px 2px" }}>
         <span
-          onClick={canToggle ? () => onToggleLine("bellRinger") : undefined}
+          onClick={canToggle ? () => onToggleLine(docKey) : undefined}
           style={{ width: 14, height: 14, marginTop: interactive ? 5 : 3, borderRadius: 3, border: `2px solid ${checked ? surface.bodyText : surface.checkboxBorder}`, background: "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: canToggle ? "pointer" : "default", transition: "all 0.15s" }}
         >
           {checked && <span style={{ color: surface.bodyText, fontSize: 10, lineHeight: 1, fontWeight: 900 }}>✓</span>}
         </span>
         <span
           onClick={tapOpens ? onKamiOpen : undefined}
-          title={tapOpens ? "Tap to open Bell Ringer in Kami" : undefined}
+          title={tapOpens ? `Tap to open ${label} in Kami` : undefined}
           style={{ fontFamily: "Caveat, cursive", fontSize: 17, lineHeight: 1.4, minWidth: 0, color: checked ? surface.bodyTextChecked : surface.bodyText, textShadow: surface.textShadow, textDecoration: checked ? "line-through" : "none", cursor: tapOpens ? "pointer" : "default", borderRadius: 4, padding: "0 2px" }}
           onMouseEnter={tapOpens ? (e => { e.currentTarget.style.background = "rgba(128,128,128,0.12)"; }) : undefined}
           onMouseLeave={tapOpens ? (e => { e.currentTarget.style.background = "transparent"; }) : undefined}
         >
-          Bell Ringer
+          {label}
         </span>
       </div>
       {interactive && onSaveKamiUrl !== undefined && (
         <div style={{ paddingLeft: 22 }}>
-          <KamiUrlInput kamiUrl={kamiUrl} onSaveKamiUrl={onSaveKamiUrl} surface={surface} lessonLabel={lessonLabel} />
+          <KamiUrlInput kamiUrl={kamiUrl} onSaveKamiUrl={onSaveKamiUrl} surface={surface} lessonLabel={lessonLabel} docLabel={label} folderName={folderName} />
         </div>
       )}
     </div>
   );
 }
 
-function Section({ label, value, placeholder, editing, onStartEdit, onSave, rows = 3, minHeight, surface, itemized, checkedLines, onToggleLine, quickAddOptions, interactive = true, kamiUrl, onSaveKamiUrl, onKamiOpen, lessonLabel, docOnly = false, bellRingerInline = false }) {
+function Section({ label, value, placeholder, editing, onStartEdit, onSave, rows = 3, minHeight, surface, itemized, checkedLines, onToggleLine, quickAddOptions, interactive = true, kamiUrl, onSaveKamiUrl, onKamiOpen, lessonLabel, docOnly = false, pinnedDocs = [], docLabel, folderName }) {
+  // Docs pinned into this (Agenda) list: [{ key, label, position: "top" |
+  // "bottom", kamiUrl, onSaveKamiUrl, onKamiOpen, lessonLabel, folderName }].
+  const pinnedTop = pinnedDocs.filter(d => d.position !== "bottom");
+  const pinnedBottom = pinnedDocs.filter(d => d.position === "bottom");
+  const pinnedLine = (d, isInteractive) => (
+    <PinnedDocLine key={d.key} docKey={d.key} label={d.label} folderName={d.folderName} surface={surface} interactive={isInteractive} checkedLines={checkedLines} onToggleLine={onToggleLine} kamiUrl={d.kamiUrl} onSaveKamiUrl={isInteractive ? d.onSaveKamiUrl : undefined} onKamiOpen={d.onKamiOpen} lessonLabel={d.lessonLabel} />
+  );
   const ref = useRef(null);
   const [draft, setDraft] = useState(value);
 
@@ -675,7 +691,7 @@ function Section({ label, value, placeholder, editing, onStartEdit, onSave, rows
     const isEmpty = itemized
       ? items.filter(t => t.trim().length > 0).length === 0
       : lines.length === 0;
-    if (isEmpty && !bellRingerInline) {
+    if (isEmpty && pinnedDocs.length === 0) {
       return (
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           <SectionHeader label={label} surface={surface} onClick={!interactive && onKamiOpen && kamiUrl ? onKamiOpen : undefined} />
@@ -690,9 +706,7 @@ function Section({ label, value, placeholder, editing, onStartEdit, onSave, rows
       {docOnly ? null : itemized ? (
         editable ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-            {bellRingerInline && (
-              <PinnedBellRingerLine surface={surface} interactive checkedLines={checkedLines} onToggleLine={onToggleLine} kamiUrl={kamiUrl} onSaveKamiUrl={onSaveKamiUrl} onKamiOpen={onKamiOpen} lessonLabel={lessonLabel} />
-            )}
+            {pinnedTop.map(d => pinnedLine(d, true))}
             {(draggingItems ?? items.map((text, i) => ({ id: i, text }))).map((item, displayIdx) => {
               const text = item.text;
               const id = item.id;
@@ -810,17 +824,16 @@ function Section({ label, value, placeholder, editing, onStartEdit, onSave, rows
                 ))}
               </div>
             )}
+            {pinnedBottom.map(d => pinnedLine(d, true))}
           </div>
         ) : (
           // Read-only itemized display -- the non-front copies of a
           // sliding-panel field, or anywhere this content shows without
           // edit rights.
           <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-            {bellRingerInline && (
-              <PinnedBellRingerLine surface={surface} interactive={false} checkedLines={checkedLines} onToggleLine={onToggleLine} kamiUrl={kamiUrl} onKamiOpen={onKamiOpen} />
-            )}
+            {pinnedTop.map(d => pinnedLine(d, false))}
             {lines.length === 0 ? (
-              bellRingerInline ? null : (
+              pinnedDocs.length ? null : (
               <div style={{ fontFamily: "Caveat, cursive", fontSize: 17, color: surface.placeholderText, fontStyle: "italic", padding: "2px 4px" }}>
                 {placeholder}
               </div>
@@ -842,6 +855,7 @@ function Section({ label, value, placeholder, editing, onStartEdit, onSave, rows
                 );
               })
             )}
+            {pinnedBottom.map(d => pinnedLine(d, false))}
           </div>
         )
       ) : editing ? (
@@ -891,8 +905,8 @@ function Section({ label, value, placeholder, editing, onStartEdit, onSave, rows
           {lines.length ? lines.join("\n") : placeholder}
         </div>
       )}
-      {interactive && onSaveKamiUrl !== undefined && !bellRingerInline && (
-        <KamiUrlInput kamiUrl={kamiUrl} onSaveKamiUrl={onSaveKamiUrl} surface={surface} lessonLabel={lessonLabel} />
+      {interactive && onSaveKamiUrl !== undefined && pinnedDocs.length === 0 && (
+        <KamiUrlInput kamiUrl={kamiUrl} onSaveKamiUrl={onSaveKamiUrl} surface={surface} lessonLabel={lessonLabel} docLabel={docLabel} folderName={folderName} />
       )}
     </div>
   );
@@ -1043,7 +1057,7 @@ export function FullAgendaFields({
 // Failures are swallowed for the same reason: the button is still sitting
 // right there as the fallback, so a dead network shouldn't throw an error
 // at someone who was only trying to type a bell ringer.
-function useAutoCreateKamiDoc({ kamiUrl, onSaveKamiUrl, lessonLabel }) {
+function useAutoCreateKamiDoc({ kamiUrl, onSaveKamiUrl, lessonLabel, docLabel = "Bell Ringer", folderName }) {
   const creatingRef = useRef(false);
   return (text) => {
     if (kamiUrl || !onSaveKamiUrl) return;
@@ -1052,10 +1066,10 @@ function useAutoCreateKamiDoc({ kamiUrl, onSaveKamiUrl, lessonLabel }) {
     if (!googleDriveConfigured() || !googleDriveSignedIn()) return;
     creatingRef.current = true;
     const dateStr = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-    const title = lessonLabel ? `Bell Ringer \u2014 ${lessonLabel} \u2014 ${dateStr}` : undefined;
+    const title = `${docLabel} \u2014 ${lessonLabel ? lessonLabel + " \u2014 " : ""}${dateStr}`;
     // No paper choice on this path: it fires on save, with no UI to ask
     // through, so it makes a blank doc. The button is where papers are picked.
-    createKamiBellRingerDoc({ title })
+    createKamiBellRingerDoc({ title, folderName })
       // Left latched to true on success on purpose: onSave fires on every
       // blur, and the freshly saved kamiUrl takes a render to come back
       // down as a prop, so releasing the latch here would let a fast
@@ -1066,20 +1080,23 @@ function useAutoCreateKamiDoc({ kamiUrl, onSaveKamiUrl, lessonLabel }) {
   };
 }
 
-export function EditableField({ fieldKey, content, editingKey, onStartEdit, onSave, surface = DEFAULT_SURFACE, interactive = true, checkedLines, onToggleLine, kamiUrl, onSaveKamiUrl, onKamiOpen, lessonLabel, bellRingerInline = false }) {
-  // Before the early return -- hooks can't run conditionally.
-  const autoCreateKamiDoc = useAutoCreateKamiDoc({ kamiUrl, onSaveKamiUrl, lessonLabel });
+export function EditableField({ fieldKey, content, editingKey, onStartEdit, onSave, surface = DEFAULT_SURFACE, interactive = true, checkedLines, onToggleLine, kamiUrl, onSaveKamiUrl, onKamiOpen, lessonLabel, pinnedDocs = [] }) {
   const meta = FULL_AGENDA_FIELD_META[fieldKey];
+  // Before the early return -- hooks can't run conditionally.
+  const autoCreateKamiDoc = useAutoCreateKamiDoc({ kamiUrl, onSaveKamiUrl, lessonLabel, docLabel: meta?.label, folderName: meta?.folderName });
   if (!meta) return null;
   // Same Agenda-only quick-add chips as FullAgendaFields' section() helper
   // — see the comment on them in Section. This is the path the flat,
   // reorderable board-content column (and Sliding Boards' per-panel
   // copies) render through, so it needs its own copy of that logic.
-  // No "+ Bell Ringer" chip while the Bell Ringer is already pinned at the
-  // top of this list.
-  const quickAddOptions = (interactive && fieldKey === "agenda" && !bellRingerInline) ? [
-    { label: FULL_AGENDA_FIELD_META.bellRinger.label, value: (content.bellRinger || "").trim() || FULL_AGENDA_FIELD_META.bellRinger.label },
-  ] : undefined;
+  // No chip for a doc that is already pinned into this list.
+  const pinnedKeys = new Set(pinnedDocs.map(d => d.key));
+  const quickAddOptions = (interactive && fieldKey === "agenda")
+    ? ["bellRinger", "exitSlip"].filter(k => !pinnedKeys.has(k)).map(k => ({
+        label: FULL_AGENDA_FIELD_META[k].label,
+        value: (content[k] || "").trim() || FULL_AGENDA_FIELD_META[k].label,
+      }))
+    : undefined;
   return (
     <Section
       label={meta.label}
@@ -1089,7 +1106,7 @@ export function EditableField({ fieldKey, content, editingKey, onStartEdit, onSa
       onStartEdit={interactive ? () => onStartEdit(fieldKey) : undefined}
       onSave={val => {
         onSave(fieldKey, val);
-        if (fieldKey === "bellRinger") autoCreateKamiDoc(val);
+        if (meta.docOnly) autoCreateKamiDoc(val);
       }}
       rows={meta.rows}
       surface={surface}
@@ -1101,9 +1118,11 @@ export function EditableField({ fieldKey, content, editingKey, onStartEdit, onSa
       kamiUrl={kamiUrl}
       onSaveKamiUrl={onSaveKamiUrl}
       onKamiOpen={onKamiOpen}
-      bellRingerInline={bellRingerInline}
+      pinnedDocs={pinnedDocs}
       lessonLabel={lessonLabel}
       docOnly={meta.docOnly}
+      docLabel={meta.label}
+      folderName={meta.folderName}
     />
   );
 }

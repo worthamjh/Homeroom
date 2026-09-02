@@ -29,6 +29,7 @@ import {
   SLIDING_BOARDS_COUNT_KEY, DEFAULT_SLIDING_BOARDS_COUNT,
   getActiveClassroomId, classroomQuery,
   BELL_RINGER_PLACEMENT_KEY, DEFAULT_BELL_RINGER_PLACEMENT, isBellRingerPlacement,
+  EXIT_SLIP_PLACEMENT_KEY, DEFAULT_EXIT_SLIP_PLACEMENT,
   buildSlidingPanels,
   CURRENT_VIEW_STORAGE_KEY, readCurrentView, writeCurrentView,
   useBoardContentOrder,
@@ -1938,7 +1939,7 @@ const KAMI_CHROME = {
   bottom: 56,  // floating zoom/page controls + horizontal scrollbar
 };
 
-function KamiOverlay({ url, state, onToggleFullscreen, onClose, contained = false }) {
+function KamiOverlay({ url, state, onToggleFullscreen, onClose, contained = false, label = "Bell Ringer" }) {
   if (!url || !state) return null;
   const isFullscreen = state === "fullscreen";
   return (
@@ -1960,7 +1961,7 @@ function KamiOverlay({ url, state, onToggleFullscreen, onClose, contained = fals
       {/* Toolbar */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 12px", background: "rgba(0,0,0,0.55)", flexShrink: 0, backdropFilter: "blur(4px)" }}>
         <span style={{ flex: 1, fontFamily: "Oswald, sans-serif", fontSize: 13, letterSpacing: 1.5, textTransform: "uppercase", color: "rgba(255,255,255,0.6)" }}>
-          Bell Ringer
+          {label}
         </span>
         <button
           onClick={onToggleFullscreen}
@@ -1973,7 +1974,7 @@ function KamiOverlay({ url, state, onToggleFullscreen, onClose, contained = fals
         </button>
         <button
           onClick={onClose}
-          title="Close Bell Ringer"
+          title={`Close ${label}`}
           style={{ fontFamily: "Lato, sans-serif", fontSize: 12, padding: "5px 14px", background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.25)", borderRadius: 5, color: "#fff", cursor: "pointer" }}
           onMouseEnter={e => { e.currentTarget.style.background = "rgba(200,60,60,0.35)"; e.currentTarget.style.borderColor = "rgba(200,60,60,0.6)"; }}
           onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.1)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.25)"; }}
@@ -1998,7 +1999,7 @@ function KamiOverlay({ url, state, onToggleFullscreen, onClose, contained = fals
                 height: `calc(100% + ${KAMI_CHROME.top + KAMI_CHROME.bottom}px)`,
               }}
           allow="fullscreen; clipboard-read; clipboard-write"
-          title="Bell Ringer — Kami"
+          title={`${label} — Kami`}
         />
       </div>
     </div>
@@ -2728,6 +2729,8 @@ export default function App({ viewer = false } = {}) {
   const [agendaOn] = useScopedSetting(BOARD_COMPONENTS.agenda.storageKey, BOARD_COMPONENTS.agenda.default, isOnOff);
   const [bellRingerOn] = useScopedSetting(BOARD_COMPONENTS.bellRinger.storageKey, BOARD_COMPONENTS.bellRinger.default, isOnOff);
   const [bellRingerPlacement] = useScopedSetting(BELL_RINGER_PLACEMENT_KEY, DEFAULT_BELL_RINGER_PLACEMENT, isBellRingerPlacement);
+  const [exitSlipOn] = useScopedSetting(BOARD_COMPONENTS.exitSlip.storageKey, BOARD_COMPONENTS.exitSlip.default, isOnOff);
+  const [exitSlipPlacement] = useScopedSetting(EXIT_SLIP_PLACEMENT_KEY, DEFAULT_EXIT_SLIP_PLACEMENT, isBellRingerPlacement);
   const learningGoalsIsOn = learningGoalsOn === "true";
   const essentialQuestionIsOn = essentialQuestionOn === "true";
   const agendaIsOn = agendaOn === "true";
@@ -2736,11 +2739,14 @@ export default function App({ viewer = false } = {}) {
   // BELL_RINGER_PLACEMENT_KEY). Needs the Agenda on to have somewhere to
   // go; otherwise it keeps its own block.
   const bellRingerInAgenda = bellRingerIsOn && agendaOn === "true" && bellRingerPlacement === "agenda";
+  // The Exit Slip, the same way -- pinned as the Agenda's LAST line.
+  const exitSlipIsOn = exitSlipOn === "true";
+  const exitSlipInAgenda = exitSlipIsOn && agendaOn === "true" && exitSlipPlacement === "agenda";
   // Whether any of the four Full Agenda freeform fields are on — drives
   // whether FullAgendaFields renders at all (it's presentational and would
   // otherwise render an empty gap of its own layout gap/Reset button when
   // every one of its four sections is toggled off).
-  const anyFullAgendaFieldOn = essentialQuestionIsOn || agendaIsOn || bellRingerIsOn;
+  const anyFullAgendaFieldOn = essentialQuestionIsOn || agendaIsOn || bellRingerIsOn || exitSlipIsOn;
   // Which order the five Board Content components render in, in the flat
   // (non-sliding) goals column — a teacher-chosen order (see Settings'
   // Board Content section), independent of which ones are toggled on.
@@ -3017,6 +3023,9 @@ export default function App({ viewer = false } = {}) {
   // know which one to read from rather than always falling back to the
   // flat layout's fields.
   const [kamiSourcePanelIdx, setKamiSourcePanelIdx] = useState(null);
+  // ...and which doc: the Bell Ringer or the Exit Slip. Same overlay, a
+  // different link and a different name on its toolbar.
+  const [kamiSourceField, setKamiSourceField] = useState("bellRinger");
 
   // Fetch calendar URL from MongoDB on mount so it survives clearing site data
   useEffect(() => {
@@ -3591,6 +3600,7 @@ export default function App({ viewer = false } = {}) {
         <SmartBoard src={boardSlides} />
         {kamiState && (
           <KamiOverlay
+            label={kamiOverlayLabel}
             url={kamiOverlayUrl}
             state={kamiState}
             contained={kamiState !== "fullscreen"}
@@ -3774,9 +3784,33 @@ export default function App({ viewer = false } = {}) {
   // Bell Ringer has been tapped (kamiSourcePanelIdx set in that panel's own
   // onKamiOpen, below) this reads that panel's link instead of always
   // falling back to the flat layout's fullAgendaFields.
+  const kamiUrlKey = `${kamiSourceField}KamiUrl`;
   const kamiOverlayUrl = (kamiSourcePanelIdx != null
-    ? mergePanelWithUnit(panelFieldsAt(kamiSourcePanelIdx)).content.bellRingerKamiUrl
-    : fullAgendaFields.content.bellRingerKamiUrl) || "";
+    ? mergePanelWithUnit(panelFieldsAt(kamiSourcePanelIdx)).content[kamiUrlKey]
+    : fullAgendaFields.content[kamiUrlKey]) || "";
+  const kamiOverlayLabel = kamiSourceField === "exitSlip" ? "Exit Slip" : "Bell Ringer";
+
+  // The props a doc field (Bell Ringer, Exit Slip) needs, and the pinned
+  // docs the Agenda carries when either is set to live inside it. One
+  // helper for both render branches (sliding panels and the flat column)
+  // so the two cannot drift.
+  const DOC_FIELDS = { bellRinger: { label: "Bell Ringer", folderName: "Bell Ringers" }, exitSlip: { label: "Exit Slip", folderName: "Exit Slips" } };
+  const docProps = (fields, docKey, panelIdx) => ({
+    kamiUrl: fields.content[`${docKey}KamiUrl`] || "",
+    onSaveKamiUrl: val => fields.save(`${docKey}KamiUrl`, val),
+    onKamiOpen: () => { setKamiSourcePanelIdx(panelIdx); setKamiSourceField(docKey); setKamiState(prev => prev ? null : "overlay"); },
+    lessonLabel: activeLesson?.title,
+  });
+  const docFieldProps = (key, fields, panelIdx) => {
+    if (DOC_FIELDS[key]) return docProps(fields, key, panelIdx);
+    if (key === "agenda") {
+      const pinned = [];
+      if (bellRingerInAgenda) pinned.push({ key: "bellRinger", label: DOC_FIELDS.bellRinger.label, folderName: DOC_FIELDS.bellRinger.folderName, position: "top", ...docProps(fields, "bellRinger", panelIdx) });
+      if (exitSlipInAgenda) pinned.push({ key: "exitSlip", label: DOC_FIELDS.exitSlip.label, folderName: DOC_FIELDS.exitSlip.folderName, position: "bottom", ...docProps(fields, "exitSlip", panelIdx) });
+      return { pinnedDocs: pinned };
+    }
+    return {};
+  };
 
   const goHome = () => { setActiveUnitIdx(null); setActiveLesson(null); setOpenDropdown(null); };
   const topBarProps = {
@@ -4001,7 +4035,7 @@ export default function App({ viewer = false } = {}) {
                         />
                       );
                     }
-                    const isOnByKey = { essentialQuestion: essentialQuestionIsOn, agenda: agendaIsOn, bellRinger: bellRingerIsOn && !bellRingerInAgenda };
+                    const isOnByKey = { essentialQuestion: essentialQuestionIsOn, agenda: agendaIsOn, bellRinger: bellRingerIsOn && !bellRingerInAgenda, exitSlip: exitSlipIsOn && !exitSlipInAgenda };
                     if (!isOnByKey[key]) return null;
                     return (
                       <EditableField
@@ -4015,13 +4049,7 @@ export default function App({ viewer = false } = {}) {
                         interactive={isFront && isBuildMode}
                         checkedLines={pf.checkedAgendaLines}
                         onToggleLine={pf.toggleAgendaLine}
-                        bellRingerInline={key === "agenda" && bellRingerInAgenda}
-                        {...((key === "bellRinger" || (key === "agenda" && bellRingerInAgenda)) ? {
-                          kamiUrl: pf.content.bellRingerKamiUrl || "",
-                          onSaveKamiUrl: val => pf.save("bellRingerKamiUrl", val),
-                          onKamiOpen: () => { setKamiSourcePanelIdx(panelIdx); setKamiState(prev => prev ? null : "overlay"); },
-                          lessonLabel: activeLesson?.title,
-                        } : {})}
+                        {...docFieldProps(key, pf, panelIdx)}
                       />
                     );
                   } : null}
@@ -4151,7 +4179,7 @@ export default function App({ viewer = false } = {}) {
                               </div>
                             );
                           }
-                          const isOnByKey = { essentialQuestion: essentialQuestionIsOn, agenda: agendaIsOn, bellRinger: bellRingerIsOn && !bellRingerInAgenda };
+                          const isOnByKey = { essentialQuestion: essentialQuestionIsOn, agenda: agendaIsOn, bellRinger: bellRingerIsOn && !bellRingerInAgenda, exitSlip: exitSlipIsOn && !exitSlipInAgenda };
                           if (!isOnByKey[key]) return null;
                           return (
                             <EditableField
@@ -4165,13 +4193,7 @@ export default function App({ viewer = false } = {}) {
                               interactive={isBuildMode}
                               checkedLines={fullAgendaFields.checkedAgendaLines}
                               onToggleLine={fullAgendaFields.toggleAgendaLine}
-                              bellRingerInline={key === "agenda" && bellRingerInAgenda}
-                              {...((key === "bellRinger" || (key === "agenda" && bellRingerInAgenda)) ? {
-                                kamiUrl: fullAgendaFields.content.bellRingerKamiUrl || "",
-                                onSaveKamiUrl: val => fullAgendaFields.save("bellRingerKamiUrl", val),
-                                lessonLabel: activeLesson?.title,
-                                onKamiOpen: () => { setKamiSourcePanelIdx(null); setKamiState(prev => prev ? null : "overlay"); },
-                              } : {})}
+                              {...docFieldProps(key, fullAgendaFields, null)}
                             />
                           );
                         })}

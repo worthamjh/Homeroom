@@ -913,8 +913,8 @@ export async function pickGoogleCalendar() {
 // Finds the teacher's "Bell Ringers" folder in Drive, or creates it at
 // the My Drive root if it doesn't exist yet. Returns the folder's file ID.
 // Uses drive.file scope — creating a folder counts as a "file" the app owns.
-async function getOrCreateBellRingerFolder(accessToken) {
-  const FOLDER_NAME = "Bell Ringers";
+async function getOrCreateBellRingerFolder(accessToken, folderName = "Bell Ringers") {
+  const FOLDER_NAME = folderName;
   const FOLDER_MIME = "application/vnd.google-apps.folder";
 
   // Search for an existing non-trashed folder with that name
@@ -977,7 +977,8 @@ Content-Type: application/pdf
   return res.json();
 }
 
-export async function createKamiBellRingerDoc({ title, templateId } = {}) {
+// `folderName`: "Bell Ringers" by default; Exit Slips get their own.
+export async function createKamiBellRingerDoc({ title, templateId, folderName } = {}) {
   await ensureGoogleScriptsLoaded();
   const accessToken = await requestAccessToken();
 
@@ -988,7 +989,7 @@ export async function createKamiBellRingerDoc({ title, templateId } = {}) {
   // in one place rather than scattered across the teacher's Drive root.
   let parents;
   try {
-    const folderId = await getOrCreateBellRingerFolder(accessToken);
+    const folderId = await getOrCreateBellRingerFolder(accessToken, folderName);
     parents = [folderId];
   } catch {
     parents = []; // fall back to Drive root if folder step fails

@@ -48,7 +48,7 @@ const COLLECTION = "boardContent";
 // the assignment appeared and the presentation did not.
 //
 // If you add a field the client sends here, add it to this list too.
-const TEXT_FIELDS = ["essentialQuestion", "agenda", "bellRinger", "homeLearning", "bellRingerKamiUrl", "learningGoals", "customSlidesUrl", "calendarUrl"];
+const TEXT_FIELDS = ["essentialQuestion", "agenda", "bellRinger", "homeLearning", "bellRingerKamiUrl", "exitSlip", "exitSlipKamiUrl", "learningGoals", "customSlidesUrl", "calendarUrl"];
 // What "Reset Board" clears: the writing on the board. NOT the slides and
 // calendar links, which sit in the same document but are not writing.
 const RESET_FIELDS = TEXT_FIELDS.filter(f => f !== "customSlidesUrl" && f !== "calendarUrl");

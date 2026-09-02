@@ -120,7 +120,7 @@ export default function ChalkboardBoardRow({
   // dragging a row in the settings panel reorders the sliding board's
   // content too instead of only ever affecting the flat layout. Defaults
   // to the same order as DEFAULT_BOARD_CONTENT_ORDER there.
-  contentOrder = ["learningGoals", "essentialQuestion", "agenda", "bellRinger"],
+  contentOrder = ["learningGoals", "essentialQuestion", "agenda", "bellRinger", "exitSlip"],
   // Extra content rendered on every panel face (including the fixed back
   // board), one item per non-"learningGoals" key in contentOrder — used
   // by the Full Agenda content template to carry Essential Question/

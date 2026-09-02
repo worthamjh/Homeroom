@@ -624,6 +624,12 @@ export const BOARD_COMPONENTS = {
   essentialQuestion: { id: "essentialQuestion", label: "Essential Question", storageKey: "component:essentialQuestion", default: "false" },
   agenda: { id: "agenda", label: "Agenda", storageKey: "component:agenda", default: "false" },
   bellRinger: { id: "bellRinger", label: "Bell Ringer", storageKey: "component:bellRinger", default: "false" },
+  // The Exit Slip is the Bell Ringer's twin at the other end of class: the
+  // same doc-on-a-board (Create doc / open in Kami / Full Screen / Close),
+  // its own section or the Agenda's pinned LAST line. Jay: "exit slip
+  // will function exactly like Bell Ringer. The only difference is that
+  // exit slips happen at the end of class rather than the beginning."
+  exitSlip: { id: "exitSlip", label: "Exit Slip", storageKey: "component:exitSlip", default: "false" },
 };
 
 // ── Board content order ─────────────────────────────────────────────────
@@ -637,7 +643,7 @@ export const BOARD_COMPONENTS = {
 // scope than the flat case, flagged as a follow-up rather than blocking
 // this on rebuilding the sliding-boards rendering path too.
 export const BOARD_CONTENT_ORDER_STORAGE_KEY = "boardContentOrder";
-export const DEFAULT_BOARD_CONTENT_ORDER = ["learningGoals", "essentialQuestion", "agenda", "bellRinger"];
+export const DEFAULT_BOARD_CONTENT_ORDER = ["learningGoals", "essentialQuestion", "agenda", "bellRinger", "exitSlip"];
 
 // Saved orders are NORMALISED on the way in rather than rejected: drop
 // keys that no longer exist (Home Learning was removed) and append any
@@ -895,6 +901,9 @@ export function boardAccentBaseColor(key, primaryColor, secondaryColor) {
 export const BELL_RINGER_PLACEMENT_KEY = "bellRingerPlacement";
 export const DEFAULT_BELL_RINGER_PLACEMENT = "section";
 export const isBellRingerPlacement = (k) => k === "section" || k === "agenda";
+// Same choice for the Exit Slip; "agenda" pins it as the LAST line.
+export const EXIT_SLIP_PLACEMENT_KEY = "exitSlipPlacement";
+export const DEFAULT_EXIT_SLIP_PLACEMENT = "section";
 
 export const SLIDING_BOARDS_ENABLED_KEY = "slidingBoardsEnabled";
 export const DEFAULT_SLIDING_BOARDS_ENABLED = "false";
