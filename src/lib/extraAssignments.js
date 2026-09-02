@@ -6,6 +6,7 @@
 
 import { apiFetch } from "./apiClient";
 import { getActiveTeacherId } from "../boardConfig";
+import { getActiveClassroomId } from "./activeClassroom";
 
 export async function fetchExtraAssignments(unitIdx, lessonTitle) {
   const params = new URLSearchParams({
