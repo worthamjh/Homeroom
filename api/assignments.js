@@ -9,6 +9,7 @@
 // arriving in the query or body is ignored for identity.
 import { MongoClient } from "mongodb";
 import { resolveTeacherId } from "./_auth.js";
+import { classroomIdFrom } from "./_classroom.js";
 import { enforceRateLimit } from "./_rateLimit.js";
 
 const DB_NAME = process.env.MONGODB_DB || "homeroom";
@@ -69,7 +70,7 @@ export default async function handler(req, res) {
       }
       const col = await getCollection();
       const docs = await col
-        .find({ teacherId, unitIdx: Number(unitIdx), lessonTitle: String(lessonTitle) })
+        .find({ teacherId, classroomId: classroomIdFrom(req), unitIdx: Number(unitIdx), lessonTitle: String(lessonTitle) })
         // `order` is what drag-to-reorder writes. Documents created before
         // it existed have none; Mongo sorts missing ahead of numbers, so
         // they stay in their original createdAt sequence at the front until
@@ -89,6 +90,7 @@ export default async function handler(req, res) {
       }
       const doc = {
         teacherId,
+        classroomId: classroomIdFrom(req),
         unitIdx: Number(unitIdx),
         lessonTitle: String(lessonTitle),
         label: String(label),

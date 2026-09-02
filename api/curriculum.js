@@ -21,6 +21,7 @@
 // api/assignments.js and api/profile.js.
 import { MongoClient } from "mongodb";
 import { resolveTeacherId } from "./_auth.js";
+import { classroomIdFrom } from "./_classroom.js";
 import { enforceRateLimit } from "./_rateLimit.js";
 import { payloadTooBig } from "./_validate.js";
 
@@ -104,9 +105,12 @@ export default async function handler(req, res) {
   if (!teacherId) return;   // 401/503 already sent
   // Fails open if the limiter itself is unavailable -- see _rateLimit.js.
   if (!(await enforceRateLimit(req, res, { teacherId, bucket: "curriculum" }))) return;
+    // One board per classroom: every read and write below is keyed by
+    // the classroom as well as the teacher (see api/_classroom.js).
+    const classroomId = classroomIdFrom(req);
     if (req.method === "GET") {
       const col = await getCollection();
-      const doc = await col.findOne({ teacherId: String(teacherId) });
+      const doc = await col.findOne({ teacherId: String(teacherId), classroomId });
       res.status(200).json(doc ? doc.units : null);
       return;
     }
@@ -132,19 +136,20 @@ export default async function handler(req, res) {
       // through -- a safety net that can block the thing it protects is
       // worse than no safety net.
       try {
-        const previous = await col.findOne({ teacherId });
+        const previous = await col.findOne({ teacherId, classroomId });
         if (previous?.units?.length) {
           const client = await getClientPromise();
           const history = client.db(DB_NAME).collection(HISTORY_COLLECTION);
           await history.insertOne({
             teacherId,
+            classroomId,
             units: previous.units,
             replacedAt: now,
             unitCount: previous.units.length,
           });
           // Trim to the newest N for this teacher.
           const stale = await history
-            .find({ teacherId }, { projection: { _id: 1 } })
+            .find({ teacherId, classroomId }, { projection: { _id: 1 } })
             .sort({ replacedAt: -1 })
             .skip(CURRICULUM_HISTORY_LIMIT)
             .toArray();
@@ -157,8 +162,8 @@ export default async function handler(req, res) {
       }
 
       await col.updateOne(
-        { teacherId: String(teacherId) },
-        { $set: { teacherId: String(teacherId), units: cleanUnits, updatedAt: now }, $setOnInsert: { createdAt: now } },
+        { teacherId: String(teacherId), classroomId },
+        { $set: { teacherId: String(teacherId), classroomId, units: cleanUnits, updatedAt: now }, $setOnInsert: { createdAt: now } },
         { upsert: true }
       );
       res.status(200).json(cleanUnits);

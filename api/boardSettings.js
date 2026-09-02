@@ -20,6 +20,7 @@
 // part of a Mongo field path -- see api/_validate.js.
 import { MongoClient } from "mongodb";
 import { resolveTeacherId } from "./_auth.js";
+import { classroomIdFrom, TEACHER_SETTINGS_ID, isTeacherLevelSetting, TEACHER_LEVEL_SETTINGS } from "./_classroom.js";
 import { enforceRateLimit } from "./_rateLimit.js";
 import { isValidSettingKey, encodeSettingKey, decodeSettingKey, LIMITS } from "./_validate.js";
 
@@ -65,7 +66,18 @@ export default async function handler(req, res) {
   if (!(await enforceRateLimit(req, res, { teacherId, bucket: "boardSettings" }))) return;
     if (req.method === "GET") {
       const col = await getCollection();
-      const doc = await col.findOne({ teacherId });
+      // The classroom's own settings, with the teacher-level ones (store
+      // purchases, tour done) laid over from the teacher document -- those
+      // are the same on every board. Both documents may be absent.
+      const classroomId = classroomIdFrom(req);
+      const [classDoc, teacherDoc] = await Promise.all([
+        col.findOne({ teacherId, classroomId }),
+        col.findOne({ teacherId, classroomId: TEACHER_SETTINGS_ID }),
+      ]);
+      const teacherOnly = Object.fromEntries(
+        Object.entries(teacherDoc?.settings || {}).filter(([k]) => isTeacherLevelSetting(k))
+      );
+      const doc = (classDoc || teacherDoc) ? { settings: { ...(classDoc?.settings || {}), ...teacherOnly } } : null;
       // 200 + null (not 404) when nothing's saved yet — same convention as
       // every other endpoint here. The client keeps whatever it already
       // has (its localStorage value, or the hardcoded default) in that case.
@@ -105,9 +117,12 @@ export default async function handler(req, res) {
       // one control), so only $set that one key inside the settings map
       // instead of round-tripping (and risking clobbering) every other
       // setting on every save.
+      // Teacher-level keys go to the teacher document, everything else to
+      // this classroom's (see TEACHER_LEVEL_SETTINGS in api/_classroom.js).
+      const classroomId = isTeacherLevelSetting(key) ? TEACHER_SETTINGS_ID : classroomIdFrom(req);
       await col.updateOne(
-        { teacherId: teacherId },
-        { $set: { teacherId: teacherId, [`settings.${encodeSettingKey(key)}`]: value, updatedAt: now }, $setOnInsert: { createdAt: now } },
+        { teacherId: teacherId, classroomId },
+        { $set: { teacherId: teacherId, classroomId, [`settings.${encodeSettingKey(key)}`]: value, updatedAt: now }, $setOnInsert: { createdAt: now } },
         { upsert: true }
       );
       res.status(200).json({ key, value });

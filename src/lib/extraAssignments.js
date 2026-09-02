@@ -12,6 +12,7 @@ export async function fetchExtraAssignments(unitIdx, lessonTitle) {
     unitIdx: String(unitIdx),
     lessonTitle,
     teacherId: getActiveTeacherId(),
+    classroomId: getActiveClassroomId(),
   });
   const res = await apiFetch(`/api/assignments?${params}`);
   if (!res.ok) throw new Error(`Failed to load assignments (${res.status})`);
@@ -25,6 +26,7 @@ export async function createExtraAssignment({ unitIdx, lessonTitle, label, url, 
     body: JSON.stringify({
       unitIdx, lessonTitle, label, url, thumb, cloudinaryPublicId,
       teacherId: getActiveTeacherId(),
+      classroomId: getActiveClassroomId(),
     }),
   });
   if (!res.ok) throw new Error(`Failed to save assignment (${res.status})`);

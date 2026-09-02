@@ -12,6 +12,11 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { registerAuthTokenGetter } from "./lib/apiClient";
 import { useUser, useAuth } from "@clerk/clerk-react";
 import { fetchBoardSettings, saveBoardSetting } from "./lib/boardSettingsApi";
+import { getActiveClassroomId, DEFAULT_CLASSROOM_ID } from "./lib/activeClassroom";
+export { getActiveClassroomId, setActiveClassroomId, classroomQuery, DEFAULT_CLASSROOM_ID } from "./lib/activeClassroom";
+// Named here as a plain string rather than referencing OWNED_DESIGN_OPTIONS_KEY,
+// which is declared further down this module (const, not hoisted).
+const OWNED_DESIGN_OPTIONS_KEY_NAME = "ownedDesignOptions";
 import { BUILT_IN_PAPERS } from "./lib/paperTemplates";
 
 // Real identity now exists (Clerk — see main.jsx's <ClerkProvider> and
@@ -122,7 +127,18 @@ export function useSyncAuthIdentity() {
   }, [isLoaded, isSignedIn, user]);
 }
 
-export const scopedKey = (key) => `homeroom:${getActiveTeacherId()}:${key}`;
+// Per teacher AND per classroom. The default classroom ("main") keeps the
+// exact keys every browser already holds, so nothing cached is orphaned
+// by this; another classroom gets its own segment. Teacher-level settings
+// (Design Store purchases, tour done) stay teacher-keyed on every board --
+// the same split api/_classroom.js makes on the server.
+const TEACHER_LEVEL_LOCAL_KEYS = [OWNED_DESIGN_OPTIONS_KEY_NAME, "buildTourDone"];
+export const scopedKey = (key) => {
+  const classroom = getActiveClassroomId();
+  const base = `homeroom:${getActiveTeacherId()}`;
+  if (classroom === DEFAULT_CLASSROOM_ID || TEACHER_LEVEL_LOCAL_KEYS.includes(key)) return `${base}:${key}`;
+  return `${base}:${classroom}:${key}`;
+};
 
 // ── Blank-shell theme (school/subject title + primary/secondary color) ──
 // Added 2026-08-25, per Jay's ask on the sandbox: a blank-shell teacher's

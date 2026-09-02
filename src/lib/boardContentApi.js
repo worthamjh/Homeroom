@@ -8,6 +8,7 @@
 // had (backward compatible with existing saved data).
 
 import { apiFetch } from "./apiClient";
+import { getActiveClassroomId } from "./activeClassroom";
 
 // The lessonTitle a UNIT-level content document is stored under. The
 // Essential Question belongs to the unit, not to any lesson or board (it
@@ -15,7 +16,7 @@ import { apiFetch } from "./apiClient";
 // collection keyed by lesson. No real lesson is called this.
 export const UNIT_CONTENT_LESSON = "__unit__";
 export async function fetchBoardContent(teacherId, unitIdx, lessonTitle, panelIdx) {
-  const params = new URLSearchParams({ teacherId, unitIdx: String(unitIdx), lessonTitle });
+  const params = new URLSearchParams({ teacherId, classroomId: getActiveClassroomId(), unitIdx: String(unitIdx), lessonTitle });
   if (panelIdx != null) params.set("panelIdx", String(panelIdx));
   const res = await apiFetch(`/api/boardContent?${params}`);
   if (!res.ok) throw new Error(`Failed to load board content (${res.status})`);
@@ -27,7 +28,7 @@ export async function fetchBoardContent(teacherId, unitIdx, lessonTitle, panelId
 // `toggleAgendaLine`. The endpoint only $sets whatever arrives, so this
 // never needs to send the other fields too.
 export async function saveBoardContent(teacherId, unitIdx, lessonTitle, patch, panelIdx) {
-  const body = { teacherId, unitIdx, lessonTitle, ...patch };
+  const body = { teacherId, classroomId: getActiveClassroomId(), unitIdx, lessonTitle, ...patch };
   if (panelIdx != null) body.panelIdx = panelIdx;
   const res = await apiFetch("/api/boardContent", {
     method: "POST",
@@ -41,7 +42,7 @@ export async function saveBoardContent(teacherId, unitIdx, lessonTitle, patch, p
 // Mirrors "Reset Board" — removes the saved document entirely so a future
 // fetch returns null and the client falls back to its own defaults.
 export async function deleteBoardContent(teacherId, unitIdx, lessonTitle, panelIdx) {
-  const params = new URLSearchParams({ teacherId, unitIdx: String(unitIdx), lessonTitle });
+  const params = new URLSearchParams({ teacherId, classroomId: getActiveClassroomId(), unitIdx: String(unitIdx), lessonTitle });
   if (panelIdx != null) params.set("panelIdx", String(panelIdx));
   const res = await apiFetch(`/api/boardContent?${params}`, { method: "DELETE" });
   if (!res.ok && res.status !== 204) throw new Error(`Failed to reset board content (${res.status})`);

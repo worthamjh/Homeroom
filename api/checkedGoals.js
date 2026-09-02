@@ -24,6 +24,7 @@
 // api/boardContent.js.
 import { MongoClient } from "mongodb";
 import { resolveTeacherId } from "./_auth.js";
+import { classroomIdFrom } from "./_classroom.js";
 import { enforceRateLimit } from "./_rateLimit.js";
 import { payloadTooBig } from "./_validate.js";
 
@@ -82,7 +83,7 @@ export default async function handler(req, res) {
   if (!(await enforceRateLimit(req, res, { teacherId, bucket: "checkedGoals" }))) return;
     if (req.method === "GET") {
       const col = await getCollection();
-      const doc = await col.findOne({ teacherId });
+      const doc = await col.findOne({ teacherId, classroomId: classroomIdFrom(req) });
       // 200 + null (not 404) when nothing's saved yet — same convention as
       // every other endpoint here. The client keeps whatever it already
       // has (its localStorage cache, or the empty default) in that case.
@@ -103,9 +104,10 @@ export default async function handler(req, res) {
       }
       const col = await getCollection();
       const now = new Date();
+      const classroomId = classroomIdFrom(req);
       await col.updateOne(
-        { teacherId: teacherId },
-        { $set: { teacherId: teacherId, checkedGoals: clean, updatedAt: now }, $setOnInsert: { createdAt: now } },
+        { teacherId: teacherId, classroomId },
+        { $set: { teacherId: teacherId, classroomId, checkedGoals: clean, updatedAt: now }, $setOnInsert: { createdAt: now } },
         { upsert: true }
       );
       res.status(200).json(clean);

@@ -19,6 +19,7 @@
 // api/assignments.js, api/profile.js, and api/curriculum.js.
 import { MongoClient } from "mongodb";
 import { resolveTeacherId } from "./_auth.js";
+import { classroomIdFrom } from "./_classroom.js";
 import { enforceRateLimit } from "./_rateLimit.js";
 import { capString, LIMITS } from "./_validate.js";
 
@@ -80,9 +81,10 @@ async function getCollection() {
   return client.db(DB_NAME).collection(COLLECTION);
 }
 
-function docKey({ teacherId, unitIdx, lessonTitle, panelIdx }) {
+function docKey({ teacherId, classroomId, unitIdx, lessonTitle, panelIdx }) {
   const key = {
     teacherId: teacherId ? String(teacherId) : DEFAULT_TEACHER_ID,
+    classroomId,
     unitIdx: Number(unitIdx),
     lessonTitle: String(lessonTitle),
   };
@@ -101,6 +103,7 @@ export default async function handler(req, res) {
   if (!teacherId) return;   // 401/503 already sent
   // Fails open if the limiter itself is unavailable -- see _rateLimit.js.
   if (!(await enforceRateLimit(req, res, { teacherId, bucket: "boardContent" }))) return;
+  const classroomId = classroomIdFrom(req);
     if (req.method === "GET") {
       const { unitIdx, lessonTitle, panelIdx } = req.query;
       if (unitIdx == null || !lessonTitle) {
@@ -108,7 +111,7 @@ export default async function handler(req, res) {
         return;
       }
       const col = await getCollection();
-      const doc = await col.findOne(docKey({ teacherId, unitIdx, lessonTitle, panelIdx }));
+      const doc = await col.findOne(docKey({ teacherId, classroomId, unitIdx, lessonTitle, panelIdx }));
       let shape = doc ? toClientShape(doc) : null;
       // The flat board and board 1 of a sliding set are now ONE slot (see
       // allPanelFields in WebsterGrovesChemistry.jsx). Before that, board 1
@@ -118,7 +121,7 @@ export default async function handler(req, res) {
       // document does not itself set comes from the old panel-0 one. Reads
       // only -- writes go to the flat key, so the old document never grows.
       if (panelIdx == null || panelIdx === "") {
-        const legacy = await col.findOne(docKey({ teacherId, unitIdx, lessonTitle, panelIdx: 0 }));
+        const legacy = await col.findOne(docKey({ teacherId, classroomId, unitIdx, lessonTitle, panelIdx: 0 }));
         if (legacy) {
           const fallback = toClientShape(legacy);
           shape = {
@@ -142,7 +145,7 @@ export default async function handler(req, res) {
         res.status(400).json({ error: "unitIdx and lessonTitle are required" });
         return;
       }
-      const key = docKey({ teacherId, unitIdx, lessonTitle, panelIdx });
+      const key = docKey({ teacherId, classroomId, unitIdx, lessonTitle, panelIdx });
       // Partial update — a save only ever touches ONE freeform field at a
       // time (see FullAgendaBoard.jsx's `save`), and toggling an agenda
       // line touches only checkedAgendaLines, so only $set whichever
@@ -203,12 +206,12 @@ export default async function handler(req, res) {
         $unset: Object.fromEntries(RESET_FIELDS.map(f => [f, ""])),
         $set: { checkedAgendaLines: {}, checkedLearningGoalsLines: {}, updatedAt: new Date() },
       };
-      await col.updateOne(docKey({ teacherId, unitIdx, lessonTitle, panelIdx }), clear);
+      await col.updateOne(docKey({ teacherId, classroomId, unitIdx, lessonTitle, panelIdx }), clear);
       // Board 1 also reads the pre-merge panel-0 document as a fallback
       // (see GET), so a reset of the flat key clears that too -- otherwise
       // the old board-1 text would show straight through the gap.
       if (panelIdx == null || panelIdx === "") {
-        await col.updateOne(docKey({ teacherId, unitIdx, lessonTitle, panelIdx: 0 }), clear);
+        await col.updateOne(docKey({ teacherId, classroomId, unitIdx, lessonTitle, panelIdx: 0 }), clear);
       }
       res.status(204).end();
       return;

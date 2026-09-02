@@ -18,6 +18,7 @@
 // is a module, not an endpoint.
 import { verifyToken } from "@clerk/backend";
 import { MongoClient } from "mongodb";
+import { classroomIdFrom } from "./_classroom.js";
 
 // ── Shared boards ──────────────────────────────────────────────────────
 // A teacher can opt their board in to being viewable by anyone with its
@@ -45,12 +46,12 @@ function getClientPromise() {
   return global._homeroomMongoClientPromise;
 }
 
-async function isBoardShared(teacherId) {
+async function isBoardShared(teacherId, classroomId) {
   if (!teacherId || !teacherId.startsWith(CLERK_ID_PREFIX)) return false;
   try {
     const client = await getClientPromise();
     const doc = await client.db(DB_NAME).collection("boardSettings")
-      .findOne({ teacherId }, { projection: { [`settings.${BOARD_SHARED_KEY}`]: 1 } });
+      .findOne({ teacherId, classroomId }, { projection: { [`settings.${BOARD_SHARED_KEY}`]: 1 } });
     return doc?.settings?.[BOARD_SHARED_KEY] === "true";
   } catch (err) {
     console.error("[api/_auth] could not read boardShared; treating as not shared", err?.message || err);
@@ -107,7 +108,7 @@ export async function resolveTeacherId(req, res, { allowShared = false } = {}) {
   if (req.method === "GET") {
     const id = String(requested || "");
     if (id === PUBLIC_TEACHER_ID) return PUBLIC_TEACHER_ID;
-    if (allowShared && await isBoardShared(id)) return id;
+    if (allowShared && await isBoardShared(id, classroomIdFrom(req))) return id;
   }
 
   // Everything else — including any sandbox id such as ?teacher=sandbox —

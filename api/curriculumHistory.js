@@ -14,6 +14,7 @@
 // the history capture, and would drift.
 import { MongoClient, ObjectId } from "mongodb";
 import { resolveTeacherId, PUBLIC_TEACHER_ID } from "./_auth.js";
+import { classroomIdFrom } from "./_classroom.js";
 import { enforceRateLimit } from "./_rateLimit.js";
 
 const DB_NAME = process.env.MONGODB_DB || "homeroom";
@@ -87,7 +88,7 @@ export default async function handler(req, res) {
     }
 
     const docs = await history
-      .find({ teacherId })
+      .find({ teacherId, classroomId: classroomIdFrom(req) })
       .sort({ replacedAt: -1 })
       .limit(30)
       .toArray();
