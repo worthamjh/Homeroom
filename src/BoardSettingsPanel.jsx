@@ -432,7 +432,9 @@ export default function BoardSettingsPanel({ selected, onSelect, panelCountInfo,
                       Open a lesson on the board above to set how many boards it uses. Each lesson keeps its own count.
                     </div>
                   )}
-                  {hasLessonOpen && <div style={{ display: "flex", gap: 8, padding: "4px 14px 10px", flexWrap: "wrap" }}>
+                  {/* data-tour: the tour's "board-count" step rings this row
+                      (see GuidedTour.jsx). */}
+                  {hasLessonOpen && <div data-tour="tour-board-count" style={{ display: "flex", gap: 8, padding: "4px 14px 10px", flexWrap: "wrap" }}>
                     {SLIDING_BOARDS_COUNT_OPTIONS.map(n => (
                       <button
                         key={n}

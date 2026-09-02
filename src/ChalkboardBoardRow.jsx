@@ -405,6 +405,9 @@ export default function ChalkboardBoardRow({
                       // Docked boards slide back to their starting spot on
                       // click; boards still up front slide away as before.
                       onClick={() => setCurrent(parked ? i : i + 1)}
+                      data-tour="tour-slide-handle"
+                      data-tour-front={isFront ? "true" : undefined}
+                      data-parked={parked ? "true" : undefined}
                       aria-label={parked ? `Slide board ${i + 1} back to its starting position` : `Slide board ${i + 1} to reveal the next layer`}
                       title={panel.label ? (parked ? `Bring "${panel.label}" back` : `Slide past "${panel.label}"`) : undefined}
                       style={{
@@ -434,6 +437,9 @@ export default function ChalkboardBoardRow({
                     </button>
                     <button
                       onClick={() => setCurrent(parked ? i : i + 1)}
+                      data-tour="tour-slide-handle"
+                      data-tour-front={isFront ? "true" : undefined}
+                      data-parked={parked ? "true" : undefined}
                       aria-label={parked ? `Slide board ${i + 1} back to its starting position` : `Slide board ${i + 1} to reveal the next layer`}
                       title={panel.label ? (parked ? `Bring "${panel.label}" back` : `Slide past "${panel.label}"`) : undefined}
                       style={{

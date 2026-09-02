@@ -225,8 +225,37 @@ const STEPS = [
     gate: "select",
     matchSelected: "blackboard",
     title: "Blackboard",
-    body: "Open “Blackboard”. Pick your surface and how many sliding boards — 1 is flat, 2–5 slide across.",
+    body: "Open “Blackboard”. Pick your board surface and the colour of its headings.",
     ackLabel: "Got it",
+  },
+  {
+    // The count used to be one clause of the Blackboard step, and a
+    // teacher who set it to 3 saw... a "1/3" in the corner and nothing
+    // else. Jay: "the number of boards selected doesn't really show that
+    // there are multiple boards outside of the number at the bottom. I
+    // think guiding the user to try the sliding mechanism would be
+    // useful." So: this step rings the control, the next one rings the
+    // arrows and waits for a real slide.
+    id: "board-count",
+    frame: "sidebar",
+    selector: '[data-tour="tour-board-count"]',
+    missingHint: "Open “Blackboard” in the side panel, with a lesson showing on the board — Number of Boards lives at the bottom of it.",
+    gate: "ack",
+    title: "Number of boards",
+    body: "1 is a single flat board. 2 to 5 stack up like a real sliding chalkboard, each with its own goals and content. Pick 2 or more to try it.",
+    ackLabel: "Got it",
+  },
+  {
+    id: "slide-board",
+    frame: "board",
+    // Both arrows on the front board, ringed together (see union below).
+    selector: '[data-tour="tour-slide-handle"][data-tour-front="true"]',
+    union: true,
+    placement: "above",
+    missingHint: "Set Number of Boards to 2 or more and the arrows appear at the bottom corners of the board.",
+    gate: "auto",
+    title: "Slide the board",
+    body: "Click an arrow at the bottom corner to slide this board aside and reveal the next one. Click it again to bring it back.",
   },
   {
     id: "done",
@@ -269,10 +298,27 @@ function rectFromBoardElement(iframeEl, el, boardWidth) {
   };
 }
 
-function rectFromBoardTarget(iframeEl, selector, boardWidth) {
+function rectFromBoardTarget(iframeEl, selector, boardWidth, union = false) {
   const doc = boardDocument(iframeEl);
   if (!doc) return null;
-  return rectFromBoardElement(iframeEl, doc.querySelector(selector), boardWidth);
+  if (!union) return rectFromBoardElement(iframeEl, doc.querySelector(selector), boardWidth);
+  // One ring around everything that matches -- the two slide arrows sit
+  // at opposite corners of a board, and a ring on just the first would
+  // point at one and hide the other under the scrim.
+  let box = null;
+  for (const el of doc.querySelectorAll(selector)) {
+    const r = rectFromBoardElement(iframeEl, el, boardWidth);
+    if (!r) continue;
+    box = box
+      ? {
+          left: Math.min(box.left, r.left),
+          top: Math.min(box.top, r.top),
+          right: Math.max(box.right, r.left + r.width),
+          bottom: Math.max(box.bottom, r.top + r.height),
+        }
+      : { left: r.left, top: r.top, right: r.left + r.width, bottom: r.top + r.height };
+  }
+  return box ? { left: box.left, top: box.top, width: box.right - box.left, height: box.bottom - box.top } : null;
 }
 
 // Google's Drive picker, when it is open. The picker SDK draws its dialog
@@ -371,7 +417,7 @@ export default function GuidedTour({ active, onDone, iframeRef, selected, boardW
     const compute = () => {
       if (step.frame === "board") {
         let r = rectFromOpenPicker(iframeRef.current, boardWidth)
-          || rectFromBoardTarget(iframeRef.current, step.selector, boardWidth);
+          || rectFromBoardTarget(iframeRef.current, step.selector, boardWidth, step.union);
         if (!r && (step.id === "add-lesson" || step.id === "open-lesson")) {
           let doc;
           try { doc = iframeRef.current?.contentDocument; } catch { doc = null; }
@@ -421,6 +467,10 @@ export default function GuidedTour({ active, onDone, iframeRef, selected, boardW
       } else if (step.id === "open-lesson") {
         done = boardTargetExists(iframeRef.current, '[data-tour="tour-learning-goals"]')
           || boardTargetExists(iframeRef.current, '[data-tour="tour-add-slides"]');
+      } else if (step.id === "slide-board") {
+        // A parked board is one the teacher has slid aside -- the real
+        // thing this step asks for, not a click on the tooltip.
+        done = boardTargetExists(iframeRef.current, '[data-tour="tour-slide-handle"][data-parked="true"]');
       }
       if (done) advance();
     };
