@@ -394,12 +394,11 @@ function KamiUrlInput({ kamiUrl, onSaveKamiUrl, lessonLabel, surface = DEFAULT_S
                     📄 {t.name}
                   </button>
                 ))}
-                {/* Distinct from the Plain paper above it: that is a blank
-                    PDF to annotate, this is a Google Doc a teacher can type
-                    into in Docs. */}
-                <button onClick={() => handleAutoCreate(undefined)} style={{ ...chip, textAlign: "left" }}>
-                  Blank Google Doc
-                </button>
+                {/* No "Blank Google Doc" entry any more. It was a Docs file
+                    next to the PDF papers, and to a teacher it read as the
+                    same thing as Plain (Jay: "we don't need the blank google
+                    doc option in the drop down because the plain option is
+                    a blank google doc"). Plain is the blank one. */}
                 {/* target="_top": this renders inside Build's iframe, and
                     the Store is a page of its own, not something to load
                     into the board's frame. */}
@@ -450,8 +449,8 @@ function KamiUrlInput({ kamiUrl, onSaveKamiUrl, lessonLabel, surface = DEFAULT_S
               start, because Kami annotates fixed pages. */}
           <strong>Create Bell Ringer doc</strong> makes a PDF &mdash; a blank sheet of paper &mdash;
           and saves it in a &ldquo;Bell Ringer&rdquo; folder in your Drive; it creates that folder
-          for you the first time. Plain, wide ruled and graph paper come built in; more paper styles are
-          in the Store, and any you add join the list.
+          for you the first time. Plain, wide ruled and graph paper come to start with; the Store has more,
+          and is also where you take a paper off this list. Plain always stays.
           <br /><br />
           Once that PDF exists, clicking <strong>Bell Ringer</strong> on the board opens it here
           to write on. <strong>Full Screen</strong> fills the screen to write in or project;

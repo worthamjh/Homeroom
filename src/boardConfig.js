@@ -1075,7 +1075,14 @@ export const designOptionKey = (area, optionId) => `${area}:${optionId}`;
 // is a teacher silently losing an option they were already using, which
 // is much worse than a new design being free for a while. Gate a design
 // by adding its id here, in the same commit that adds it to the store.
-const INCLUDED_PAPERS = ["builtin:plain", "builtin:wide", "builtin:graph"];
+// Plain is the one paper nobody can remove -- the button must always have
+// something to make. Wide Ruled and Graph Paper come with every board too,
+// but as PRE-ADDED store items rather than included ones, so a teacher who
+// does not want them can take them out in the store like anything else
+// (Jay: "there should be a remove paper style button on there somewhere;
+// plain should not have a delete button"). See DEFAULT_OWNED_OPTIONS.
+const INCLUDED_PAPERS = ["builtin:plain"];
+const STARTER_PAPERS = ["builtin:wide", "builtin:graph"];
 
 const STORE_GATED_OPTIONS = {
   // The store's stock: every border style, and every neutral colour
@@ -1242,9 +1249,24 @@ function isOwnedDesignOptionsValue(raw) {
 // look you set up is a far worse outcome than an un-owned option staying
 // on screen. So nothing in the render path calls this; only the settings
 // panel does.
+// Store items every teacher starts WITH, without having added them. They
+// behave as owned -- "Added" in the store, offered on the board -- until
+// the teacher removes one, and a removal has to be remembered: the plain
+// absence of the key would just mean "never touched" and hand it back on
+// the next load. So the one persisted list carries removals too, as the
+// key with a leading "-". Nothing outside this hook reads the list
+// directly, so the marker is invisible to the rest of the app.
+const DEFAULT_OWNED_OPTIONS = STARTER_PAPERS.map(id => designOptionKey(DESIGN_AREAS.PAPER, id));
+const removedMarker = (key) => `-${key}`;
+
 export function useOwnedDesignOptions() {
   const [raw, setRaw] = useScopedSetting(OWNED_DESIGN_OPTIONS_KEY, EMPTY_OWNED, isOwnedDesignOptionsValue);
-  const owned = parseOwnedDesignOptions(raw);
+  const stored = parseOwnedDesignOptions(raw);
+  const added = stored.filter(k => !k.startsWith("-"));
+  const removed = stored.filter(k => k.startsWith("-")).map(k => k.slice(1));
+  // What the teacher effectively has: everything they added, plus every
+  // starter item they have not removed.
+  const owned = [...added, ...DEFAULT_OWNED_OPTIONS.filter(k => !removed.includes(k) && !added.includes(k))];
   const write = (list) => setRaw(JSON.stringify([...new Set(list)].sort()));
   return {
     owned,
@@ -1253,8 +1275,18 @@ export function useOwnedDesignOptions() {
     // picker needs.
     isAvailable: (area, optionId) =>
       isDesignOptionIncluded(area, optionId) || owned.includes(designOptionKey(area, optionId)),
-    add: (area, optionId) => write([...owned, designOptionKey(area, optionId)]),
-    remove: (area, optionId) => write(owned.filter(k => k !== designOptionKey(area, optionId))),
+    add: (area, optionId) => {
+      const key = designOptionKey(area, optionId);
+      // Un-removing a starter is enough to bring it back; anything else is
+      // added outright.
+      const rest = stored.filter(k => k !== removedMarker(key));
+      write(DEFAULT_OWNED_OPTIONS.includes(key) ? rest : [...rest, key]);
+    },
+    remove: (area, optionId) => {
+      const key = designOptionKey(area, optionId);
+      const rest = stored.filter(k => k !== key);
+      write(DEFAULT_OWNED_OPTIONS.includes(key) ? [...rest, removedMarker(key)] : rest);
+    },
   };
 }
 
