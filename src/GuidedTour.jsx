@@ -172,7 +172,11 @@ const STEPS = [
     frame: "board",
     selector: '[data-tour="tour-add-assignment"]',
     gate: "ack",
-    missingHint: "Open a lesson from the unit above — assignments live on a lesson's board, below the slides.",
+    // The unit overview has an assignments section too -- every lesson's,
+    // listed -- so a teacher there looks for the Add tile in it and finds
+    // none (Jay: "I think the add assignment button went away"). Say
+    // where it is, not just that this is the wrong page.
+    missingHint: "This page lists the whole unit's assignments; adding one happens on a lesson. Click a lesson under “Unit Lessons” on the board and the Add Assignment tile appears below it.",
     title: "Assignments and classwork",
     // Same correction: the card takes a direct upload as well as a Drive
     // pick, and upload is the route a teacher without Google uses.
@@ -362,6 +366,15 @@ function boardTargetExists(iframeEl, selector) {
 export default function GuidedTour({ active, onDone, iframeRef, selected, boardWidth = DEFAULT_BOARD_WIDTH }) {
   const [stepIdx, setStepIdx] = useState(0);
   const [rect, setRect] = useState(null);
+  // Which step has already been scrolled into view -- once per step, the
+  // first time its target is actually found. Without this a step whose
+  // target sat above or below the fold was invisible from where the
+  // teacher happened to be: the scrim went (sidebar steps have none), the
+  // ring was off screen, the tooltip was clamped to a corner they were
+  // not looking at, and the tour appeared to have quit. Jay, pressing
+  // Skip step at the bottom of a long page: "it takes you out of the
+  // tour without going out of the tour."
+  const revealedStep = useRef(-1);
   const [, setTourDone] = useScopedSetting(BUILD_TOUR_DONE_KEY, DEFAULT_BUILD_TOUR_DONE, k => k === "true" || k === "false");
   const step = STEPS[stepIdx];
 
@@ -415,8 +428,9 @@ export default function GuidedTour({ active, onDone, iframeRef, selected, boardW
   useEffect(() => {
     if (!active || !step) return;
     const compute = () => {
+      let r = null;
       if (step.frame === "board") {
-        let r = rectFromOpenPicker(iframeRef.current, boardWidth)
+        r = rectFromOpenPicker(iframeRef.current, boardWidth)
           || rectFromBoardTarget(iframeRef.current, step.selector, boardWidth, step.union);
         if (!r && (step.id === "add-lesson" || step.id === "open-lesson")) {
           let doc;
@@ -424,11 +438,19 @@ export default function GuidedTour({ active, onDone, iframeRef, selected, boardW
           doc?.querySelector('[data-tour="tour-unit-tab"]')?.click();
           r = rectFromBoardTarget(iframeRef.current, step.selector, boardWidth);
         }
-        setRect(r);
       } else if (step.frame === "sidebar") {
-        setRect(rectFromSidebarTarget(step.selector));
-      } else {
-        setRect(null);
+        r = rectFromSidebarTarget(step.selector);
+      }
+      setRect(r);
+      // Bring the target on screen, once, the first time this step finds
+      // it. Rects are viewport-relative, so "off screen" is simply a top
+      // above 0 or a bottom past the window; scroll so it sits a little
+      // below the top edge, where the tooltip has room beside or under it.
+      if (r && revealedStep.current !== stepIdx) {
+        revealedStep.current = stepIdx;
+        const vh = window.innerHeight;
+        const offScreen = r.top < 0 || r.top + r.height > vh;
+        if (offScreen) window.scrollBy({ top: r.top - 80, behavior: "smooth" });
       }
     };
     compute();
