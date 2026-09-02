@@ -30,8 +30,12 @@ const CALENDAR_LIST_URL =
   "?minAccessRole=reader&fields=items(id,summary,backgroundColor,primary,accessRole,deleted)";
 
 // ?acl=<calendarId>: the calendar's sharing rules instead of the list.
-// acl.list is allowed under the calendar.readonly scope the picker already
-// holds (Google's reference lists it), so this needs no new consent. The
+// acl.list is NOT allowed under the calendar.readonly scope the picker
+// holds -- Google's reference (checked 2026-09-02) lists only calendar,
+// calendar.acls and calendar.acls.readonly -- so until one of those is
+// added to CALENDAR_SCOPE in src/lib/googleDrive.js, Google answers 403
+// here and the client falls back to its API-key probe. Kept because it
+// is the better answer when it can be had: it tells free/busy apart. The
 // rule with scope.type "default" is the public one: role "reader" means
 // public with event details, "freeBusyReader" means public as free/busy
 // only, and no such rule means private. The client turns that into a

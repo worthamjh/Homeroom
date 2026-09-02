@@ -608,21 +608,38 @@ async function fetchCalendarList(accessToken) {
  *
  * @returns {Promise<{ embedUrl: string, name: string, shareWarning: string|null } | null>}
  */
-// How this calendar is shared with the public -- read from its own
-// sharing rules, with the calendar.readonly token the picker already
-// holds (api/calendarList.js ?acl= does the lookup; Google allows
-// acl.list under that scope). "details" is what a working embed needs;
-// "freebusy" is what "Make available to public" gives by DEFAULT and
-// embeds as grey blocks with no names; "none" is private. "unknown" only
-// when the lookup itself fails, and then the card says nothing at all:
-// a reminder that fires whatever the state was read, twice, as a wrong
-// verdict (Jay: "I am pretty sure that this calendar has the highest
-// share to public setting").
+// How this calendar is shared with the public. "details" is what a
+// working embed needs; "freebusy" is what "Make available to public"
+// gives by DEFAULT and embeds as grey blocks with no names; "none" is
+// private. "unknown" only when neither lookup can answer, and then the
+// card says nothing at all: a reminder that fires whatever the state was
+// read, twice, as a wrong verdict (Jay: "I am pretty sure that this
+// calendar has the highest share to public setting").
 //
-// A first version asked with the app's API key instead, as a student's
-// browser would -- but that key is restricted to the Picker/Drive APIs,
-// so it could never get an answer. The token can.
+// Two lookups, and as of 2026-09-02 NEITHER can answer in production --
+// each is one setting in Jay's Google Cloud project away, and which one
+// to flip is his call:
+//
+//  1. The calendar's own sharing rules (api/calendarList.js ?acl=), with
+//     the picker's token. Google allows acl.list only under
+//     calendar.acls.readonly (checked against the reference on
+//     2026-09-02: calendar, calendar.acls, calendar.acls.readonly -- NOT
+//     calendar.readonly, which is what the picker asks for). So this
+//     answers 403 until that scope is added to CALENDAR_SCOPE below,
+//     which also means a fresh consent prompt for every teacher.
+//  2. events.list with no login, just the app's API key -- exactly the
+//     identity a student's browser has, so 200 = public with details and
+//     404 = not. The picker key is restricted to the Picker/Drive APIs,
+//     so this answers 403 until Google Calendar API is added to the
+//     key's allowed APIs. No consent prompt, no scope change: the
+//     lighter of the two.
 async function probeCalendarSharing(accessToken, calendarId) {
+  const fromAcl = await probeCalendarAcl(accessToken, calendarId);
+  if (fromAcl !== "unknown") return fromAcl;
+  return probeCalendarAsStudent(calendarId);
+}
+
+async function probeCalendarAcl(accessToken, calendarId) {
   try {
     const res = await apiFetch(`/api/calendarList?acl=${encodeURIComponent(calendarId)}`, {
       headers: { "X-Google-Access-Token": accessToken },
@@ -630,6 +647,33 @@ async function probeCalendarSharing(accessToken, calendarId) {
     if (!res.ok) return "unknown";
     const data = await res.json();
     return ["details", "freebusy", "none"].includes(data?.visibility) ? data.visibility : "unknown";
+  } catch {
+    return "unknown";
+  }
+}
+
+async function probeCalendarAsStudent(calendarId) {
+  if (!API_KEY) return "unknown";
+  try {
+    const res = await fetch(
+      `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?maxResults=1&key=${encodeURIComponent(API_KEY)}`
+    );
+    if (res.ok) return "details";
+    // A free/busy-only calendar answers 404 here too: to an anonymous
+    // caller its events do not exist. That is exactly what a student
+    // sees, so "none" (blank for anyone but you) is the honest reading.
+    if (res.status === 404) return "none";
+    if (res.status === 403) {
+      // 403 is BOTH "this calendar is not public" and "this key may not
+      // call this API". Tell them apart by what Google says.
+      const body = await res.json().catch(() => null);
+      const reason = String(body?.error?.errors?.[0]?.reason || body?.error?.status || "").toLowerCase();
+      const text = String(body?.error?.message || "").toLowerCase();
+      const aboutKey = text.includes("blocked") || text.includes("api key") || text.includes("not enabled")
+        || reason.includes("accessnotconfigured") || reason.includes("keyinvalid");
+      return aboutKey ? "unknown" : "none";
+    }
+    return "unknown";
   } catch {
     return "unknown";
   }
