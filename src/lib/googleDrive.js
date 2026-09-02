@@ -608,6 +608,46 @@ async function fetchCalendarList(accessToken) {
  *
  * @returns {Promise<{ embedUrl: string, name: string, shareWarning: string|null } | null>}
  */
+// What a STUDENT would get from this calendar: a request with no login,
+// just the app's API key, which is exactly the identity the embed runs as
+// on a student's device. A calendar shared publicly with event details
+// answers 200; one that is private, or public as free/busy only, does
+// not. That is the check the old warning could not make -- it had no ACL
+// scope, so it hedged with "if ... is not shared publicly", and Jay, whose
+// calendar IS public (but free/busy only, which shows students nothing),
+// read the hedge as a wrong accusation.
+//
+// "unknown" when the key itself is not allowed to call the Calendar API
+// (a 403 that is about the key, not the calendar) or the network fails.
+// As of 2026-09-02 that is where production is: the picker key is
+// restricted to the Picker/Drive APIs, so this answers "unknown" until
+// Calendar API is added to the key's allowed list in Google Cloud. The
+// caller falls back to the reminder wording in that case, so enabling it
+// later needs no code change.
+async function probePublicCalendar(calendarId) {
+  if (!API_KEY) return "unknown";
+  try {
+    const res = await fetch(
+      `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?maxResults=1&key=${encodeURIComponent(API_KEY)}`
+    );
+    if (res.ok) return "public";
+    if (res.status === 404) return "private";
+    if (res.status === 403) {
+      // Google says 403 for BOTH "this calendar is not public" and "this
+      // key may not call this API". Tell them apart by the reason.
+      const body = await res.json().catch(() => null);
+      const reason = String(body?.error?.errors?.[0]?.reason || body?.error?.status || "").toLowerCase();
+      const text = String(body?.error?.message || "").toLowerCase();
+      const aboutKey = text.includes("blocked") || text.includes("api key") || text.includes("not enabled")
+        || reason.includes("accessnotconfigured") || reason.includes("keyinvalid") || reason.includes("forbidden") && text.includes("method");
+      return aboutKey ? "unknown" : "private";
+    }
+    return "unknown";
+  } catch {
+    return "unknown";
+  }
+}
+
 export async function pickGoogleCalendar() {
   await ensureGoogleScriptsLoaded();
   const accessToken = await requestCalendarToken();
@@ -732,23 +772,40 @@ export async function pickGoogleCalendar() {
       btn.onmouseenter = () => { btn.style.borderColor = "#f90"; btn.style.background = "#333"; };
       btn.onmouseleave = () => { btn.style.borderColor = "#444"; btn.style.background = "#2a2a2a"; };
 
-      btn.onclick = () => {
+      btn.onclick = async () => {
         document.body.removeChild(overlay);
-        // shareWarning has always existed here and was always null, while
-        // the slides picker beside it populates the same field and the
-        // board already displays it. The embed URL renders only for
-        // someone who can already see the calendar -- which the signed-in
-        // teacher always can, so this fails in the one place they cannot
-        // see it: a student's device, or the classroom machine signed out.
-        // We cannot read a calendar's sharing without the ACL scope, so
-        // say it conditionally rather than asserting a state we did not
-        // check.
+        // The embed URL renders only for someone who can already see the
+        // calendar -- which the signed-in teacher always can, so this fails
+        // in the one place they cannot see it: a student's device, or the
+        // classroom machine signed out. probePublicCalendar asks Google as
+        // a student would; when it cannot get an answer the message is a
+        // reminder, not a finding, and is worded as one.
+        //
+        // Either way it names BOTH settings. "Make available to public"
+        // alone is not enough: its default is "See only free/busy", which
+        // embeds as blank blocks -- the exact state Jay's calendar was in
+        // when he said "I got the 'not shared to public' sign but my
+        // calendar is shared to public."
+        const name = cal.summary || cal.id;
         const owned = cal.accessRole === "owner" || cal.accessRole === "writer";
-        const shareWarning = cal.accessRole === "freeBusyReader"
-          ? `You can only see free/busy times on "${cal.summary || cal.id}", so the board will show blocks with no detail.`
-          : owned
-            ? `If "${cal.summary || cal.id}" is not shared publicly, students will see an empty box. Google Calendar → Settings → that calendar → Access permissions → "Make available to public".`
-            : `You do not own "${cal.summary || cal.id}", so you cannot change its sharing. If it is not already public, it will be blank for anyone but you.`;
+        const where = `Google Calendar → Settings → "${name}" → Access permissions for events → "Make available to public", set to "See all event details".`;
+        let shareWarning;
+        if (cal.accessRole === "freeBusyReader") {
+          shareWarning = `You can only see free/busy times on "${name}", so the board will show blocks with no detail.`;
+        } else {
+          const visibility = await probePublicCalendar(cal.id);
+          if (visibility === "public") {
+            shareWarning = null;
+          } else if (visibility === "private") {
+            shareWarning = owned
+              ? `Students will see an empty box: "${name}" is not shared publicly with event details. ${where}`
+              : `"${name}" is not shared publicly with event details, and you do not own it, so it will be blank for anyone but you.`;
+          } else {
+            shareWarning = owned
+              ? `Students only see "${name}" if it is public with event details showing. Worth checking: ${where}`
+              : `You do not own "${name}", so you cannot change its sharing. If it is not public with event details, it will be blank for anyone but you.`;
+          }
+        }
 
         resolve({
           embedUrl: `https://calendar.google.com/calendar/embed?src=${encodeURIComponent(cal.id)}&showTitle=0&showNav=1&showDate=1&showPrint=0&showTabs=1&showCalendars=0`,
