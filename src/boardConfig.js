@@ -1075,6 +1075,8 @@ export const designOptionKey = (area, optionId) => `${area}:${optionId}`;
 // is a teacher silently losing an option they were already using, which
 // is much worse than a new design being free for a while. Gate a design
 // by adding its id here, in the same commit that adds it to the store.
+const INCLUDED_PAPERS = ["builtin:plain", "builtin:wide", "builtin:graph"];
+
 const STORE_GATED_OPTIONS = {
   // The store's stock: every border style, and every neutral colour
   // including Navy. What ships with every board is just the teacher's own
@@ -1090,11 +1092,12 @@ const STORE_GATED_OPTIONS = {
   [DESIGN_AREAS.BOARD_SURFACE]: [],
   [DESIGN_AREAS.BOARD_LAYOUT]: [],
   [DESIGN_AREAS.BOARD_ACCENT]: [],
-  // Plain stays with everyone, so "Create Bell Ringer doc" always has one
-  // paper to make and stays a single click until a teacher adds more.
-  // Every other paper -- these three and whatever comes later -- is a
-  // store item.
-  [DESIGN_AREAS.PAPER]: BUILT_IN_PAPERS.map(p => p.id).filter(id => id !== "builtin:plain"),
+  // Plain, Wide Ruled and Graph Paper ship with everyone, so the Bell
+  // Ringer button offers a choice from the first day (Jay: "we should
+  // have wide ruled and graph paper on there by default, so people get
+  // the dropdown menu on the bell ringer right away"). College Ruled and
+  // whatever comes later are store items.
+  [DESIGN_AREAS.PAPER]: BUILT_IN_PAPERS.map(p => p.id).filter(id => !INCLUDED_PAPERS.includes(id)),
 };
 
 // Ships with every board, no purchase, no ownership record.
