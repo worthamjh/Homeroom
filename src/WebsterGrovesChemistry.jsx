@@ -28,6 +28,7 @@ import {
   SLIDING_BOARDS_ENABLED_KEY, DEFAULT_SLIDING_BOARDS_ENABLED,
   SLIDING_BOARDS_COUNT_KEY, DEFAULT_SLIDING_BOARDS_COUNT,
   getActiveClassroomId, classroomQuery,
+  BELL_RINGER_PLACEMENT_KEY, DEFAULT_BELL_RINGER_PLACEMENT, isBellRingerPlacement,
   buildSlidingPanels,
   CURRENT_VIEW_STORAGE_KEY, readCurrentView, writeCurrentView,
   useBoardContentOrder,
@@ -2726,10 +2727,15 @@ export default function App({ viewer = false } = {}) {
   const [essentialQuestionOn] = useScopedSetting(BOARD_COMPONENTS.essentialQuestion.storageKey, BOARD_COMPONENTS.essentialQuestion.default, isOnOff);
   const [agendaOn] = useScopedSetting(BOARD_COMPONENTS.agenda.storageKey, BOARD_COMPONENTS.agenda.default, isOnOff);
   const [bellRingerOn] = useScopedSetting(BOARD_COMPONENTS.bellRinger.storageKey, BOARD_COMPONENTS.bellRinger.default, isOnOff);
+  const [bellRingerPlacement] = useScopedSetting(BELL_RINGER_PLACEMENT_KEY, DEFAULT_BELL_RINGER_PLACEMENT, isBellRingerPlacement);
   const learningGoalsIsOn = learningGoalsOn === "true";
   const essentialQuestionIsOn = essentialQuestionOn === "true";
   const agendaIsOn = agendaOn === "true";
   const bellRingerIsOn = bellRingerOn === "true";
+  // The Bell Ringer folded into the Agenda as its pinned first line (see
+  // BELL_RINGER_PLACEMENT_KEY). Needs the Agenda on to have somewhere to
+  // go; otherwise it keeps its own block.
+  const bellRingerInAgenda = bellRingerIsOn && agendaOn === "true" && bellRingerPlacement === "agenda";
   // Whether any of the four Full Agenda freeform fields are on — drives
   // whether FullAgendaFields renders at all (it's presentational and would
   // otherwise render an empty gap of its own layout gap/Reset button when
@@ -3995,7 +4001,7 @@ export default function App({ viewer = false } = {}) {
                         />
                       );
                     }
-                    const isOnByKey = { essentialQuestion: essentialQuestionIsOn, agenda: agendaIsOn, bellRinger: bellRingerIsOn };
+                    const isOnByKey = { essentialQuestion: essentialQuestionIsOn, agenda: agendaIsOn, bellRinger: bellRingerIsOn && !bellRingerInAgenda };
                     if (!isOnByKey[key]) return null;
                     return (
                       <EditableField
@@ -4009,7 +4015,8 @@ export default function App({ viewer = false } = {}) {
                         interactive={isFront && isBuildMode}
                         checkedLines={pf.checkedAgendaLines}
                         onToggleLine={pf.toggleAgendaLine}
-                        {...(key === "bellRinger" ? {
+                        bellRingerInline={key === "agenda" && bellRingerInAgenda}
+                        {...((key === "bellRinger" || (key === "agenda" && bellRingerInAgenda)) ? {
                           kamiUrl: pf.content.bellRingerKamiUrl || "",
                           onSaveKamiUrl: val => pf.save("bellRingerKamiUrl", val),
                           onKamiOpen: () => { setKamiSourcePanelIdx(panelIdx); setKamiState(prev => prev ? null : "overlay"); },
@@ -4144,7 +4151,7 @@ export default function App({ viewer = false } = {}) {
                               </div>
                             );
                           }
-                          const isOnByKey = { essentialQuestion: essentialQuestionIsOn, agenda: agendaIsOn, bellRinger: bellRingerIsOn };
+                          const isOnByKey = { essentialQuestion: essentialQuestionIsOn, agenda: agendaIsOn, bellRinger: bellRingerIsOn && !bellRingerInAgenda };
                           if (!isOnByKey[key]) return null;
                           return (
                             <EditableField
@@ -4158,7 +4165,8 @@ export default function App({ viewer = false } = {}) {
                               interactive={isBuildMode}
                               checkedLines={fullAgendaFields.checkedAgendaLines}
                               onToggleLine={fullAgendaFields.toggleAgendaLine}
-                              {...(key === "bellRinger" ? {
+                              bellRingerInline={key === "agenda" && bellRingerInAgenda}
+                              {...((key === "bellRinger" || (key === "agenda" && bellRingerInAgenda)) ? {
                                 kamiUrl: fullAgendaFields.content.bellRingerKamiUrl || "",
                                 onSaveKamiUrl: val => fullAgendaFields.save("bellRingerKamiUrl", val),
                                 lessonLabel: activeLesson?.title,

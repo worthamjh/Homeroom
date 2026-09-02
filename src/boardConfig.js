@@ -886,6 +886,16 @@ export function boardAccentBaseColor(key, primaryColor, secondaryColor) {
   return secondaryColor || DEFAULT_SECONDARY_COLOR;
 }
 
+// Where the Bell Ringer shows on a lesson board. "section": its own block,
+// as always. "agenda": folded into the Agenda as its pinned first line --
+// same doc, same Create button, same tap-to-open -- for a district that
+// wants the bell ringer on the posted agenda, since it is something done
+// during class (Jay: "bellringer should be part of the agenda,
+// technically"). Per classroom, like the rest of the board's content.
+export const BELL_RINGER_PLACEMENT_KEY = "bellRingerPlacement";
+export const DEFAULT_BELL_RINGER_PLACEMENT = "section";
+export const isBellRingerPlacement = (k) => k === "section" || k === "agenda";
+
 export const SLIDING_BOARDS_ENABLED_KEY = "slidingBoardsEnabled";
 export const DEFAULT_SLIDING_BOARDS_ENABLED = "false";
 export const SLIDING_BOARDS_COUNT_KEY = "slidingBoardsCount";

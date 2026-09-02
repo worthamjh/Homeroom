@@ -16,6 +16,7 @@ import {
   SLIDING_BOARDS_COUNT_KEY, DEFAULT_SLIDING_BOARDS_COUNT, SLIDING_BOARDS_COUNT_OPTIONS,
   DESIGN_AREAS, useOwnedDesignOptions,
   useLessonBoardCount,
+  BELL_RINGER_PLACEMENT_KEY, DEFAULT_BELL_RINGER_PLACEMENT, isBellRingerPlacement,
 } from "./boardConfig";
 
 /**
@@ -207,6 +208,7 @@ export default function BoardSettingsPanel({ selected, onSelect, panelCountInfo,
   const [essentialQuestionOn, setEssentialQuestionOn] = useScopedSetting(BOARD_COMPONENTS.essentialQuestion.storageKey, BOARD_COMPONENTS.essentialQuestion.default, isOnOff);
   const [agendaOn, setAgendaOn] = useScopedSetting(BOARD_COMPONENTS.agenda.storageKey, BOARD_COMPONENTS.agenda.default, isOnOff);
   const [bellRingerOn, setBellRingerOn] = useScopedSetting(BOARD_COMPONENTS.bellRinger.storageKey, BOARD_COMPONENTS.bellRinger.default, isOnOff);
+  const [bellRingerPlacement, setBellRingerPlacement] = useScopedSetting(BELL_RINGER_PLACEMENT_KEY, DEFAULT_BELL_RINGER_PLACEMENT, isBellRingerPlacement);
   const toggleComponent = (value, setValue) => setValue(value === "true" ? "false" : "true");
   // Which order the five components above render in on the board — see
   // useBoardContentOrder/BOARD_CONTENT_ORDER_STORAGE_KEY in boardConfig.js.
@@ -371,8 +373,8 @@ export default function BoardSettingsPanel({ selected, onSelect, panelCountInfo,
                   {boardContentOrder.map((key) => {
                     const [value, setValue] = boardContentState[key];
                     return (
+                      <div key={key}>
                       <ToggleRow
-                        key={key}
                         checked={value === "true"}
                         onClick={() => toggleComponent(value, setValue)}
                         label={BOARD_COMPONENTS[key].label}
@@ -382,6 +384,25 @@ export default function BoardSettingsPanel({ selected, onSelect, panelCountInfo,
                         onDragOver={e => { e.preventDefault(); if (dragKey && dragKey !== key) setBoardContentOrder(reorder(boardContentOrder, dragKey, key)); }}
                         onDragEnd={() => { setDragKey(null); }}
                       />
+                      {/* Where the Bell Ringer lives: its own block, or the
+                          first line of the Agenda. Only a choice while the
+                          Bell Ringer is on; "inside the agenda" needs the
+                          Agenda on too, and falls back to its own block
+                          until it is. */}
+                      {key === "bellRinger" && value === "true" && (
+                        <div style={{ padding: "0 14px 10px 40px", display: "flex", flexDirection: "column", gap: 4 }}>
+                          {[["section", "Its own section"], ["agenda", "Inside the Agenda, as its first line"]].map(([id, label]) => (
+                            <label key={id} style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontFamily: "Lato, sans-serif", fontSize: 12, color: bellRingerPlacement === id ? "#fff" : "rgba(255,255,255,0.6)" }}>
+                              <input type="radio" name="bellRingerPlacement" checked={bellRingerPlacement === id} onChange={() => setBellRingerPlacement(id)} />
+                              {label}
+                            </label>
+                          ))}
+                          <div style={{ fontFamily: "Lato, sans-serif", fontSize: 11, color: "rgba(255,255,255,0.4)", lineHeight: 1.45 }}>
+                            Same doc and buttons either way. Inside the Agenda suits a school that wants the bell ringer on the posted agenda.
+                          </div>
+                        </div>
+                      )}
+                      </div>
                     );
                   })}
 
