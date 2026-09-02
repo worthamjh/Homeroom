@@ -1464,6 +1464,19 @@ export function AssignmentThumb({ label, url, thumb, hidden, onRemove, onRename,
   const [renaming, setRenaming] = useState(false);
   const [draft, setDraft] = useState(label);
   const inputRef = useRef(null);
+  // The preview image failed to load. The app stores a POINTER to a Drive
+  // file, never a copy, and never checks on it -- so a file deleted (or
+  // un-shared) in Drive left a tile with a broken image and the label as
+  // alt text, and nothing to tell the teacher why. Jay asked what happens
+  // to a document on the board when it is deleted in Drive; this is the
+  // first honest answer the tile can give. It cannot know WHY the image
+  // failed (deleted, trashed, private to a viewer who is not the owner,
+  // or Drive having a moment), so the copy names the two likely causes
+  // rather than asserting one. Reset when the thumb changes, e.g. after
+  // a teacher fixes the file and the URL is re-picked.
+  const [broken, setBroken] = useState(false);
+  useEffect(() => { setBroken(false); }, [thumb]);
+  const isBuild = !!(onRemove || onRename || onToggleHidden);
   // The rename input commits on Enter AND on blur, and Enter unmounts the
   // input -- which fires blur. Without this latch the same rename was sent
   // twice, and worse, Escape (which also unmounts) fell through to the blur
@@ -1514,8 +1527,18 @@ export function AssignmentThumb({ label, url, thumb, hidden, onRemove, onRename,
       onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--board-secondary)"; e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.querySelector(".aLabel").style.opacity = 1; const r = e.currentTarget.querySelector(".aRemove"); if (r) r.style.opacity = 1; const rn = e.currentTarget.querySelector(".aRename"); if (rn) rn.style.opacity = 1; const h = e.currentTarget.querySelector(".aHide"); if (h) h.style.opacity = 1; const g = e.currentTarget.querySelector(".aDrag"); if (g) g.style.opacity = 1; }}
       onMouseLeave={e => { e.currentTarget.style.borderColor = "transparent"; e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.querySelector(".aLabel").style.opacity = 0; const r = e.currentTarget.querySelector(".aRemove"); if (r) r.style.opacity = 0; const rn = e.currentTarget.querySelector(".aRename"); if (rn) rn.style.opacity = 0; const h = e.currentTarget.querySelector(".aHide"); if (h && !hidden) h.style.opacity = 0; const g = e.currentTarget.querySelector(".aDrag"); if (g) g.style.opacity = 0; }}
     >
-      {thumb ? (
-        <img src={thumb} alt={label} style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "top", display: "block" }} />
+      {thumb && !broken ? (
+        <img src={thumb} alt={label} onError={() => setBroken(true)} style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "top", display: "block" }} />
+      ) : broken ? (
+        <div style={{ width: "100%", height: "100%", background: "#f3efe6", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "10px 8px", boxSizing: "border-box", textAlign: "center", gap: 6 }}>
+          <div style={{ fontSize: 22, lineHeight: 1 }} aria-hidden="true">⚠️</div>
+          <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 12, color: "#333", letterSpacing: 0.3, lineHeight: 1.3 }}>{label}</div>
+          <div style={{ fontFamily: "Lato, sans-serif", fontSize: 10.5, color: "#7a6a4a", lineHeight: 1.4 }}>
+            {isBuild
+              ? "Couldn't load this file's preview. If it was deleted from Drive, remove it here; if it's private, share it in Drive."
+              : "Preview unavailable"}
+          </div>
+        </div>
       ) : (
         <div style={{ width: "100%", height: "100%", background: "#f5f5f5", display: "flex", flexDirection: "column", padding: 6, gap: 3 }}>
           <div style={{ height: 5, background: "#333", borderRadius: 1, width: "70%" }} />
