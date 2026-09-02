@@ -1470,9 +1470,12 @@ export function AssignmentThumb({ label, url, thumb, hidden, onRemove, onRename,
   // alt text, and nothing to tell the teacher why. Jay asked what happens
   // to a document on the board when it is deleted in Drive; this is the
   // first honest answer the tile can give. It cannot know WHY the image
-  // failed (deleted, trashed, private to a viewer who is not the owner,
-  // or Drive having a moment), so the copy names the two likely causes
-  // rather than asserting one. Reset when the thumb changes, e.g. after
+  // failed -- and Jay's first test showed the most ordinary cause is none
+  // of the dramatic ones: a Google Doc created minutes earlier, 1 KB,
+  // essentially empty, for which Google had simply not made a preview.
+  // Deleted, trashed, private, or preview-less all look the same from
+  // here, so the copy leads with the harmless case and offers "open it
+  // to check" rather than asserting a cause. Reset when the thumb changes, e.g. after
   // a teacher fixes the file and the URL is re-picked.
   const [broken, setBroken] = useState(false);
   useEffect(() => { setBroken(false); }, [thumb]);
@@ -1535,7 +1538,7 @@ export function AssignmentThumb({ label, url, thumb, hidden, onRemove, onRename,
           <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 12, color: "#333", letterSpacing: 0.3, lineHeight: 1.3 }}>{label}</div>
           <div style={{ fontFamily: "Lato, sans-serif", fontSize: 10.5, color: "#7a6a4a", lineHeight: 1.4 }}>
             {isBuild
-              ? "Couldn't load this file's preview. If it was deleted from Drive, remove it here; if it's private, share it in Drive."
+              ? "No preview for this file. New or empty files often don't have one yet; it may also be private, or gone from Drive. Open it to check, or remove it here."
               : "Preview unavailable"}
           </div>
         </div>
