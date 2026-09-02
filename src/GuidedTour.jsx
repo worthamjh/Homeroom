@@ -210,7 +210,12 @@ const STEPS = [
     gate: "select",
     matchSelected: "content",
     title: "Board Content",
-    body: "Open “Board Content”. Essential Question, Learning Goals, Agenda and Bell Ringer: switch each on or off, and drag ≡ to reorder them. Goals get a checkbox students can watch you tick off. Press Got it when you’re done.",
+    // Says what the checkboxes DO, not which four things they are -- the
+    // list is right there on screen, and naming three of the four (as the
+    // copy once did) read as if the fourth were not a choice. Jay: "just
+    // say something along the lines of you can turn on or off by
+    // selecting the checkbox, rather than naming specifically."
+    body: "Open “Board Content”. Each checkbox puts that section on the board or takes it off, and dragging ≡ changes the order. Press Got it when you’re done.",
     ackLabel: "Got it",
   },
   {
