@@ -195,6 +195,14 @@ const STEPS = [
   {
     id: "board-content",
     frame: "sidebar",
+    // Under the category rather than beside it. Beside put the tooltip
+    // over the content column -- the very part of the board this step
+    // lights up (Jay: "the board content tour sign itself is blocking some
+    // of the view of that section of the board"). Below sits in the
+    // sidebar's own column and covers nothing on the board. It moves once,
+    // when the category opens; if a short screen leaves no room below,
+    // the sidebar's beside rule takes over.
+    placement: "below",
     selector: '[data-tour="tour-cat-content"]',
     gate: "select",
     matchSelected: "content",
@@ -451,7 +459,8 @@ export default function GuidedTour({ active, onDone, iframeRef, selected, boardW
     // A step can also ask for this itself (placement: "beside") when
     // below/above would land the tooltip on the thing it describes.
     const besideSidebar = step.frame === "sidebar" || step.placement === "beside";
-    const fitsBelow = !besideSidebar && rect.top + rect.height + GAP + TOOLTIP_H <= viewportH - EDGE;
+    const wantsBelow = step.placement === "below";
+    const fitsBelow = (!besideSidebar || wantsBelow) && rect.top + rect.height + GAP + TOOLTIP_H <= viewportH - EDGE;
     const fitsAbove = !besideSidebar && rect.top - GAP - TOOLTIP_H >= EDGE;
     let left;
     let top;

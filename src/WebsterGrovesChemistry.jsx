@@ -2892,11 +2892,19 @@ export default function App() {
   // the content column is on the LEFT, so lighting "the right side"
   // literally would light the slides and dim the thing being edited --
   // right for one preset and backwards for the other.
+  //
+  // The ring follows the same rule: it goes around the content column,
+  // not the whole chalkboard, so the lit region and the outlined region
+  // are the same region. Jay, on the tour's Board Content step: "the
+  // highlighted part of the homeroom should only include the right
+  // portion of the chalkboard."
   const contentFocus = (isPreviewMode || isBuildMode) && highlightRegion === "content";
+  const CONTENT_RING = { boxShadow: "inset 0 0 0 3px var(--board-secondary)" };
+  const CONTENT_DIM = { filter: "brightness(0.4)", transition: "filter 0.18s" };
   const dimColumn = (key, node) =>
-    contentFocus && key !== "goals"
+    contentFocus
       ? cloneElement(node, {
-          style: { ...(node.props.style || {}), filter: "brightness(0.4)", transition: "filter 0.18s" },
+          style: { ...(node.props.style || {}), ...(key === "goals" ? CONTENT_RING : CONTENT_DIM) },
         })
       : node;
 
@@ -3838,7 +3846,7 @@ export default function App() {
                 darker #6B4F10, which made the divider look like a shadow
                 rather than part of the frame. Still thinner than the 7px
                 perimeter, which is what an inner member should be. */}
-            <div style={{ flex: 1, minHeight: 0, background: surface.face, borderTop: "4px solid #8B6914", display: "flex", flexDirection: "column", ...dimUnless("blackboard", "content", "layout"), ...highlightStyle("blackboard"), ...highlightStyle("content") }}>
+            <div style={{ flex: 1, minHeight: 0, background: surface.face, borderTop: "4px solid #8B6914", display: "flex", flexDirection: "column", ...dimUnless("blackboard", "content", "layout"), ...highlightStyle("blackboard") }}>
               {!isOverview && (activeLesson?.goalPanels || slidingEnabled) ? (
                 // Sliding multi-panel chalkboard — the exact same rail/dock
                 // mechanic regardless of content template. A lesson that
@@ -3856,6 +3864,12 @@ export default function App() {
                 <ChalkboardBoardRow
                   smartBoardSrc={boardSlides}
                   renderSlidesArea={renderLessonSlides}
+                  // Board Content is selected in Build: dim the slides
+                  // column and ring the content column, as the flat
+                  // branch's dimColumn does. Without this the sliding
+                  // branch lit the whole chalkboard -- which is what Jay's
+                  // own board (three sliding boards) showed on the tour.
+                  contentFocus={contentFocus}
                   initialPanel={initialPanelIdx}
                   onPanelChange={setCurrentPanelIdx}
                   isOverview={false}

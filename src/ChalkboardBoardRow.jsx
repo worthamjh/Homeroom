@@ -162,6 +162,14 @@ export default function ChalkboardBoardRow({
   // goalPanels lessons, and the real Webster Groves site, never pass it,
   // since their slides always come pre-filled from curriculum data).
   renderSlidesArea = null,
+  // Build/preview mode with the Board Content category selected. Dims the
+  // slides column and rings the content column's footprint, so the part of
+  // the board that category changes is the part that is lit -- the same
+  // treatment the flat (non-sliding) column gives it (see dimColumn in
+  // WebsterGrovesChemistry.jsx). The ring is its own overlay rather than a
+  // style on a panel: the panels slide and dock, the column they belong
+  // to does not.
+  contentFocus = false,
   // Which board to open on, and a way to tell the caller which one is
   // showing now. Both exist for one reason: Build has to be able to hand
   // the teacher back to the SAME board they were just editing (see the
@@ -280,7 +288,7 @@ export default function ChalkboardBoardRow({
           label bar, the marker tray) inside the component itself, so the
           board and its buttons stay clickable, but the genuinely empty
           margin around it doesn't. */}
-      <div style={{ position: "absolute", left: `${smartboardLeftPct}%`, top: 0, width: `${smartboardWidthPct}%`, height: "100%", zIndex: 1000, boxSizing: "border-box", padding: 16, display: "flex", justifyContent: "center", pointerEvents: "none" }}>
+      <div style={{ position: "absolute", left: `${smartboardLeftPct}%`, top: 0, width: `${smartboardWidthPct}%`, height: "100%", zIndex: 1000, boxSizing: "border-box", padding: 16, display: "flex", justifyContent: "center", pointerEvents: "none", filter: contentFocus ? "brightness(0.4)" : "none", transition: "filter 0.18s" }}>
         {renderSlidesArea ? (
           // Build mode's Add/Change/Remove UI, same as SmartBoard's other
           // pieces, needs pointerEvents restored to "auto" — the wrapping
@@ -296,6 +304,10 @@ export default function ChalkboardBoardRow({
           <SmartBoard src={smartBoardSrc} />
         )}
       </div>
+
+      {contentFocus && (
+        <div style={{ position: "absolute", left: `${goalsHomeLeftPct}%`, top: 0, width: `${goalsWidthPct}%`, height: "100%", boxShadow: "inset 0 0 0 3px var(--board-secondary)", pointerEvents: "none", zIndex: 999 }} />
+      )}
 
       {isOverview ? (
         // Overview mode: unchanged behavior, single static panel, no slide mechanic.
