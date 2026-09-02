@@ -2110,7 +2110,10 @@ function TopBar({ viewer = false, curriculum, activeUnitIdx, isOverview, activeL
           // (Jay: "once you get a lot of units on here everything gets
           // pretty smushed"). Hover already opens the dropdown, so the same
           // state drives the width; it eases so the row does not jump.
-          <div key={ui} style={{ position: "relative", flex: openDropdown === ui ? "3 1 0" : "1 1 0", minWidth: 0, transition: "flex 0.2s ease" }}
+          // Build only: it is the rename/hide/delete/reorder controls that
+          // crowd a tab, and the live board has none of them (Jay: "only
+          // really needs to be done in the build menu").
+          <div key={ui} style={{ position: "relative", flex: isBuildMode && openDropdown === ui ? "3 1 0" : "1 1 0", minWidth: 0, transition: "flex 0.2s ease" }}
             onMouseEnter={() => { (u.lessons.length > 0 || (isBuildMode && isBlankTeacher)) && setOpenDropdown(ui); }}
             // Don't close the lesson list out from under an open rename box:
             // closing unmounts the input, and React does not fire onBlur on
@@ -2199,7 +2202,7 @@ function TopBar({ viewer = false, curriculum, activeUnitIdx, isOverview, activeL
                         // out to the button group. It used to reserve 18px on
                         // the right for the pencil, which pushed this centred
                         // text off-centre by half that.
-                        style={{ flex: 1, minWidth: 0, background: "transparent", color: "var(--board-secondary-fg)", border: "none", borderRadius: 4, padding: `${SPACE.sm}px ${SPACE.xs}px`, fontSize: 13, fontFamily: "var(--board-heading-font, 'Oswald', sans-serif)", fontWeight: 600, letterSpacing: 0.5, textAlign: "center", whiteSpace: openDropdown === ui ? "nowrap" : "normal",
+                        style={{ flex: 1, minWidth: 0, background: "transparent", color: "var(--board-secondary-fg)", border: "none", borderRadius: 4, padding: `${SPACE.sm}px ${SPACE.xs}px`, fontSize: 13, fontFamily: "var(--board-heading-font, 'Oswald', sans-serif)", fontWeight: 600, letterSpacing: 0.5, textAlign: "center", whiteSpace: isBuildMode && openDropdown === ui ? "nowrap" : "normal",
                           // Plain arrow (Jay: "the mouse shows the normal arrow
                           // over the unit text rather than the cursor"). The
                           // I-beam here was advertising that the word itself
@@ -2320,7 +2323,7 @@ function TopBar({ viewer = false, curriculum, activeUnitIdx, isOverview, activeL
               // never runs off the board; the tab's own segment is still
               // inside it either way. Lesson titles may still wrap at the
               // floor, which beats overflowing.
-              <div style={{ position: "absolute", top: "100%", ...(ui >= curriculum.length / 2 ? { right: 0 } : { left: 0 }), width: "100%", minWidth: 300, background: "var(--board-primary)", border: "1px solid var(--board-secondary)", borderTop: "none", borderRadius: "0 0 4px 4px", zIndex: 5000, overflow: "hidden" }}>
+              <div style={{ position: "absolute", top: "100%", ...(isBuildMode && ui >= curriculum.length / 2 ? { right: 0 } : { left: 0 }), width: "100%", minWidth: isBuildMode ? 300 : undefined, background: "var(--board-primary)", border: "1px solid var(--board-secondary)", borderTop: "none", borderRadius: "0 0 4px 4px", zIndex: 5000, overflow: "hidden" }}>
                 {/* Build sees hidden lessons (dimmed, so they can be brought
                     back); the live board does not see them at all. Indexes
                     come from the unfiltered list so rename/delete/reorder
