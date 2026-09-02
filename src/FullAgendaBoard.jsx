@@ -2,6 +2,7 @@ import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { fetchBoardContent, saveBoardContent, deleteBoardContent } from "./lib/boardContentApi";
 import { createKamiBellRingerDoc, googleDriveConfigured, googleDriveSignedIn } from "./lib/googleDrive";
 import { BUILT_IN_PAPERS } from "./lib/paperTemplates";
+import { useOwnedDesignOptions, DESIGN_AREAS } from "./boardConfig";
 
 /**
  * FullAgendaBoard
@@ -328,7 +329,14 @@ function KamiUrlInput({ kamiUrl, onSaveKamiUrl, lessonLabel, surface = DEFAULT_S
   };
 
   const canAutoCreate = googleDriveConfigured();
-  const templates = canAutoCreate ? BUILT_IN_PAPERS.map(p => ({ fileId: p.id, name: p.label })) : [];
+  // Only the papers this teacher has: Plain comes with everyone, the rest
+  // are added from the Store (see DESIGN_AREAS.PAPER in boardConfig.js).
+  // With just Plain the button creates it in one click; with more, it
+  // offers the list.
+  const design = useOwnedDesignOptions();
+  const templates = canAutoCreate
+    ? BUILT_IN_PAPERS.filter(p => design.isAvailable(DESIGN_AREAS.PAPER, p.id)).map(p => ({ fileId: p.id, name: p.label }))
+    : [];
   const chip = {
     fontFamily: "Lato, sans-serif", fontSize: 11, padding: "4px 10px",
     borderRadius: 4, border: `1px solid ${surface.dividerBorder}`,
@@ -394,6 +402,12 @@ function KamiUrlInput({ kamiUrl, onSaveKamiUrl, lessonLabel, surface = DEFAULT_S
                 <button onClick={() => handleAutoCreate(undefined)} style={{ ...chip, textAlign: "left" }}>
                   Blank Google Doc
                 </button>
+                {/* target="_top": this renders inside Build's iframe, and
+                    the Store is a page of its own, not something to load
+                    into the board's frame. */}
+                <a href="/store" target="_top" style={{ ...chip, border: "none", padding: "4px 2px", textDecoration: "underline", alignSelf: "flex-start" }}>
+                  More papers in the Store
+                </a>
               </div>
             )}
             {!pasting && (
@@ -438,7 +452,8 @@ function KamiUrlInput({ kamiUrl, onSaveKamiUrl, lessonLabel, surface = DEFAULT_S
               start, because Kami annotates fixed pages. */}
           <strong>Create Bell Ringer doc</strong> makes a PDF &mdash; a blank sheet of paper &mdash;
           and saves it in a &ldquo;Bell Ringer&rdquo; folder in your Drive; it creates that folder
-          for you the first time. If more than one paper style is available, the button offers the list.
+          for you the first time. Plain paper comes built in; more paper styles are in the Store, and once
+          you add some the button offers the list.
           <br /><br />
           Once that PDF exists, clicking <strong>Bell Ringer</strong> on the board opens it here
           to write on. <strong>Full Screen</strong> fills the screen to write in or project;

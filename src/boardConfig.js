@@ -12,6 +12,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { registerAuthTokenGetter } from "./lib/apiClient";
 import { useUser, useAuth } from "@clerk/clerk-react";
 import { fetchBoardSettings, saveBoardSetting } from "./lib/boardSettingsApi";
+import { BUILT_IN_PAPERS } from "./lib/paperTemplates";
 
 // Real identity now exists (Clerk — see main.jsx's <ClerkProvider> and
 // useSyncAuthIdentity below), but the placeholder scheme this replaces
@@ -1054,6 +1055,13 @@ export const DESIGN_AREAS = {
   BOARD_SURFACE: "boardSurface",
   BOARD_LAYOUT: "boardLayout",
   BOARD_ACCENT: "boardAccent",
+  // Bell Ringer paper. Not a look for the board -- a sheet the teacher
+  // writes on -- but the same shape of thing the store exists for: a
+  // catalogue that can grow without the button on the board growing with
+  // it. Jay: "add bell ringer 'paper' types to the store, and we will add
+  // more types over time. That way teachers can select what type of paper
+  // they want for bell ringers."
+  PAPER: "paper",
 };
 
 export const designOptionKey = (area, optionId) => `${area}:${optionId}`;
@@ -1082,6 +1090,11 @@ const STORE_GATED_OPTIONS = {
   [DESIGN_AREAS.BOARD_SURFACE]: [],
   [DESIGN_AREAS.BOARD_LAYOUT]: [],
   [DESIGN_AREAS.BOARD_ACCENT]: [],
+  // Plain stays with everyone, so "Create Bell Ringer doc" always has one
+  // paper to make and stays a single click until a teacher adds more.
+  // Every other paper -- these three and whatever comes later -- is a
+  // store item.
+  [DESIGN_AREAS.PAPER]: BUILT_IN_PAPERS.map(p => p.id).filter(id => id !== "builtin:plain"),
 };
 
 // Ships with every board, no purchase, no ownership record.
@@ -1104,6 +1117,7 @@ export const DESIGN_AREA_LABELS = {
   [DESIGN_AREAS.BOARD_SURFACE]: "Board Surfaces",
   [DESIGN_AREAS.BOARD_LAYOUT]: "Board Layouts",
   [DESIGN_AREAS.BOARD_ACCENT]: "Header & Accent Colors",
+  [DESIGN_AREAS.PAPER]: "Bell Ringer Papers",
 };
 
 // What each area's setting currently is, and what it falls back to. The
@@ -1121,6 +1135,11 @@ export const DESIGN_AREA_DEFAULT_OPTION = {
   [DESIGN_AREAS.BOARD_SURFACE]: DEFAULT_BOARD_SURFACE,
   [DESIGN_AREAS.BOARD_LAYOUT]: DEFAULT_ARRANGEMENT,
   [DESIGN_AREAS.BOARD_ACCENT]: DEFAULT_BOARD_ACCENT,
+  // Paper has no "current selection" to fall back to -- which paper is a
+  // per-bell-ringer choice made on the button -- so this is only ever
+  // read by the store page's remove flow, which finds no selection to
+  // move and simply removes.
+  [DESIGN_AREAS.PAPER]: "builtin:plain",
 };
 
 export function useDesignAreaSelections() {
@@ -1182,6 +1201,12 @@ export function designCatalog(primaryColor, secondaryColor) {
       options: Object.values(BOARD_ARRANGEMENTS).map(a => ({
         id: a.id, label: a.label, preview: { kind: "layout", columns: a.gridTemplateColumns },
       })),
+    },
+    {
+      area: DESIGN_AREAS.PAPER,
+      label: DESIGN_AREA_LABELS[DESIGN_AREAS.PAPER],
+      blurb: "The sheet a Bell Ringer doc starts from. Papers you add show up under “Create Bell Ringer doc” on the board.",
+      options: BUILT_IN_PAPERS.map(p => ({ id: p.id, label: p.label, preview: { kind: "paper", paper: p.id } })),
     },
   ];
 }

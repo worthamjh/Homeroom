@@ -67,6 +67,23 @@ function Preview({ preview }) {
     );
   }
 
+  if (preview.kind === "paper") {
+    // A sheet, drawn the way the PDF is: rules at a pitch, or a grid, or
+    // nothing. Scaled to the box rather than to the real inch so the
+    // three ruled papers read as clearly different at 74px tall.
+    const rule = (color, pitch, vertical = false) =>
+      `repeating-linear-gradient(${vertical ? "90deg" : "0deg"}, ${color} 0 1px, transparent 1px ${pitch}px)`;
+    const layers = [];
+    if (preview.paper === "builtin:wide") layers.push(rule("#9fc2e6", 11), "linear-gradient(90deg, transparent 0 14px, #e6a8a8 14px 15px, transparent 15px)");
+    if (preview.paper === "builtin:college") layers.push(rule("#9fc2e6", 8), "linear-gradient(90deg, transparent 0 14px, #e6a8a8 14px 15px, transparent 15px)");
+    if (preview.paper === "builtin:graph") layers.push(rule("#ccd6e0", 8), rule("#ccd6e0", 8, true));
+    return (
+      <div style={{ ...box, background: "#fff", display: "flex", justifyContent: "center", alignItems: "flex-end" }}>
+        <div style={{ width: "58%", height: "88%", background: layers.length ? layers.join(", ") + ", #fff" : "#fff", backgroundColor: "#fff", boxShadow: "0 1px 4px rgba(0,0,0,0.35)", borderRadius: "1px 1px 0 0" }} />
+      </div>
+    );
+  }
+
   if (preview.kind === "layout") {
     return (
       <div style={{ ...box, background: "#2d5a2d", display: "grid", gridTemplateColumns: preview.columns, gap: 6, padding: 8 }}>
