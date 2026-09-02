@@ -1732,7 +1732,16 @@ export function AddAssignmentCard({ open, busy, error, onOpen, onCancel, onSubmi
           <span style={{ fontSize: 24 }}>📄</span>
           <span>{file ? file.name : "Choose PDF file"}</span>
           <input type="file" accept="application/pdf" disabled={busy}
-            onChange={e => { setFile(e.target.files?.[0] || null); }}
+            // Picking a file names the assignment after it, as a Drive pick
+            // already does -- unless the teacher typed a name first. Save
+            // needs a name, and with the field empty it just sat disabled
+            // with nothing saying why (Jay: "it's not letting me hit the
+            // save button once I add a document").
+            onChange={e => {
+              const picked = e.target.files?.[0] || null;
+              setFile(picked);
+              if (picked && !label.trim()) setLabel(picked.name.replace(/.[^.]+$/, ""));
+            }}
             style={{ display: "none" }} />
         </label>
       </div>
