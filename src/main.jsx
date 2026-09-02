@@ -76,7 +76,13 @@ createRoot(document.getElementById('root')).render(
       // UserButton menu is open, e.g. /build) land back on the public
       // board rather than staying on a page whose sign-in gate just
       // flipped shut underneath them.
-      <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY} afterSignOutUrl="/">
+      <ClerkProvider
+        publishableKey={CLERK_PUBLISHABLE_KEY}
+        afterSignOutUrl="/"
+        // The same logo at the top of Clerk's own sign-in / sign-up modal,
+        // so the door a teacher signs in through carries the mark too.
+        appearance={{ layout: { logoImageUrl: "/logos/gil-bilt-classroom.svg", logoPlacement: "inside" } }}
+      >
         {routedApp}
       </ClerkProvider>
     ) : (

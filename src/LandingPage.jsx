@@ -111,9 +111,17 @@ function ClerkAwareLanding() {
 function Hero() {
   return (
     <div style={{ marginBottom: 32 }}>
-      <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 40, color: "#fff", letterSpacing: 1, marginBottom: 10 }}>
-        Gil-Bilt <span style={{ color: "#E87722" }}>Classroom</span>
-      </div>
+      {/* The logo: the GIL-BILT steel-beam wordmark on a framed chalkboard,
+          drawn in Claude Design (12a) and exported as SVG with the wordmark
+          raster embedded. Jay: "this is what I want the gil bilt logo to
+          be" -- "on the login sign in page". The wordmark raster is 327px
+          wide, so the logo is shown at a size it stays sharp at. */}
+      <img
+        src="/logos/gil-bilt-classroom.svg"
+        alt="Gil-Bilt Classroom"
+        width={420}
+        style={{ display: "block", width: "min(420px, 90vw)", height: "auto", margin: "0 auto 18px", borderRadius: 3, boxShadow: "0 10px 30px rgba(0,0,0,0.55)" }}
+      />
       <div style={{ fontSize: 15, color: "rgba(255,255,255,0.55)", maxWidth: 440, margin: "0 auto", lineHeight: 1.6 }}>
         Every resource you teach from, in one place — slides, assignments, and the board itself, built up over time as your own.
       </div>
