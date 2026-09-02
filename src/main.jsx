@@ -79,9 +79,16 @@ createRoot(document.getElementById('root')).render(
       <ClerkProvider
         publishableKey={CLERK_PUBLISHABLE_KEY}
         afterSignOutUrl="/"
-        // The same logo at the top of Clerk's own sign-in / sign-up modal,
-        // so the door a teacher signs in through carries the mark too.
-        appearance={{ layout: { logoImageUrl: "/logos/gil-bilt-classroom.svg", logoPlacement: "inside" } }}
+        // The wordmark alone at the top of Clerk's sign-in / sign-up modal.
+        // The framed chalkboard is the logo on the landing page, but in the
+        // modal's small slot it was a thumbnail of a picture (Jay: "on that
+        // clerk sign-in maybe we get a different version of the word art").
+        // This version has the chalk beams in dark grey so they survive
+        // Clerk's white card; the letters stay orange.
+        appearance={{
+          layout: { logoImageUrl: "/logos/gil-bilt-wordmark.png", logoPlacement: "inside" },
+          elements: { logoImage: { height: "64px", width: "auto" }, logoBox: { height: "64px", justifyContent: "center" } },
+        }}
       >
         {routedApp}
       </ClerkProvider>
