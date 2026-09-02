@@ -239,17 +239,19 @@ const STEPS = [
   },
 ];
 
-function rectFromBoardTarget(iframeEl, selector, boardWidth) {
+function boardDocument(iframeEl) {
   if (!iframeEl) return null;
-  let doc;
   try {
-    doc = iframeEl.contentDocument;
+    return iframeEl.contentDocument || null;
   } catch {
     return null;
   }
-  if (!doc) return null;
-  const el = doc.querySelector(selector);
-  if (!el) return null;
+}
+
+// An element inside the (scaled) board iframe, measured in this parent
+// document's coordinates.
+function rectFromBoardElement(iframeEl, el, boardWidth) {
+  if (!iframeEl || !el) return null;
   const iframeRect = iframeEl.getBoundingClientRect();
   if (iframeRect.width === 0) return null;
   const scale = iframeRect.width / boardWidth;
@@ -260,6 +262,32 @@ function rectFromBoardTarget(iframeEl, selector, boardWidth) {
     width: childRect.width * scale,
     height: childRect.height * scale,
   };
+}
+
+function rectFromBoardTarget(iframeEl, selector, boardWidth) {
+  const doc = boardDocument(iframeEl);
+  if (!doc) return null;
+  return rectFromBoardElement(iframeEl, doc.querySelector(selector), boardWidth);
+}
+
+// Google's Drive picker, when it is open. The picker SDK draws its dialog
+// into the board's own document (the card that opens it lives there), so
+// from out here it is just another element under the scrim -- and the
+// scrim dimmed it while the ring stayed on the tile that opened it. Jay:
+// "the highlighted region is still on the assignment section and not on
+// the google drive picker." While one is showing, it is what the teacher
+// is looking at, so it is what the ring goes around. ".picker-dialog" is
+// the SDK's own class for the dialog frame; it has been stable for years,
+// and if it ever changes the worst case is the old behaviour back.
+function rectFromOpenPicker(iframeEl, boardWidth) {
+  const doc = boardDocument(iframeEl);
+  if (!doc) return null;
+  for (const el of doc.querySelectorAll(".picker-dialog")) {
+    if (el.style.display === "none") continue;
+    const r = el.getBoundingClientRect();
+    if (r.width > 0 && r.height > 0) return rectFromBoardElement(iframeEl, el, boardWidth);
+  }
+  return null;
 }
 
 function rectFromSidebarTarget(selector) {
@@ -337,7 +365,8 @@ export default function GuidedTour({ active, onDone, iframeRef, selected, boardW
     if (!active || !step) return;
     const compute = () => {
       if (step.frame === "board") {
-        let r = rectFromBoardTarget(iframeRef.current, step.selector, boardWidth);
+        let r = rectFromOpenPicker(iframeRef.current, boardWidth)
+          || rectFromBoardTarget(iframeRef.current, step.selector, boardWidth);
         if (!r && (step.id === "add-lesson" || step.id === "open-lesson")) {
           let doc;
           try { doc = iframeRef.current?.contentDocument; } catch { doc = null; }
