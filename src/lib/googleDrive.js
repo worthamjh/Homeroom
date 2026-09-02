@@ -508,12 +508,30 @@ export async function pickGoogleDriveAssignmentFiles() {
     seenIds.add(doc.id);
     return true;
   });
-  return docs.map(doc => ({
-    fileId: doc.id,
-    name: doc.name.replace(/\.(pdf|docx?|gdoc)$/i, ""),
-    viewUrl: assignmentViewUrl(doc),
-    thumbUrl: `https://drive.google.com/thumbnail?id=${doc.id}&sz=w400`,
-  }));
+  // Share each one "anyone with the link", the way a picked slide deck
+  // is. It never was for assignments: a file stayed exactly as private
+  // as it was in Drive, so a student who clicked its tile got Google's
+  // "request access" page, and the tile had no preview for them either.
+  // Best-effort and per file -- a school domain can forbid external
+  // sharing, in which case the pick still goes through and the teacher
+  // gets told which files to share by hand (see the caller).
+  const results = [];
+  for (const doc of docs) {
+    let shareWarning = null;
+    try {
+      await ensurePubliclyViewable(doc.id, accessToken);
+    } catch (err) {
+      shareWarning = `"${doc.name}" couldn't be shared automatically (${err.message}). Open it in Drive and set "Anyone with the link" to Viewer, or students will be asked to request access.`;
+    }
+    results.push({
+      fileId: doc.id,
+      name: doc.name.replace(/\.(pdf|docx?|gdoc)$/i, ""),
+      viewUrl: assignmentViewUrl(doc),
+      thumbUrl: `https://drive.google.com/thumbnail?id=${doc.id}&sz=w400`,
+      shareWarning,
+    });
+  }
+  return results;
 }
 
 

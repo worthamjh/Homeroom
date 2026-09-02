@@ -1662,6 +1662,11 @@ export function AddAssignmentCard({ open, busy, error, onOpen, onCancel, onSubmi
             });
           }
         }
+        // Any file Google would not let us share gets said after the
+        // reload below, which would otherwise erase it -- same route the
+        // slides warning takes (see raiseDriveNotice).
+        const shareWarnings = results.map(r => r.shareWarning).filter(Boolean);
+        if (shareWarnings.length) raiseDriveNotice(shareWarnings.join(" "), { willReload: true });
         // Tell the parent BuildPage to scroll to top before the reload lands.
         if (window.parent !== window) {
           window.parent.postMessage({ type: "homeroom-drive-slides-saved" }, window.location.origin);
