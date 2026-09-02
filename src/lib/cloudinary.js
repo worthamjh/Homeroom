@@ -37,15 +37,68 @@ const isRetryable = status => status === 429 || (status >= 500 && status < 600);
  * @returns {Promise<{ publicId: string, pdfUrl: string, thumbUrl: string }>}
  */
 export async function uploadAssignmentPdf(file) {
+  // PDFs upload as Cloudinary "image" resources (that's what makes the
+  // pg_<n> page-render transformation available on them).
+  const data = await uploadToCloudinary(file, "image");
+  return {
+    publicId: data.public_id,
+    pdfUrl: data.secure_url,
+    thumbUrl: firstPageThumbUrl(data.public_id),
+  };
+}
+
+// Cloudinary's per-file ceiling on the free plan, and also the Office
+// viewer's own limit for a deck it will render -- so a bigger file would
+// fail twice over, and the teacher is better told up front.
+const MAX_SLIDES_BYTES = 10 * 1024 * 1024;
+
+/**
+ * Uploads a slide deck a teacher has on their own computer -- a PDF or a
+ * PowerPoint -- so a board can show it. Neither lands in Mongo itself:
+ * like assignments, the file lives on Cloudinary and only its URL is
+ * saved against the lesson (customSlidesUrl in api/boardContent.js).
+ *
+ * A PDF goes up as an "image" resource, same as an assignment PDF, and is
+ * shown straight in the board's iframe by the browser's own PDF viewer. A
+ * PowerPoint goes up as a "raw" resource -- the bytes untouched -- and is
+ * rendered by Microsoft's Office viewer from that public URL, the same
+ * wrapper SharePoint links use (see wrapOfficeDoc in
+ * WebsterGrovesChemistry.jsx).
+ *
+ * @param {File} file
+ * @returns {Promise<{ publicId: string, url: string, kind: "pdf" | "office" }>}
+ */
+export async function uploadSlidesFile(file) {
+  const name = String(file?.name || "").toLowerCase();
+  const kind = name.endsWith(".pdf") ? "pdf"
+    : /\.(pptx|ppt|ppsx|pps)$/.test(name) ? "office"
+    : null;
+  if (!kind) {
+    throw new Error("That file isn't a PDF or a PowerPoint. Save your slides as one of those and try again.");
+  }
+  if (file.size > MAX_SLIDES_BYTES) {
+    throw new Error("That file is over 10 MB, which is more than the board can show from here. Save it to Google Drive and use Browse Google Drive instead.");
+  }
+  const data = await uploadToCloudinary(file, kind === "pdf" ? "image" : "raw");
+  return { publicId: data.public_id, url: data.secure_url, kind };
+}
+
+/**
+ * The upload itself, shared by assignments and slides: unsigned preset,
+ * retry on Cloudinary's transient 429/5xx, a sentence a teacher can act
+ * on when it still fails.
+ * @param {File} file
+ * @param {"image" | "raw"} resourceType
+ * @returns {Promise<object>} Cloudinary's upload response
+ */
+async function uploadToCloudinary(file, resourceType) {
   if (!cloudinaryConfigured()) {
     throw new Error(
       "Cloudinary isn't configured — set VITE_CLOUDINARY_CLOUD_NAME and VITE_CLOUDINARY_UPLOAD_PRESET (see .env.example)."
     );
   }
 
-  // PDFs upload as Cloudinary "image" resources (that's what makes the
-  // pg_<n> page-render transformation available on them).
-  const endpoint = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`;
+  const endpoint = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/${resourceType}/upload`;
 
   let response;
   for (let attempt = 1; attempt <= UPLOAD_ATTEMPTS; attempt++) {
@@ -83,13 +136,7 @@ export async function uploadAssignmentPdf(file) {
     }
     throw new Error(`Couldn't upload that file (error ${response.status}). Try again, or pick it from Google Drive instead.`);
   }
-  const data = await response.json();
-
-  return {
-    publicId: data.public_id,
-    pdfUrl: data.secure_url,
-    thumbUrl: firstPageThumbUrl(data.public_id),
-  };
+  return response.json();
 }
 
 /**

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, cloneElement } from "react";
 import ChalkboardBoardRow, { toGoalPanels } from "./ChalkboardBoardRow";
 import { useFullAgendaFields, ObjectivesChecklist, EditableField, ResetBoardButton } from "./FullAgendaBoard";
 import { fetchExtraAssignments, createExtraAssignment, deleteExtraAssignment, updateExtraAssignment, reorderExtraAssignments } from "./lib/extraAssignments";
-import { uploadAssignmentPdf } from "./lib/cloudinary";
+import { uploadAssignmentPdf, uploadSlidesFile } from "./lib/cloudinary";
 import { googleDriveConfigured, ensureGoogleScriptsLoaded, pickGoogleSlidesEmbed, pickGoogleDriveAssignmentFiles, pickGoogleCalendar, driveErrorMessage } from "./lib/googleDrive";
 import { fetchProfile } from "./lib/profileApi";
 import { fetchCurriculum, saveCurriculum } from "./lib/curriculumApi";
@@ -1055,6 +1055,22 @@ function wrapOfficeDoc(url) {
   return OFFICE_VIEWER + encodeURIComponent(direct);
 }
 
+// The third way slides get onto a board, for a teacher whose deck lives
+// on their own desktop rather than in Drive (Jay: "teachers who have
+// things stored on their desktop can use this as well"). The file goes to
+// Cloudinary (see uploadSlidesFile); what comes back is a URL the board's
+// iframe can show. A PDF is shown by the browser itself, toolbar hidden
+// so it reads as slides rather than a document. A PowerPoint is rendered
+// by the Office viewer from its public Cloudinary URL -- the one route
+// Microsoft supports for framing a deck, and unlike a consumer OneDrive
+// link, a Cloudinary URL is a direct, public file the viewer can fetch.
+async function uploadSlidesFromComputer(file) {
+  const { url, kind } = await uploadSlidesFile(file);
+  return kind === "pdf"
+    ? `${url}#toolbar=0&navpanes=0&view=FitH`
+    : OFFICE_VIEWER + encodeURIComponent(url);
+}
+
 function embedUrlFromPaste(raw) {
   const text = String(raw || "").trim();
   const match = text.match(/<iframe[^>]*\ssrc\s*=\s*["']([^"']+)["']/i);
@@ -1121,10 +1137,29 @@ function DriveNotice() {
   );
 }
 
-function AddEmbedCard({ open, label, promptText, placeholder, initialUrl, onOpen, onCancel, onSave, dataTour, onBrowseDrive, browseLabel = "Browse Google Drive", browseBusyLabel = "Connecting to Google Drive…" }) {
+function AddEmbedCard({ open, label, promptText, placeholder, initialUrl, onOpen, onCancel, onSave, dataTour, onBrowseDrive, browseLabel = "Browse Google Drive", browseBusyLabel = "Connecting to Google Drive…", onUploadFile, uploadAccept, uploadLabel = "Upload from your computer" }) {
   const [url, setUrl] = useState(initialUrl || "");
   const [driveBusy, setDriveBusy] = useState(false);
   const [driveError, setDriveError] = useState(null);
+  const [uploadBusy, setUploadBusy] = useState(false);
+  const [uploadError, setUploadError] = useState(null);
+
+  // Upload starts the moment a file is chosen -- there is nothing else to
+  // fill in, so a second Save click would only be a step between the
+  // teacher and their slides. onUploadFile resolves to the URL the board
+  // should show, and onSave takes it from there exactly as a pasted link.
+  const handleUploadFile = async (file) => {
+    if (!file) return;
+    setUploadError(null);
+    setUploadBusy(true);
+    try {
+      const embedUrl = await onUploadFile(file);
+      onSave(embedUrl);
+    } catch (err) {
+      setUploadError(err?.message || "Couldn't upload that file.");
+      setUploadBusy(false);
+    }
+  };
 
   const handleBrowseDrive = async () => {
     setDriveError(null);
@@ -1194,19 +1229,47 @@ function AddEmbedCard({ open, label, promptText, placeholder, initialUrl, onOpen
     );
   }
 
+  const divider = (text) => (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, color: "rgba(255,255,255,0.3)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>
+      <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.15)" }} />
+      {text}
+      <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.15)" }} />
+    </div>
+  );
+
   return (
     <form
+      // The tour keeps its ring on this form once the teacher has opened
+      // it, not just on the button that opened it -- see GuidedTour's
+      // "add-slides" step.
+      data-tour={dataTour}
       onSubmit={e => { e.preventDefault(); const v = embedUrlFromPaste(url); if (v) onSave(v); }}
       style={{ width: "100%", maxWidth: 480, boxSizing: "border-box", border: "2px solid var(--board-secondary)", borderRadius: 8, background: "#242424", padding: 16, display: "flex", flexDirection: "column", gap: 10 }}
     >
       {driveButton && (
         <>
           {driveButton}
-          <div style={{ display: "flex", alignItems: "center", gap: 8, color: "rgba(255,255,255,0.3)", fontSize: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>
-            <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.15)" }} />
-            or paste a link
-            <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.15)" }} />
-          </div>
+          {divider(onUploadFile ? "or" : "or paste a link")}
+        </>
+      )}
+      {onUploadFile && (
+        <>
+          <label
+            style={{ background: "transparent", border: "1px solid var(--board-secondary)", borderRadius: 2, color: "var(--board-secondary-accent)", fontFamily: "Oswald, sans-serif", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, padding: "8px 12px", cursor: uploadBusy ? "default" : "pointer", opacity: uploadBusy ? 0.6 : 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
+          >
+            {uploadBusy ? "Uploading…" : uploadLabel}
+            <input
+              type="file"
+              accept={uploadAccept}
+              disabled={uploadBusy}
+              onChange={e => { const f = e.target.files?.[0]; e.target.value = ""; handleUploadFile(f); }}
+              style={{ display: "none" }}
+            />
+          </label>
+          {uploadError && (
+            <div style={{ fontSize: 11, color: "#e8a722", lineHeight: 1.4 }}>{uploadError}</div>
+          )}
+          {divider("or paste a link")}
         </>
       )}
       <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 12, color: "rgba(255,255,255,0.6)", textTransform: "uppercase", letterSpacing: 0.5 }}>
@@ -1316,9 +1379,14 @@ export function AddSlidesCard(props) {
       // board's iframe, and nothing about it is Google-specific. The
       // copy said otherwise, which told half the audience this was not
       // for them. (The Browse button below is still Drive-only.)
-      promptText="Paste a Google Slides link (File → Share → Publish to web); the whole embed code is fine too. For a PowerPoint, save it to Google Drive and use Browse Google Drive above."
+      promptText="Paste a Google Slides link (File → Share → Publish to web); the whole embed code is fine too."
       placeholder="https://docs.google.com/presentation/d/.../embed"
       onBrowseDrive={driveReady ? pickGoogleSlidesEmbed : undefined}
+      // A deck on the teacher's own computer, PDF or PowerPoint. See
+      // uploadSlidesFromComputer for where it goes and how it is shown.
+      onUploadFile={uploadSlidesFromComputer}
+      uploadAccept=".pdf,.ppt,.pptx,.pps,.ppsx,application/pdf,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+      uploadLabel="Upload a PDF or PowerPoint from your computer"
     />
   );
 }
@@ -1337,7 +1405,7 @@ export function AddSlidesCard(props) {
 // the pointer-events "auto" + a solid-enough background keeps it legible
 // and clickable over any slide content, and the still-present hover
 // border-highlight gives it just enough interactivity feedback.
-function BuildEditableSlot({ children, onChange, onRemove, label }) {
+function BuildEditableSlot({ children, onChange, onRemove, label, dataTour }) {
   const btnStyle = {
     background: "rgba(20,20,20,0.9)", border: "1px solid rgba(255,255,255,0.4)", borderRadius: 3,
     color: "white", fontFamily: "Oswald, sans-serif", fontSize: 11, textTransform: "uppercase",
@@ -1345,7 +1413,7 @@ function BuildEditableSlot({ children, onChange, onRemove, label }) {
     boxShadow: "0 1px 4px rgba(0,0,0,0.5)",
   };
   return (
-    <div style={{ position: "relative", width: "100%", height: "100%" }}>
+    <div data-tour={dataTour} style={{ position: "relative", width: "100%", height: "100%" }}>
       {children}
       <div style={{ position: "absolute", top: 8, right: 8, display: "flex", gap: 6, zIndex: 5, pointerEvents: "auto" }}>
         <button style={btnStyle} onClick={onChange}
@@ -3407,6 +3475,7 @@ export default function App() {
                 onOpen={() => {}}
                 onCancel={() => setSlidesEditing(false)}
                 onSave={handleSaveSlides}
+                dataTour="tour-add-slides"
               />
             </div>
           ) : (
@@ -3433,12 +3502,13 @@ export default function App() {
           onOpen={() => {}}
           onCancel={() => setSlidesEditing(false)}
           onSave={handleSaveSlides}
+          dataTour="tour-add-slides"
         />
       );
     }
     if (!isOverview && isBuildMode) {
       return (
-        <BuildEditableSlot onChange={() => setSlidesEditing(true)} onRemove={handleRemoveSlides}>
+        <BuildEditableSlot onChange={() => setSlidesEditing(true)} onRemove={handleRemoveSlides} dataTour="tour-add-slides">
           <SmartBoard src={boardSlides} />
         </BuildEditableSlot>
       );

@@ -144,8 +144,19 @@ const STEPS = [
     id: "add-slides",
     missingHint: "Open a lesson from the unit above — this one lives on a lesson's board.",
     frame: "board",
+    // The same attribute follows the slot through every state it can be
+    // in -- the "Add Slides" button, the open form, and the filled
+    // smartboard after a save (see renderLessonSlides in
+    // WebsterGrovesChemistry.jsx). It used to sit on the button alone,
+    // which unmounts the instant a teacher clicks it, so the tour lost
+    // its target on the very click it asked for and fell back to "open a
+    // lesson" while they were looking at the open form.
     selector: '[data-tour="tour-add-slides"]',
     gate: "ack",
+    // Beside the target, never below it: below the form lands on the
+    // smartboard, which is the thing being described. Jay: "the add your
+    // slides sign needs to be moved off of the smartboard."
+    placement: "beside",
     title: "Add your slides",
     // Named both routes, and both ecosystems. The old line described only
     // pasting, when the card's first and easier option is browsing Drive
@@ -153,7 +164,7 @@ const STEPS = [
     // PowerPoint (Jay, signed in with Microsoft: "technically they don't
     // have to paste a link, that is one option but they can just connect
     // google drive").
-    body: "Browse your Drive or paste a link. Google Slides works, and so does a PowerPoint saved in Drive. It fills the board, ready to project.",
+    body: "Click “Add Slides”, then browse your Drive, upload a PDF or PowerPoint from your computer, or paste a link. It fills the board, ready to project.",
     ackLabel: "Got it",
   },
   {
@@ -397,6 +408,16 @@ export default function GuidedTour({ active, onDone, iframeRef, selected, boardW
   // button until the teacher is somewhere it makes sense.
   const targetMissing = !!step?.selector && !rect;
 
+  // The button that moves the tour on; absent, the step is waiting on the
+  // teacher. Separately, every step but the last also offers "Skip step":
+  // a teacher who does not want to do this one right now should not have
+  // to abandon the whole tour to get past it (Jay: "wouldn't mind a skip
+  // step or next step button as well, rather than just skip the tour...
+  // at all of the different steps"). Not a Back button, which stays out
+  // on purpose: see the decisions log.
+  const primaryShown = (step?.gate === "ack" || selectSatisfied) && !targetMissing;
+  const skipStepShown = stepIdx < STEPS.length - 1;
+
   if (!active || !step) return null;
 
   // Tooltip placement: beside the spotlighted rect, never on top of it.
@@ -427,7 +448,9 @@ export default function GuidedTour({ active, onDone, iframeRef, selected, boardW
     // around the screen (Jay: "the text box also moves up and down
     // depending on what is clicked, it is kind of not ideal"). Its LEFT
     // and TOP are stable, so anchoring beside it holds still.
-    const besideSidebar = step.frame === "sidebar";
+    // A step can also ask for this itself (placement: "beside") when
+    // below/above would land the tooltip on the thing it describes.
+    const besideSidebar = step.frame === "sidebar" || step.placement === "beside";
     const fitsBelow = !besideSidebar && rect.top + rect.height + GAP + TOOLTIP_H <= viewportH - EDGE;
     const fitsAbove = !besideSidebar && rect.top - GAP - TOOLTIP_H >= EDGE;
     let left;
@@ -483,7 +506,12 @@ export default function GuidedTour({ active, onDone, iframeRef, selected, boardW
         />
       )}
       {!rect && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 9998 }} />
+        // pointerEvents none is load-bearing. Without it this scrim ate
+        // every click while a target was missing -- and a missing target is
+        // exactly when the teacher most needs to click something (to get
+        // to the lesson the hint is pointing at). Jay: "it says waiting for
+        // you but you can't click on anything."
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 9998, pointerEvents: "none" }} />
       )}
       <div
         style={{
@@ -506,14 +534,25 @@ export default function GuidedTour({ active, onDone, iframeRef, selected, boardW
             : step.body}
         </div>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-          <button
-            type="button"
-            onClick={finish}
-            style={{ background: "transparent", border: "none", color: "rgba(255,255,255,0.4)", fontSize: 12, cursor: "pointer", padding: 0, fontFamily: "Lato, sans-serif" }}
-          >
-            Skip tour
-          </button>
-          {(step.gate === "ack" || selectSatisfied) && !targetMissing ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            <button
+              type="button"
+              onClick={finish}
+              style={{ background: "transparent", border: "none", color: "rgba(255,255,255,0.4)", fontSize: 12, cursor: "pointer", padding: 0, fontFamily: "Lato, sans-serif" }}
+            >
+              Skip tour
+            </button>
+            {skipStepShown && (
+              <button
+                type="button"
+                onClick={advance}
+                style={{ background: "transparent", border: "none", color: "rgba(255,255,255,0.55)", fontSize: 12, cursor: "pointer", padding: 0, fontFamily: "Lato, sans-serif", textDecoration: "underline" }}
+              >
+                Skip step
+              </button>
+            )}
+          </div>
+          {primaryShown ? (
             <button
               type="button"
               onClick={advance}
