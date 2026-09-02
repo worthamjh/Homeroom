@@ -106,10 +106,30 @@ export default async function handler(req, res) {
       }
       const col = await getCollection();
       const doc = await col.findOne(docKey({ teacherId, unitIdx, lessonTitle, panelIdx }));
+      let shape = doc ? toClientShape(doc) : null;
+      // The flat board and board 1 of a sliding set are now ONE slot (see
+      // allPanelFields in WebsterGrovesChemistry.jsx). Before that, board 1
+      // wrote its own panelIdx-0 document, so a teacher who typed on board
+      // 1 with Sliding Boards on has text sitting there that the flat key
+      // no longer points at. Read it as a fallback: anything the flat
+      // document does not itself set comes from the old panel-0 one. Reads
+      // only -- writes go to the flat key, so the old document never grows.
+      if (panelIdx == null || panelIdx === "") {
+        const legacy = await col.findOne(docKey({ teacherId, unitIdx, lessonTitle, panelIdx: 0 }));
+        if (legacy) {
+          const fallback = toClientShape(legacy);
+          shape = {
+            ...fallback,
+            ...(shape || {}),
+            checkedAgendaLines: { ...fallback.checkedAgendaLines, ...(shape?.checkedAgendaLines || {}) },
+            checkedLearningGoalsLines: { ...fallback.checkedLearningGoalsLines, ...(shape?.checkedLearningGoalsLines || {}) },
+          };
+        }
+      }
       // 200 + null (not 404) when nothing's been saved for this lesson yet —
       // same convention as api/profile.js and api/curriculum.js. The client
       // falls back to its own defaults/localStorage cache in that case.
-      res.status(200).json(doc ? toClientShape(doc) : null);
+      res.status(200).json(shape);
       return;
     }
 

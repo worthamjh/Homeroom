@@ -3663,12 +3663,21 @@ export default function App() {
   const slidingPanelMongoBase = activeLesson && activeUnitIdx != null
     ? { teacherId: activeTeacherId, unitIdx: activeUnitIdx, lessonTitle: activeLesson.title }
     : null;
-  const p0Fields = useFullAgendaFields(scopedKey(`fullAgenda:${lessonKey}:panel:0`), slidingPanelMongoBase ? { ...slidingPanelMongoBase, panelIdx: 0 } : null);
+  // Board 1 IS the flat board. It used to have its own slot
+  // (":panel:0" locally, panelIdx 0 in Mongo), separate from the flat
+  // board's, so a lesson's goals lived in one slot with Number of Boards
+  // at 1 and a different, empty slot at 2+ -- and changing the count
+  // looked like it wiped the board (Jay: "if you have learning goals on a
+  // board, then change the number of boards, it clears the learning
+  // goals"). One slot for board 1 whatever the count, and the text
+  // follows the setting instead of hiding behind it. The old panel-0
+  // documents are still read as a fallback by api/boardContent.js, so
+  // nothing already typed on a board 1 is lost.
   const p1Fields = useFullAgendaFields(scopedKey(`fullAgenda:${lessonKey}:panel:1`), slidingPanelMongoBase ? { ...slidingPanelMongoBase, panelIdx: 1 } : null);
   const p2Fields = useFullAgendaFields(scopedKey(`fullAgenda:${lessonKey}:panel:2`), slidingPanelMongoBase ? { ...slidingPanelMongoBase, panelIdx: 2 } : null);
   const p3Fields = useFullAgendaFields(scopedKey(`fullAgenda:${lessonKey}:panel:3`), slidingPanelMongoBase ? { ...slidingPanelMongoBase, panelIdx: 3 } : null);
   const p4Fields = useFullAgendaFields(scopedKey(`fullAgenda:${lessonKey}:panel:4`), slidingPanelMongoBase ? { ...slidingPanelMongoBase, panelIdx: 4 } : null);
-  const allPanelFields = [p0Fields, p1Fields, p2Fields, p3Fields, p4Fields];
+  const allPanelFields = [flatPanelFields, p1Fields, p2Fields, p3Fields, p4Fields];
 
   // Every panel lookup goes through here rather than clamping inline, so
   // that running off the end of allPanelFields SAYS SO instead of silently
