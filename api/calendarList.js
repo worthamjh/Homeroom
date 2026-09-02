@@ -28,6 +28,24 @@ const UPSTREAM_TIMEOUT_MS = 10000;
 const CALENDAR_LIST_URL =
   "https://www.googleapis.com/calendar/v3/users/me/calendarList" +
   "?minAccessRole=reader&fields=items(id,summary,backgroundColor,primary,accessRole,deleted)";
+
+// ?acl=<calendarId>: the calendar's sharing rules instead of the list.
+// acl.list is allowed under the calendar.readonly scope the picker already
+// holds (Google's reference lists it), so this needs no new consent. The
+// rule with scope.type "default" is the public one: role "reader" means
+// public with event details, "freeBusyReader" means public as free/busy
+// only, and no such rule means private. The client turns that into a
+// warning it can state as a fact -- the old one had to hedge, and Jay
+// read the hedge as a wrong verdict on a calendar he had shared.
+const aclUrl = (calendarId) =>
+  `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/acl?fields=items(scope,role)`;
+
+function publicVisibility(aclItems) {
+  const rule = (aclItems || []).find(item => item?.scope?.type === "default");
+  if (!rule) return "none";
+  if (rule.role === "freeBusyReader") return "freebusy";
+  return "details";
+}
 // accessRole and deleted are not decoration: a teacher cannot change the
 // sharing on a calendar they only read, and a deleted one cannot be
 // embedded at all. Without these the picker cannot tell either case from
@@ -63,11 +81,12 @@ export default async function handler(req, res) {
       return;
     }
 
+    const aclFor = typeof req.query?.acl === "string" && req.query.acl.trim() ? req.query.acl.trim() : null;
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), UPSTREAM_TIMEOUT_MS);
     let upstream;
     try {
-      upstream = await fetch(CALENDAR_LIST_URL, {
+      upstream = await fetch(aclFor ? aclUrl(aclFor) : CALENDAR_LIST_URL, {
         headers: { Authorization: `Bearer ${accessToken}` },
         signal: controller.signal,
       });
@@ -99,6 +118,10 @@ export default async function handler(req, res) {
     // handler, where a throw resolved nothing and hung the function until
     // the platform timed it out.
     const data = await upstream.json();
+    if (aclFor) {
+      res.status(200).json({ visibility: publicVisibility(data.items) });
+      return;
+    }
     res.status(200).json(data);
   } catch (err) {
     console.error("[api/calendarList] error", err);

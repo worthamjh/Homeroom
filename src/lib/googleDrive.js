@@ -608,41 +608,28 @@ async function fetchCalendarList(accessToken) {
  *
  * @returns {Promise<{ embedUrl: string, name: string, shareWarning: string|null } | null>}
  */
-// What a STUDENT would get from this calendar: a request with no login,
-// just the app's API key, which is exactly the identity the embed runs as
-// on a student's device. A calendar shared publicly with event details
-// answers 200; one that is private, or public as free/busy only, does
-// not. That is the check the old warning could not make -- it had no ACL
-// scope, so it hedged with "if ... is not shared publicly", and Jay, whose
-// calendar IS public (but free/busy only, which shows students nothing),
-// read the hedge as a wrong accusation.
+// How this calendar is shared with the public -- read from its own
+// sharing rules, with the calendar.readonly token the picker already
+// holds (api/calendarList.js ?acl= does the lookup; Google allows
+// acl.list under that scope). "details" is what a working embed needs;
+// "freebusy" is what "Make available to public" gives by DEFAULT and
+// embeds as grey blocks with no names; "none" is private. "unknown" only
+// when the lookup itself fails, and then the card says nothing at all:
+// a reminder that fires whatever the state was read, twice, as a wrong
+// verdict (Jay: "I am pretty sure that this calendar has the highest
+// share to public setting").
 //
-// "unknown" when the key itself is not allowed to call the Calendar API
-// (a 403 that is about the key, not the calendar) or the network fails.
-// As of 2026-09-02 that is where production is: the picker key is
-// restricted to the Picker/Drive APIs, so this answers "unknown" until
-// Calendar API is added to the key's allowed list in Google Cloud. The
-// caller falls back to the reminder wording in that case, so enabling it
-// later needs no code change.
-async function probePublicCalendar(calendarId) {
-  if (!API_KEY) return "unknown";
+// A first version asked with the app's API key instead, as a student's
+// browser would -- but that key is restricted to the Picker/Drive APIs,
+// so it could never get an answer. The token can.
+async function probeCalendarSharing(accessToken, calendarId) {
   try {
-    const res = await fetch(
-      `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?maxResults=1&key=${encodeURIComponent(API_KEY)}`
-    );
-    if (res.ok) return "public";
-    if (res.status === 404) return "private";
-    if (res.status === 403) {
-      // Google says 403 for BOTH "this calendar is not public" and "this
-      // key may not call this API". Tell them apart by the reason.
-      const body = await res.json().catch(() => null);
-      const reason = String(body?.error?.errors?.[0]?.reason || body?.error?.status || "").toLowerCase();
-      const text = String(body?.error?.message || "").toLowerCase();
-      const aboutKey = text.includes("blocked") || text.includes("api key") || text.includes("not enabled")
-        || reason.includes("accessnotconfigured") || reason.includes("keyinvalid") || reason.includes("forbidden") && text.includes("method");
-      return aboutKey ? "unknown" : "private";
-    }
-    return "unknown";
+    const res = await apiFetch(`/api/calendarList?acl=${encodeURIComponent(calendarId)}`, {
+      headers: { "X-Google-Access-Token": accessToken },
+    });
+    if (!res.ok) return "unknown";
+    const data = await res.json();
+    return ["details", "freebusy", "none"].includes(data?.visibility) ? data.visibility : "unknown";
   } catch {
     return "unknown";
   }
@@ -776,34 +763,33 @@ export async function pickGoogleCalendar() {
         document.body.removeChild(overlay);
         // The embed URL renders only for someone who can already see the
         // calendar -- which the signed-in teacher always can, so this fails
-        // in the one place they cannot see it: a student's device, or the
-        // classroom machine signed out. probePublicCalendar asks Google as
-        // a student would; when it cannot get an answer the message is a
-        // reminder, not a finding, and is worded as one.
+        // in the one place they cannot see it: the classroom machine
+        // signed out, or anyone else opening the board. (There are no
+        // student accounts; "anyone but you" is the honest phrase.)
+        // probeCalendarSharing reads the real setting, so what is said
+        // here is a fact or nothing.
         //
-        // Either way it names BOTH settings. "Make available to public"
-        // alone is not enough: its default is "See only free/busy", which
-        // embeds as blank blocks -- the exact state Jay's calendar was in
-        // when he said "I got the 'not shared to public' sign but my
-        // calendar is shared to public."
+        // Both settings get named. "Make available to public" alone is not
+        // enough: its default is "See only free/busy", which embeds as grey
+        // blocks -- the exact state Jay's calendar was in when he said "I
+        // got the 'not shared to public' sign but my calendar is shared to
+        // public."
         const name = cal.summary || cal.id;
         const owned = cal.accessRole === "owner" || cal.accessRole === "writer";
         const where = `Google Calendar → Settings → "${name}" → Access permissions for events → "Make available to public", set to "See all event details".`;
-        let shareWarning;
+        let shareWarning = null;
         if (cal.accessRole === "freeBusyReader") {
           shareWarning = `You can only see free/busy times on "${name}", so the board will show blocks with no detail.`;
         } else {
-          const visibility = await probePublicCalendar(cal.id);
-          if (visibility === "public") {
-            shareWarning = null;
-          } else if (visibility === "private") {
+          const visibility = await probeCalendarSharing(accessToken, cal.id);
+          if (visibility === "freebusy") {
             shareWarning = owned
-              ? `Students will see an empty box: "${name}" is not shared publicly with event details. ${where}`
-              : `"${name}" is not shared publicly with event details, and you do not own it, so it will be blank for anyone but you.`;
-          } else {
+              ? `"${name}" is public as free/busy only, so anyone but you sees grey blocks with no event names. ${where}`
+              : `"${name}" is public as free/busy only, and you do not own it, so anyone but you sees grey blocks with no event names.`;
+          } else if (visibility === "none") {
             shareWarning = owned
-              ? `Students only see "${name}" if it is public with event details showing. Worth checking: ${where}`
-              : `You do not own "${name}", so you cannot change its sharing. If it is not public with event details, it will be blank for anyone but you.`;
+              ? `"${name}" is not shared publicly, so it will be blank for anyone but you — on the classroom machine signed out, or on anyone else's device. ${where}`
+              : `"${name}" is not shared publicly, and you do not own it, so it will be blank for anyone but you.`;
           }
         }
 
