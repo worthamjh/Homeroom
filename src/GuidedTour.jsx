@@ -176,7 +176,14 @@ const STEPS = [
     title: "Assignments and classwork",
     // Same correction: the card takes a direct upload as well as a Drive
     // pick, and upload is the route a teacher without Google uses.
-    body: "Below the board. Pick a worksheet from your Drive or upload one from your computer — it stays with this lesson.",
+    // Above its tile when there is room. Below, the natural first choice,
+    // fell off the bottom of a scrolled page and landed under the tile --
+    // while the copy still said "below the board" about an assignment
+    // sitting above the tooltip (Jay: "the sign goes below the assignment,
+    // and still refers to the assignment being below"). The ring already
+    // says where the tile is, so the copy no longer tries to.
+    placement: "above",
+    body: "Pick a worksheet from your Drive or upload one from your computer — it stays with this lesson.",
     ackLabel: "Got it",
   },
   {
@@ -456,11 +463,12 @@ export default function GuidedTour({ active, onDone, iframeRef, selected, boardW
     // below/above would land the tooltip on the thing it describes.
     const besideSidebar = step.frame === "sidebar" || step.placement === "beside";
     const wantsBelow = step.placement === "below";
+    const wantsAbove = step.placement === "above";
     const fitsBelow = (!besideSidebar || wantsBelow) && rect.top + rect.height + GAP + TOOLTIP_H <= viewportH - EDGE;
     const fitsAbove = !besideSidebar && rect.top - GAP - TOOLTIP_H >= EDGE;
     let left;
     let top;
-    if (fitsBelow) {
+    if (fitsBelow && !(wantsAbove && fitsAbove)) {
       left = rect.left;
       top = rect.top + rect.height + GAP;
     } else if (fitsAbove) {
