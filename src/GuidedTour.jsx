@@ -130,16 +130,12 @@ const STEPS = [
     title: "Open your first lesson",
     body: "Click it to open it and start adding content.",
   },
-  {
-    id: "learning-goals",
-    missingHint: "Open a lesson from the unit above — this one lives on a lesson's board.",
-    frame: "board",
-    selector: '[data-tour="tour-learning-goals"]',
-    gate: "ack",
-    title: "Learning Goals",
-    body: "Your goals for the day. Each one gets a checkbox students can watch you tick off. Enter adds another; edit them any time.",
-    ackLabel: "Got it",
-  },
+  // No Learning Goals step any more. It had nothing to click -- a "Got
+  // it" over a field the teacher could already see -- and its anchor only
+  // exists on a flat board, so with Sliding Boards on it decided no lesson
+  // was open. Jay: "nothing to click and kind of out of place, we can
+  // eliminate this step and save it for the Board Content part of the
+  // tour." The goals are named there now, alongside the other content.
   {
     id: "add-slides",
     missingHint: "Open a lesson from the unit above — this one lives on a lesson's board.",
@@ -207,7 +203,7 @@ const STEPS = [
     gate: "select",
     matchSelected: "content",
     title: "Board Content",
-    body: "Open “Board Content”. Switch Essential Question, Agenda and Bell Ringer on or off, and drag ≡ to reorder them. Press Got it when you’re done.",
+    body: "Open “Board Content”. Essential Question, Learning Goals, Agenda and Bell Ringer: switch each on or off, and drag ≡ to reorder them. Goals get a checkbox students can watch you tick off. Press Got it when you’re done.",
     ackLabel: "Got it",
   },
   {
