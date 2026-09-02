@@ -2103,7 +2103,14 @@ function TopBar({ viewer = false, curriculum, activeUnitIdx, isOverview, activeL
       <div style={{ display: "flex", gap: 6, padding: "6px 6px 0", borderTop: "1px solid #333" }} onClick={e => e.stopPropagation()}>
         {curriculum.map((u, ui) => (
           (!isBuildMode && u.hidden) ? null : (
-          <div key={ui} style={{ position: "relative", flex: 1 }}
+          // The unit under the pointer grows to three shares of the row
+          // while its dropdown is open, the others shrink to make room. With
+          // nine or ten units every tab was the same sliver -- "Unit 4"
+          // wrapping onto two lines, its controls jammed against the name
+          // (Jay: "once you get a lot of units on here everything gets
+          // pretty smushed"). Hover already opens the dropdown, so the same
+          // state drives the width; it eases so the row does not jump.
+          <div key={ui} style={{ position: "relative", flex: openDropdown === ui ? "3 1 0" : "1 1 0", minWidth: 0, transition: "flex 0.2s ease" }}
             onMouseEnter={() => { (u.lessons.length > 0 || (isBuildMode && isBlankTeacher)) && setOpenDropdown(ui); }}
             // Don't close the lesson list out from under an open rename box:
             // closing unmounts the input, and React does not fire onBlur on
@@ -2192,7 +2199,7 @@ function TopBar({ viewer = false, curriculum, activeUnitIdx, isOverview, activeL
                         // out to the button group. It used to reserve 18px on
                         // the right for the pencil, which pushed this centred
                         // text off-centre by half that.
-                        style={{ flex: 1, minWidth: 0, background: "transparent", color: "var(--board-secondary-fg)", border: "none", borderRadius: 4, padding: `${SPACE.sm}px ${SPACE.xs}px`, fontSize: 13, fontFamily: "var(--board-heading-font, 'Oswald', sans-serif)", fontWeight: 600, letterSpacing: 0.5, textAlign: "center",
+                        style={{ flex: 1, minWidth: 0, background: "transparent", color: "var(--board-secondary-fg)", border: "none", borderRadius: 4, padding: `${SPACE.sm}px ${SPACE.xs}px`, fontSize: 13, fontFamily: "var(--board-heading-font, 'Oswald', sans-serif)", fontWeight: 600, letterSpacing: 0.5, textAlign: "center", whiteSpace: openDropdown === ui ? "nowrap" : "normal",
                           // Plain arrow (Jay: "the mouse shows the normal arrow
                           // over the unit text rather than the cursor"). The
                           // I-beam here was advertising that the word itself
@@ -2305,16 +2312,15 @@ function TopBar({ viewer = false, curriculum, activeUnitIdx, isOverview, activeL
                 zero-lesson unit while in Build mode, so a freshly-added
                 unit is actually reachable to add its first lesson. */}
             {(openDropdown === ui || renamingLesson?.unitIdx === ui) && (u.lessons.length > 0 || (isBuildMode && isBlankTeacher)) && (
-              // Deliberately `width: "100%"` rather than the old fixed
-              // `minWidth: 210` — this div's parent is the same `flex: 1`
-              // column as the unit's own button above, so `100%` makes the
-              // dropdown line up exactly with that unit's segment of the
-              // nav bar, whatever that happens to be (one wide segment
-              // with a single unit, several narrower ones with many).
-              // `whiteSpace: "normal"` (was `"nowrap"`) lets a long lesson
-              // title wrap onto a second line instead of overflowing past
-              // that width when a unit segment is narrow.
-              <div style={{ position: "absolute", top: "100%", left: 0, width: "100%", background: "var(--board-primary)", border: "1px solid var(--board-secondary)", borderTop: "none", borderRadius: "0 0 4px 4px", zIndex: 5000, overflow: "hidden" }}>
+              // Width follows the unit's (now expanded) segment, with a
+              // floor: at nine or ten units a segment alone is too narrow
+              // for a lesson name and its three controls, and the names
+              // wrapped to three lines. Anchored to the RIGHT edge for
+              // units in the right half of the row, so a wider dropdown
+              // never runs off the board; the tab's own segment is still
+              // inside it either way. Lesson titles may still wrap at the
+              // floor, which beats overflowing.
+              <div style={{ position: "absolute", top: "100%", ...(ui >= curriculum.length / 2 ? { right: 0 } : { left: 0 }), width: "100%", minWidth: 300, background: "var(--board-primary)", border: "1px solid var(--board-secondary)", borderTop: "none", borderRadius: "0 0 4px 4px", zIndex: 5000, overflow: "hidden" }}>
                 {/* Build sees hidden lessons (dimmed, so they can be brought
                     back); the live board does not see them at all. Indexes
                     come from the unfiltered list so rename/delete/reorder
