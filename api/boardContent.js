@@ -48,6 +48,9 @@ const COLLECTION = "boardContent";
 //
 // If you add a field the client sends here, add it to this list too.
 const TEXT_FIELDS = ["essentialQuestion", "agenda", "bellRinger", "homeLearning", "bellRingerKamiUrl", "learningGoals", "customSlidesUrl", "calendarUrl"];
+// What "Reset Board" clears: the writing on the board. NOT the slides and
+// calendar links, which sit in the same document but are not writing.
+const RESET_FIELDS = TEXT_FIELDS.filter(f => f !== "customSlidesUrl" && f !== "calendarUrl");
 
 function getClientPromise() {
   if (!process.env.MONGODB_URI) {
@@ -172,18 +175,41 @@ export default async function handler(req, res) {
     }
 
     if (req.method === "DELETE") {
-      // Mirrors "Reset Board" (see resetToDefaults in FullAgendaBoard.jsx):
-      // removing the document entirely, rather than overwriting it with
-      // defaults, means a future GET returns null and the client falls
-      // back to its own defaultFullAgendaContent() — one definition of
-      // "default", kept client-side, instead of duplicating it here.
-      const { unitIdx, lessonTitle } = req.query;
+      // "Reset Board" (see resetToDefaults in FullAgendaBoard.jsx). Clears
+      // what is WRITTEN on that board section -- the text fields and the
+      // ticked lines -- and nothing else. The lesson's slides and calendar
+      // links live in this same document (customSlidesUrl, calendarUrl)
+      // and a reset must not take them: Jay, "the reset board should only
+      // apply to the section of chalkboard that reset board is selected."
+      // It used to delete the whole document, links included.
+      //
+      // Unsetting rather than writing defaults means a future GET returns
+      // no text for those fields and the client falls back to its own
+      // defaultFullAgendaContent() -- one definition of "default", kept
+      // client-side, instead of duplicating it here.
+      //
+      // Also: panelIdx was not in scope here (it is destructured inside the
+      // GET and POST branches only), so this branch threw a ReferenceError
+      // on every call, answered 500, and the client -- which swallows the
+      // error -- reset its local copy while Mongo kept the old text and
+      // handed it back on the next load. Reset never stuck.
+      const { unitIdx, lessonTitle, panelIdx } = req.query;
       if (unitIdx == null || !lessonTitle) {
         res.status(400).json({ error: "unitIdx and lessonTitle query params are required" });
         return;
       }
       const col = await getCollection();
-      await col.deleteOne(docKey({ teacherId, unitIdx, lessonTitle, panelIdx }));
+      const clear = {
+        $unset: Object.fromEntries(RESET_FIELDS.map(f => [f, ""])),
+        $set: { checkedAgendaLines: {}, checkedLearningGoalsLines: {}, updatedAt: new Date() },
+      };
+      await col.updateOne(docKey({ teacherId, unitIdx, lessonTitle, panelIdx }), clear);
+      // Board 1 also reads the pre-merge panel-0 document as a fallback
+      // (see GET), so a reset of the flat key clears that too -- otherwise
+      // the old board-1 text would show straight through the gap.
+      if (panelIdx == null || panelIdx === "") {
+        await col.updateOne(docKey({ teacherId, unitIdx, lessonTitle, panelIdx: 0 }), clear);
+      }
       res.status(204).end();
       return;
     }
