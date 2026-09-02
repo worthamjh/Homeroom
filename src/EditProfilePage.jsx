@@ -10,6 +10,7 @@ import {
 } from "./boardConfig";
 import { fetchProfile, saveProfile, downloadMyData, deleteMyAccount } from "./lib/profileApi";
 import { uploadImage, cloudinaryConfigured } from "./lib/cloudinary";
+import { getActiveClassroomId, setActiveClassroomId, DEFAULT_CLASSROOM_ID } from "./lib/activeClassroom";
 
 /**
  * EditProfilePage — /profile route, linked from the Build page header.
@@ -57,6 +58,37 @@ export default function EditProfilePage() {
   // hyphens as they type, so what they see is what the link will be.
   const [slug,           setSlug]           = useState("");
   const tidySlug = (v) => v.toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/-{2,}/g, "-").replace(/^-/, "").slice(0, 40);
+  // The teacher's classrooms. Each is its own board (Jay: "a profile can
+  // have multiple classrooms for teachers who teach more than one
+  // course"). The subject, board address and home photo fields below edit
+  // the SELECTED classroom; name, school, colours and fonts are the
+  // teacher's and apply to every board.
+  const [classrooms,     setClassrooms]     = useState([]);
+  const [selectedId,     setSelectedId]     = useState(DEFAULT_CLASSROOM_ID);
+  // The list with the selected classroom's fields folded back in.
+  const withSelected = (list = classrooms) =>
+    list.map(c => c.id === selectedId ? { ...c, subject: subject.trim(), slug: slug.replace(/-$/, "") || null, homeImageUrl: homeImageUrl || null } : c);
+  const showClassroom = (c) => {
+    setSelectedId(c.id);
+    setSubject(c.subject || "");
+    setSlug(c.slug || "");
+    setHomeImageUrl(c.homeImageUrl || "");
+  };
+  const selectClassroom = (id) => {
+    const list = withSelected();
+    setClassrooms(list);
+    const c = list.find(x => x.id === id);
+    if (c) showClassroom(c);
+  };
+  const addClassroom = () => {
+    const list = withSelected();
+    const id = `c-${Math.random().toString(36).slice(2, 8)}`;
+    const c = { id, name: "New classroom", subject: "", slug: null, homeImageUrl: null };
+    setClassrooms([...list, c]);
+    showClassroom(c);
+  };
+  const renameClassroom = (name) => setClassrooms(list => list.map(c => c.id === selectedId ? { ...c, name } : c));
+  const selectedClassroom = classrooms.find(c => c.id === selectedId) || null;
   const [photoBusy,      setPhotoBusy]      = useState(false);
   const [photoError,     setPhotoError]     = useState("");
   const handlePhoto = async (file) => {
@@ -83,13 +115,24 @@ export default function EditProfilePage() {
         if (cancelled || !p) return;
         setTeacherName(p.teacherName   || "");
         setSchool(p.school             || "");
-        setSubject(p.subject           || "");
+        // Classroom fields come from the classroom list (always present,
+        // see api/profile.js), not from the top-level mirror.
         setPrimaryColor(p.primaryColor   || DEFAULT_PRIMARY_COLOR);
         setSecondaryColor(p.secondaryColor || DEFAULT_SECONDARY_COLOR);
         setHeadingFont(p.headingFont   || DEFAULT_HEADING_FONT);
         setBodyFont(p.bodyFont         || DEFAULT_BODY_FONT);
-        setHomeImageUrl(p.homeImageUrl || "");
-        setSlug(p.slug || "");
+        const list = p.classrooms?.length ? p.classrooms : [{ id: DEFAULT_CLASSROOM_ID, name: p.subject || "My classroom", subject: p.subject || "", slug: p.slug || null, homeImageUrl: p.homeImageUrl || null }];
+        setClassrooms(list);
+        const wanted = new URLSearchParams(window.location.search);
+        const startOn = list.find(c => c.id === getActiveClassroomId()) || list[0];
+        showClassroom(startOn);
+        if (wanted.get("new") === "1") {
+          // Arrived from Build's "+ New classroom": start one right away.
+          const id = `c-${Math.random().toString(36).slice(2, 8)}`;
+          const c = { id, name: "New classroom", subject: "", slug: null, homeImageUrl: null };
+          setClassrooms([...list, c]);
+          showClassroom(c);
+        }
       })
       .catch(() => {}) // no profile yet — defaults stay
       .finally(() => { if (!cancelled) setLoading(false); });
@@ -107,10 +150,15 @@ export default function EditProfilePage() {
     setSaving(true);
     setError("");
     try {
-      await saveProfile({ teacherId, teacherName: teacherName.trim(), school: school.trim(), subject: subject.trim(), primaryColor, secondaryColor, headingFont, bodyFont, homeImageUrl: homeImageUrl || null, slug: slug.replace(/-$/, "") || null });
-      // Go back to Build if we came from there, otherwise the board
+      const list = withSelected();
+      const main = list.find(c => c.id === DEFAULT_CLASSROOM_ID) || list[0];
+      await saveProfile({ teacherId, teacherName: teacherName.trim(), school: school.trim(), subject: main.subject || "", primaryColor, secondaryColor, headingFont, bodyFont, homeImageUrl: main.homeImageUrl || null, slug: main.slug || null, classrooms: list });
+      // Land on the classroom that was being edited: Build if we came from
+      // there, otherwise its board.
+      setActiveClassroomId(selectedId);
       const from = new URLSearchParams(window.location.search).get("from");
-      navigate(from === "build" ? "/build" : "/board");
+      const room = selectedId === DEFAULT_CLASSROOM_ID ? "" : `class=${encodeURIComponent(selectedId)}`;
+      navigate(from === "build" ? `/build${room ? "?" + room : ""}` : `/board?teacher=${encodeURIComponent(teacherId)}${room ? "&" + room : ""}`);
     } catch (err) {
       setError(err?.message || "Something went wrong — try again.");
       setSaving(false);
@@ -166,8 +214,33 @@ export default function EditProfilePage() {
             <label style={labelStyle} htmlFor="ep-school">School (optional)</label>
             <input id="ep-school" style={fieldStyle} value={school} onChange={e => setSchool(e.target.value)} placeholder="e.g. Webster Groves High School" />
           </div>
+          {/* ── Classrooms ── */}
+          <div style={sectionHead}>Classrooms</div>
+          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.45)", fontFamily: "Lato, sans-serif", lineHeight: 1.5, marginBottom: 8 }}>
+            One board per course. Pick a classroom to edit its subject, address and photo below; your name, school and colours are shared by all of them.
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
+            {classrooms.map(c => (
+              <button
+                key={c.id} type="button" onClick={() => selectClassroom(c.id)}
+                style={{ background: c.id === selectedId ? "var(--board-secondary, #e87722)" : "transparent", color: c.id === selectedId ? "#111" : "rgba(255,255,255,0.8)", border: "1px solid " + (c.id === selectedId ? "var(--board-secondary, #e87722)" : "#555"), borderRadius: 14, padding: "5px 12px", fontFamily: "Lato, sans-serif", fontSize: 12, cursor: "pointer" }}
+              >
+                {c.name || c.subject || c.id}
+              </button>
+            ))}
+            <button type="button" onClick={addClassroom} style={{ background: "transparent", color: "var(--board-secondary-accent, #e87722)", border: "1px dashed var(--board-secondary-accent, #e87722)", borderRadius: 14, padding: "5px 12px", fontFamily: "Lato, sans-serif", fontSize: 12, cursor: "pointer" }}>
+              + New classroom
+            </button>
+          </div>
+          {selectedClassroom && (
+            <div style={{ marginBottom: 8 }}>
+              <label style={labelStyle} htmlFor="ep-classroom-name">Classroom name</label>
+              <input id="ep-classroom-name" style={fieldStyle} value={selectedClassroom.name || ""} onChange={e => renameClassroom(e.target.value)} placeholder="e.g. Chemistry, 3rd hour" />
+            </div>
+          )}
+
           <div style={{ marginBottom: 8 }}>
-            <label style={labelStyle} htmlFor="ep-subject">Subject / room (optional)</label>
+            <label style={labelStyle} htmlFor="ep-subject">Subject / room for this classroom (optional)</label>
             <input id="ep-subject" style={fieldStyle} value={subject} onChange={e => setSubject(e.target.value)} placeholder="e.g. Chemistry, Room 214" />
           </div>
 

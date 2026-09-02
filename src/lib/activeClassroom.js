@@ -21,10 +21,18 @@ export function getActiveClassroomId() {
   if (typeof window === "undefined") return DEFAULT_CLASSROOM_ID;
   try {
     const fromUrl = valid(new URLSearchParams(window.location.search).get("class"));
+    // The BOARD is what a link opens, and a link means exactly what it
+    // says: ?class= names a classroom, and no ?class= is the default one.
+    // It never consults what this browser remembers -- a visitor who
+    // followed a Physics link and then a Chemistry one was still shown
+    // Physics, because the first visit had been remembered. Build and
+    // Profile are the teacher's own pages and do remember.
+    const onBoard = window.location.pathname.startsWith("/board");
     if (fromUrl) {
-      window.localStorage.setItem(STORAGE_KEY, fromUrl);
+      if (!onBoard) window.localStorage.setItem(STORAGE_KEY, fromUrl);
       return fromUrl;
     }
+    if (onBoard) return DEFAULT_CLASSROOM_ID;
     return valid(window.localStorage.getItem(STORAGE_KEY)) || DEFAULT_CLASSROOM_ID;
   } catch {
     return DEFAULT_CLASSROOM_ID;

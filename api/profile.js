@@ -16,6 +16,7 @@ import { MongoClient } from "mongodb";
 import { resolveTeacherId } from "./_auth.js";
 import { enforceRateLimit } from "./_rateLimit.js";
 import { capString, LIMITS } from "./_validate.js";
+import { DEFAULT_CLASSROOM_ID } from "./_classroom.js";
 
 const DB_NAME = process.env.MONGODB_DB || "homeroom";
 const COLLECTION = "profiles";
@@ -102,8 +103,12 @@ export default async function handler(req, res) {
     const slug = normalizeSlug(req.query.slug);
     if (!slug) { res.status(200).json(null); return; }
     const col = await getCollection();
-    const doc = await col.findOne({ slug }, { projection: { teacherId: 1 } });
-    res.status(200).json(doc ? { teacherId: doc.teacherId } : null);
+    // The name may belong to the teacher's default board (top-level slug)
+    // or to any classroom in their list.
+    const doc = await col.findOne({ $or: [{ slug }, { "classrooms.slug": slug }] }, { projection: { teacherId: 1, slug: 1, classrooms: 1 } });
+    if (!doc) { res.status(200).json(null); return; }
+    const room = (doc.classrooms || []).find(c => c?.slug === slug);
+    res.status(200).json({ teacherId: doc.teacherId, classroomId: room ? room.id : DEFAULT_CLASSROOM_ID });
     return;
   }
   // Identity comes from the verified session, never from the request --
@@ -124,7 +129,7 @@ export default async function handler(req, res) {
     }
 
     if (req.method === "POST") {
-      const { teacherName, school, subject, primaryColor, secondaryColor, headingFont, bodyFont, homeImageUrl, slug: rawSlug } = req.body || {};
+      const { teacherName, school, subject, primaryColor, secondaryColor, headingFont, bodyFont, homeImageUrl, slug: rawSlug, classrooms: rawClassrooms } = req.body || {};
       if (!teacherName) {
         res.status(400).json({ error: "teacherName is required" });
         return;
@@ -138,10 +143,62 @@ export default async function handler(req, res) {
         res.status(400).json({ error: "A board address is 3 to 40 characters: lowercase letters, numbers and hyphens, like webster-groves." });
         return;
       }
-      if (slug) {
-        const taken = await col.findOne({ slug, teacherId: { $ne: String(teacherId) } }, { projection: { _id: 1 } });
+      // The classroom list, when the client sends one. Each classroom is a
+      // course with its own board: name, subject line, short address, home
+      // photo. The default classroom ("main") is the board every teacher
+      // has had all along; its subject, address and photo are ALSO
+      // mirrored to the top-level fields, so the board and the slug lookup
+      // keep working for a client that predates classrooms.
+      let classrooms;
+      if (Array.isArray(rawClassrooms)) {
+        if (rawClassrooms.length > 20) {
+          res.status(400).json({ error: "That is more classrooms than a profile can hold (20)." });
+          return;
+        }
+        classrooms = [];
+        const seenIds = new Set();
+        const seenSlugs = new Set();
+        for (const raw of rawClassrooms) {
+          const id = typeof raw?.id === "string" && /^[a-z0-9][a-z0-9-]{0,39}$/.test(raw.id) ? raw.id : null;
+          if (!id || seenIds.has(id)) {
+            res.status(400).json({ error: "A classroom in the list has a missing or repeated id." });
+            return;
+          }
+          seenIds.add(id);
+          const roomSlug = normalizeSlug(raw.slug);
+          if (roomSlug === undefined) {
+            res.status(400).json({ error: "A board address is 3 to 40 characters: lowercase letters, numbers and hyphens, like webster-groves." });
+            return;
+          }
+          if (roomSlug) {
+            if (seenSlugs.has(roomSlug)) {
+              res.status(400).json({ error: `Two of your classrooms have the address "${roomSlug}". Each needs its own.` });
+              return;
+            }
+            seenSlugs.add(roomSlug);
+          }
+          classrooms.push({
+            id,
+            name: capString(String(raw.name || "Classroom"), LIMITS.NAME),
+            subject: raw.subject ? capString(String(raw.subject), LIMITS.NAME) : null,
+            slug: roomSlug,
+            homeImageUrl: sanitizeImageUrl(raw.homeImageUrl),
+          });
+        }
+        if (!classrooms.some(c => c.id === DEFAULT_CLASSROOM_ID)) {
+          classrooms.unshift({ id: DEFAULT_CLASSROOM_ID, name: subject ? String(subject) : "My classroom", subject: subject ? capString(String(subject), LIMITS.NAME) : null, slug: slug || null, homeImageUrl: sanitizeImageUrl(homeImageUrl) });
+        }
+      }
+      // Every address in play -- the top-level one and each classroom's --
+      // must be nobody else's.
+      const wanted = new Set([slug, ...(classrooms || []).map(c => c.slug)].filter(Boolean));
+      for (const s of wanted) {
+        const taken = await col.findOne(
+          { teacherId: { $ne: String(teacherId) }, $or: [{ slug: s }, { "classrooms.slug": s }] },
+          { projection: { _id: 1 } }
+        );
         if (taken) {
-          res.status(409).json({ error: `"${slug}" is already someone else's board address. Try another.` });
+          res.status(409).json({ error: `"${s}" is already someone else's board address. Try another.` });
           return;
         }
       }
@@ -168,7 +225,14 @@ export default async function handler(req, res) {
         homeImageUrl: sanitizeImageUrl(homeImageUrl),
         slug,
         updatedAt: now,
+        ...(classrooms ? { classrooms } : {}),
       };
+      if (classrooms) {
+        const main = classrooms.find(c => c.id === DEFAULT_CLASSROOM_ID);
+        update.subject = main.subject;
+        update.slug = main.slug;
+        update.homeImageUrl = main.homeImageUrl;
+      }
       // Upsert keyed on teacherId — a teacher only ever has one profile
       // document, and re-saving from the onboarding form (or a future
       // "edit profile" surface) should update it in place rather than
@@ -203,5 +267,11 @@ function toClientShape(doc) {
     bodyFont: doc.bodyFont || null,
     homeImageUrl: doc.homeImageUrl || null,
     slug: doc.slug || null,
+    // Always a list, even for a profile saved before classrooms existed:
+    // then it is the one default classroom, built from the top-level
+    // fields, so every client can treat classrooms as the truth.
+    classrooms: Array.isArray(doc.classrooms) && doc.classrooms.length
+      ? doc.classrooms.map(c => ({ id: c.id, name: c.name || "Classroom", subject: c.subject || "", slug: c.slug || null, homeImageUrl: c.homeImageUrl || null }))
+      : [{ id: DEFAULT_CLASSROOM_ID, name: doc.subject || "My classroom", subject: doc.subject || "", slug: doc.slug || null, homeImageUrl: doc.homeImageUrl || null }],
   };
 }

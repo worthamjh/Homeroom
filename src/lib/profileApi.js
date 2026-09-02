@@ -11,11 +11,11 @@ export async function fetchProfile(teacherId) {
   return res.json(); // null when this teacher hasn't onboarded yet
 }
 
-export async function saveProfile({ teacherId, teacherName, school, subject, primaryColor, secondaryColor, headingFont, bodyFont, homeImageUrl, slug }) {
+export async function saveProfile({ teacherId, teacherName, school, subject, primaryColor, secondaryColor, headingFont, bodyFont, homeImageUrl, slug, classrooms }) {
   const res = await apiFetch("/api/profile", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ teacherId, teacherName, school, subject, primaryColor, secondaryColor, headingFont, bodyFont, homeImageUrl, slug }),
+    body: JSON.stringify({ teacherId, teacherName, school, subject, primaryColor, secondaryColor, headingFont, bodyFont, homeImageUrl, slug, classrooms }),
   });
   if (!res.ok) {
     // The server explains a bad or taken board address in words a

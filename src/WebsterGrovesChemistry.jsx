@@ -27,6 +27,7 @@ import {
   useLessonBoardCount, seedLessonBoardCount,
   SLIDING_BOARDS_ENABLED_KEY, DEFAULT_SLIDING_BOARDS_ENABLED,
   SLIDING_BOARDS_COUNT_KEY, DEFAULT_SLIDING_BOARDS_COUNT,
+  getActiveClassroomId, classroomQuery,
   buildSlidingPanels,
   CURRENT_VIEW_STORAGE_KEY, readCurrentView, writeCurrentView,
   useBoardContentOrder,
@@ -2087,7 +2088,7 @@ function TopBar({ viewer = false, curriculum, activeUnitIdx, isOverview, activeL
             // when a teacher is done editing. Safe to skip noopener: this
             // is a same-origin, first-party popup, not a link to some
             // other site.
-            window.open("/build", "homeroom-build");
+            window.open(`/build${classroomQuery() ? "?" + classroomQuery().slice(1) : ""}`, "homeroom-build");
           }}
           title="Build — add or edit content, and change how the board looks"
           aria-label="Open Build page"
@@ -2583,8 +2584,13 @@ export default function App({ viewer = false } = {}) {
   const themeVars = isBlankTeacher
     ? boardThemeVars(teacherProfile?.primaryColor, teacherProfile?.secondaryColor, teacherProfile?.headingFont, teacherProfile?.bodyFont)
     : boardThemeVars(); // Webster Groves keeps its fixed Oswald/Lato defaults regardless
+  // The classroom this board is: its subject line and home photo come
+  // from the profile's classroom list, falling back to the top-level
+  // fields (which mirror the default classroom) for a profile saved
+  // before classrooms existed.
+  const activeClassroom = teacherProfile?.classrooms?.find(c => c.id === getActiveClassroomId()) || null;
   const boardTitleMain = isBlankTeacher ? (teacherProfile?.school || "Your School") : undefined;
-  const boardTitleAccent = isBlankTeacher ? (teacherProfile?.subject || "Your Subject") : undefined;
+  const boardTitleAccent = isBlankTeacher ? (activeClassroom?.subject || teacherProfile?.subject || "Your Subject") : undefined;
 
   // A real board tab starts at the homepage by default, same as always —
   // UNLESS it's a deep link with explicit ?unit=&lesson= params (see
@@ -3814,7 +3820,7 @@ export default function App({ viewer = false } = {}) {
                 rather have some black border than cut off the top of the
                 school like it is in the demo page." */}
             {(() => {
-              const homeImage = teacherProfile?.homeImageUrl || (!isBlankTeacher ? "/images/wghs-building.jpg" : null);
+              const homeImage = (activeClassroom ? activeClassroom.homeImageUrl : teacherProfile?.homeImageUrl) || (!isBlankTeacher ? "/images/wghs-building.jpg" : null);
               if (homeImage) {
                 return (
                   <img

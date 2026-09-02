@@ -12,7 +12,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { registerAuthTokenGetter } from "./lib/apiClient";
 import { useUser, useAuth } from "@clerk/clerk-react";
 import { fetchBoardSettings, saveBoardSetting } from "./lib/boardSettingsApi";
-import { getActiveClassroomId, DEFAULT_CLASSROOM_ID } from "./lib/activeClassroom";
+import { getActiveClassroomId, setActiveClassroomId, DEFAULT_CLASSROOM_ID } from "./lib/activeClassroom";
 export { getActiveClassroomId, setActiveClassroomId, classroomQuery, DEFAULT_CLASSROOM_ID } from "./lib/activeClassroom";
 // Named here as a plain string rather than referencing OWNED_DESIGN_OPTIONS_KEY,
 // which is declared further down this module (const, not hoisted).
@@ -117,6 +117,9 @@ export function useSyncAuthIdentity() {
 
     if (isSignedIn && ownId && current !== ownId) {
       setActiveTeacherId(ownId);
+      // A different teacher than before: whatever classroom was remembered
+      // was theirs, not this one's.
+      setActiveClassroomId(DEFAULT_CLASSROOM_ID);
     } else if (!isSignedIn && current?.startsWith(CLERK_ID_PREFIX)) {
       // A previous session's teacher id is still stuck as active but
       // nobody is signed in now (e.g. the session expired in this tab) —

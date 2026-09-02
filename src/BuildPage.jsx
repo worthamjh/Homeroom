@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/clerk-react";
-import { getActiveTeacherId, DEFAULT_TEACHER_ID, CLERK_CONFIGURED, boardThemeVars, useScopedSetting, BUILD_TOUR_DONE_KEY, DEFAULT_BUILD_TOUR_DONE, readCurrentView } from "./boardConfig";
+import { getActiveTeacherId, DEFAULT_TEACHER_ID, CLERK_CONFIGURED, boardThemeVars, useScopedSetting, BUILD_TOUR_DONE_KEY, DEFAULT_BUILD_TOUR_DONE, readCurrentView, getActiveClassroomId, setActiveClassroomId, classroomQuery, DEFAULT_CLASSROOM_ID } from "./boardConfig";
 import { fetchProfile } from "./lib/profileApi";
 import BoardSettingsPanel from "./BoardSettingsPanel";
 import GuidedTour from "./GuidedTour";
@@ -153,7 +153,7 @@ function LiveBuildBoard({ teacherId, highlightRegion, onPanelCountInfo, onViewCh
   // directly always lands on the right identity even in a fresh tab that
   // hasn't inherited localStorage yet (shouldn't happen same-origin, but
   // costs nothing to be explicit).
-  const src = `/board?build=1&teacher=${encodeURIComponent(teacherId)}`;
+  const src = `/board?build=1&teacher=${encodeURIComponent(teacherId)}${classroomQuery()}`;
 
   return (
     <div
@@ -220,7 +220,7 @@ function ShareBoard({ teacherId, slug }) {
   // the id form. Both open the same board.
   const link = slug
     ? `${window.location.origin}/board/${slug}`
-    : `${window.location.origin}/board?teacher=${encodeURIComponent(teacherId)}`;
+    : `${window.location.origin}/board?teacher=${encodeURIComponent(teacherId)}${classroomQuery()}`;
   const copy = () => {
     navigator.clipboard?.writeText(link)
       .then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500); })
@@ -266,6 +266,31 @@ function ShareBoard({ teacherId, slug }) {
         </div>
       )}
     </div>
+  );
+}
+
+// Which classroom Build is editing, and the way to another one. Every
+// classroom is its own board, so switching is a full reload with the
+// classroom in the URL: everything on this page re-keys from that. The
+// last entry opens the Profile page with a fresh classroom started.
+function ClassroomSwitcher({ classrooms }) {
+  const current = getActiveClassroomId();
+  const list = classrooms?.length ? classrooms : [{ id: DEFAULT_CLASSROOM_ID, name: "My classroom" }];
+  const go = (id) => {
+    if (id === "__new") { window.location.href = "/profile?from=build&new=1"; return; }
+    setActiveClassroomId(id);
+    window.location.href = id === DEFAULT_CLASSROOM_ID ? "/build" : `/build?class=${encodeURIComponent(id)}`;
+  };
+  return (
+    <select
+      value={list.some(c => c.id === current) ? current : list[0].id}
+      onChange={e => go(e.target.value)}
+      title="Which classroom you are building"
+      style={{ marginLeft: 14, background: "transparent", color: "var(--board-secondary-accent)", border: "1px solid rgba(255,255,255,0.25)", borderRadius: 6, padding: "4px 8px", fontFamily: "Oswald, sans-serif", fontSize: 12, letterSpacing: 0.5, cursor: "pointer", maxWidth: 260 }}
+    >
+      {list.map(c => <option key={c.id} value={c.id} style={{ color: "#111" }}>{c.name || c.subject || c.id}</option>)}
+      <option value="__new" style={{ color: "#111" }}>+ New classroom…</option>
+    </select>
   );
 }
 
@@ -325,6 +350,7 @@ export default function BuildPage() {
   const backHref = (() => {
     const params = new URLSearchParams();
     if (isBlankTeacher) params.set("teacher", activeTeacherId);
+    if (isBlankTeacher && getActiveClassroomId() !== DEFAULT_CLASSROOM_ID) params.set("class", getActiveClassroomId());
     // Fall back to localStorage if the iframe postMessage hasn't fired yet
     // (e.g. teacher clicks Back before the iframe finishes loading).
     const view = currentView ?? readCurrentView();
@@ -440,6 +466,11 @@ export default function BuildPage() {
           <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 16, color: "var(--board-primary-fg)", letterSpacing: 1, flexShrink: 0 }}>
             🛠 Build
           </div>
+          {isBlankTeacher && CLERK_CONFIGURED && (
+            <SignedIn>
+              <ClassroomSwitcher classrooms={teacherProfile?.classrooms} />
+            </SignedIn>
+          )}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 20, flexShrink: 0 }}>
           {/* CLERK_CONFIGURED false only happens on a checkout missing
@@ -464,7 +495,7 @@ export default function BuildPage() {
           )}
           {isBlankTeacher && CLERK_CONFIGURED && (
             <SignedIn>
-              <ShareBoard teacherId={activeTeacherId} slug={teacherProfile?.slug} />
+              <ShareBoard teacherId={activeTeacherId} slug={(teacherProfile?.classrooms?.find(c => c.id === getActiveClassroomId()) || {}).slug ?? (getActiveClassroomId() === DEFAULT_CLASSROOM_ID ? teacherProfile?.slug : null)} />
             </SignedIn>
           )}
           {/* The store is where the long tail of designs lives, so that

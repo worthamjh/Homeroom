@@ -20,7 +20,10 @@ export function BoardBySlug() {
     resolveBoardSlug(slug || '')
       .then(found => {
         if (cancelled) return
-        if (found?.teacherId) navigate(`/board?teacher=${encodeURIComponent(found.teacherId)}`, { replace: true })
+        if (found?.teacherId) {
+          const room = found.classroomId && found.classroomId !== 'main' ? `&class=${encodeURIComponent(found.classroomId)}` : ''
+          navigate(`/board?teacher=${encodeURIComponent(found.teacherId)}${room}`, { replace: true })
+        }
         else navigate('/', { replace: true })
       })
       .catch(() => { if (!cancelled) navigate('/', { replace: true }) })
