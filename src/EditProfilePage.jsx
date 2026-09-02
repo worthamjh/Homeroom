@@ -9,6 +9,7 @@ import {
   ensureFontsLoaded,
 } from "./boardConfig";
 import { fetchProfile, saveProfile, downloadMyData, deleteMyAccount } from "./lib/profileApi";
+import { uploadImage, cloudinaryConfigured } from "./lib/cloudinary";
 
 /**
  * EditProfilePage — /profile route, linked from the Build page header.
@@ -46,6 +47,26 @@ export default function EditProfilePage() {
   const [secondaryColor, setSecondaryColor] = useState(DEFAULT_SECONDARY_COLOR);
   const [headingFont,    setHeadingFont]    = useState(DEFAULT_HEADING_FONT);
   const [bodyFont,       setBodyFont]       = useState(DEFAULT_BODY_FONT);
+  // The home-screen photo. Jay: "can we add the picture of Webster Groves
+  // High School to the homepage?" -- a teacher picks a photo of their own
+  // school and it fills the board's first screen, whole, with the board's
+  // own colour around it where the shapes do not match.
+  const [homeImageUrl,   setHomeImageUrl]   = useState("");
+  const [photoBusy,      setPhotoBusy]      = useState(false);
+  const [photoError,     setPhotoError]     = useState("");
+  const handlePhoto = async (file) => {
+    if (!file) return;
+    setPhotoError("");
+    setPhotoBusy(true);
+    try {
+      const { url } = await uploadImage(file);
+      setHomeImageUrl(url);
+    } catch (err) {
+      setPhotoError(err?.message || "Couldn't upload that photo.");
+    } finally {
+      setPhotoBusy(false);
+    }
+  };
 
   // Load existing profile on mount
   useEffect(() => {
@@ -62,6 +83,7 @@ export default function EditProfilePage() {
         setSecondaryColor(p.secondaryColor || DEFAULT_SECONDARY_COLOR);
         setHeadingFont(p.headingFont   || DEFAULT_HEADING_FONT);
         setBodyFont(p.bodyFont         || DEFAULT_BODY_FONT);
+        setHomeImageUrl(p.homeImageUrl || "");
       })
       .catch(() => {}) // no profile yet — defaults stay
       .finally(() => { if (!cancelled) setLoading(false); });
@@ -79,7 +101,7 @@ export default function EditProfilePage() {
     setSaving(true);
     setError("");
     try {
-      await saveProfile({ teacherId, teacherName: teacherName.trim(), school: school.trim(), subject: subject.trim(), primaryColor, secondaryColor, headingFont, bodyFont });
+      await saveProfile({ teacherId, teacherName: teacherName.trim(), school: school.trim(), subject: subject.trim(), primaryColor, secondaryColor, headingFont, bodyFont, homeImageUrl: homeImageUrl || null });
       // Go back to Build if we came from there, otherwise the board
       const from = new URLSearchParams(window.location.search).get("from");
       navigate(from === "build" ? "/build" : "/board");
@@ -141,6 +163,33 @@ export default function EditProfilePage() {
           <div style={{ marginBottom: 8 }}>
             <label style={labelStyle} htmlFor="ep-subject">Subject / room (optional)</label>
             <input id="ep-subject" style={fieldStyle} value={subject} onChange={e => setSubject(e.target.value)} placeholder="e.g. Chemistry, Room 214" />
+          </div>
+
+          {/* ── Home screen photo ── */}
+          <div style={sectionHead}>Home Screen Photo</div>
+          <div style={{ marginBottom: 8 }}>
+            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.45)", fontFamily: "Lato, sans-serif", lineHeight: 1.5, marginBottom: 8 }}>
+              Fills the board's first screen, before a unit is picked. Your school building is the classic choice. The whole photo shows, with the board colour around it if the shapes don't match.
+            </div>
+            {homeImageUrl && (
+              <div style={{ background: primaryColor, borderRadius: 6, overflow: "hidden", marginBottom: 8, aspectRatio: "2.1", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <img src={homeImageUrl} alt="Home screen photo" style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
+              </div>
+            )}
+            <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+              {cloudinaryConfigured() && (
+                <label style={{ ...fieldStyle, width: "auto", display: "inline-block", cursor: photoBusy ? "default" : "pointer", opacity: photoBusy ? 0.6 : 1, textAlign: "center", padding: "9px 14px" }}>
+                  {photoBusy ? "Uploading…" : homeImageUrl ? "Choose a different photo" : "Upload a photo"}
+                  <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" disabled={photoBusy} onChange={e => { const f = e.target.files?.[0]; e.target.value = ""; handlePhoto(f); }} style={{ display: "none" }} />
+                </label>
+              )}
+              {homeImageUrl && (
+                <button type="button" onClick={() => setHomeImageUrl("")} style={{ background: "transparent", border: "none", color: "rgba(255,255,255,0.5)", fontFamily: "Lato, sans-serif", fontSize: 12, textDecoration: "underline", cursor: "pointer", padding: 0 }}>
+                  Remove photo
+                </button>
+              )}
+            </div>
+            {photoError && <div style={{ fontSize: 12, color: "#ff8a65", fontFamily: "Lato, sans-serif", marginTop: 6 }}>{photoError}</div>}
           </div>
 
           {/* ── Colors ── */}

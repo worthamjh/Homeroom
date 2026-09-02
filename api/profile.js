@@ -30,6 +30,19 @@ const COLLECTION = "profiles";
 const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/;
 const VALID_HEADING_FONTS = ["Oswald", "Bebas Neue", "Raleway", "Montserrat", "Anton", "Fjalla One"];
 const VALID_BODY_FONTS    = ["Lato", "Open Sans", "Roboto", "Nunito", "Source Sans 3", "Inter"];
+function sanitizeImageUrl(value) {
+  if (typeof value !== "string") return null;
+  const v = value.trim();
+  if (!v || v.length > 2000) return null;
+  if (v.startsWith("/") && !v.startsWith("//")) return v;
+  try {
+    const u = new URL(v);
+    return u.protocol === "https:" ? u.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
 function sanitizeHexColor(value, fallback) {
   return typeof value === "string" && HEX_COLOR_RE.test(value) ? value : fallback;
 }
@@ -85,7 +98,7 @@ export default async function handler(req, res) {
     }
 
     if (req.method === "POST") {
-      const { teacherName, school, subject, primaryColor, secondaryColor, headingFont, bodyFont } = req.body || {};
+      const { teacherName, school, subject, primaryColor, secondaryColor, headingFont, bodyFont, homeImageUrl } = req.body || {};
       if (!teacherName) {
         res.status(400).json({ error: "teacherName is required" });
         return;
@@ -107,6 +120,11 @@ export default async function handler(req, res) {
         secondaryColor: sanitizeHexColor(secondaryColor, null),
         headingFont: VALID_HEADING_FONTS.includes(headingFont) ? headingFont : null,
         bodyFont:    VALID_BODY_FONTS.includes(bodyFont)    ? bodyFont    : null,
+        // The photo on the board's home screen (a school building, say).
+        // An https URL -- an upload lands on Cloudinary -- or a path on
+        // this site. Anything else, including a stray "javascript:", is
+        // dropped to null, which means no photo.
+        homeImageUrl: sanitizeImageUrl(homeImageUrl),
         updatedAt: now,
       };
       // Upsert keyed on teacherId — a teacher only ever has one profile
@@ -141,5 +159,6 @@ function toClientShape(doc) {
     secondaryColor: doc.secondaryColor || null,
     headingFont: doc.headingFont || null,
     bodyFont: doc.bodyFont || null,
+    homeImageUrl: doc.homeImageUrl || null,
   };
 }

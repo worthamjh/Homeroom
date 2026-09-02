@@ -80,6 +80,25 @@ export async function uploadSlidesFile(file) {
   return { publicId: data.public_id, url: data.secure_url };
 }
 
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+
+/**
+ * Uploads a photo -- the board's home-screen picture -- and returns its
+ * URL. Same Cloudinary account and preset as everything else here.
+ * @param {File} file
+ * @returns {Promise<{ publicId: string, url: string }>}
+ */
+export async function uploadImage(file) {
+  if (!/^image\/(jpeg|png|webp|gif)$/.test(file?.type || "")) {
+    throw new Error("That file isn't a photo. JPG, PNG, WebP or GIF, please.");
+  }
+  if (file.size > MAX_IMAGE_BYTES) {
+    throw new Error("That photo is over 10 MB. A smaller export of it will look the same on the board.");
+  }
+  const data = await uploadToCloudinary(file, "image");
+  return { publicId: data.public_id, url: data.secure_url };
+}
+
 /**
  * The upload itself, shared by assignments and slides: unsigned preset,
  * retry on Cloudinary's transient 429/5xx, a sentence a teacher can act

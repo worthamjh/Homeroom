@@ -3767,21 +3767,31 @@ export default function App({ viewer = false } = {}) {
         <>
           <TopBar {...topBarProps} />
           <div style={{ flex: 1, minHeight: 0, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--board-primary)" }}>
-            {isBlankTeacher ? (
-              <div style={{ color: "rgba(255,255,255,0.4)", fontFamily: "Oswald, sans-serif", fontSize: 14, letterSpacing: 1, textTransform: "uppercase" }}>
-                {activeCurriculum.length === 0
-                  ? "No units yet — add your first one above to get started"
-                  : "No content yet — pick a unit above to start adding assignments"}
-              </div>
-            ) : (
-              <div style={{ height: "100%", aspectRatio: "2.1", overflow: "hidden" }}>
-                <img
-                  src="/images/wghs-building.jpg"
-                  alt="Webster Groves High School"
-                  style={{ width: "100%", height: "100%", display: "block", objectFit: "cover" }}
-                />
-              </div>
-            )}
+            {/* A teacher's own home-screen photo (profile.homeImageUrl, set
+                on the Profile page); the Webster demo keeps its building.
+                Shown WHOLE -- object-fit contain, the board colour filling
+                the sides or top -- rather than cropped to fill. Jay: "I'd
+                rather have some black border than cut off the top of the
+                school like it is in the demo page." */}
+            {(() => {
+              const homeImage = teacherProfile?.homeImageUrl || (!isBlankTeacher ? "/images/wghs-building.jpg" : null);
+              if (homeImage) {
+                return (
+                  <img
+                    src={homeImage}
+                    alt={isBlankTeacher ? (teacherProfile?.school || "School") : "Webster Groves High School"}
+                    style={{ width: "100%", height: "100%", display: "block", objectFit: "contain" }}
+                  />
+                );
+              }
+              return (
+                <div style={{ color: "rgba(255,255,255,0.4)", fontFamily: "Oswald, sans-serif", fontSize: 14, letterSpacing: 1, textTransform: "uppercase" }}>
+                  {activeCurriculum.length === 0
+                    ? "No units yet — add your first one above to get started"
+                    : "No content yet — pick a unit above to start adding assignments"}
+                </div>
+              );
+            })()}
           </div>
         </>
       ) : (

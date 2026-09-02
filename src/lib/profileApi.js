@@ -11,11 +11,11 @@ export async function fetchProfile(teacherId) {
   return res.json(); // null when this teacher hasn't onboarded yet
 }
 
-export async function saveProfile({ teacherId, teacherName, school, subject, primaryColor, secondaryColor, headingFont, bodyFont }) {
+export async function saveProfile({ teacherId, teacherName, school, subject, primaryColor, secondaryColor, headingFont, bodyFont, homeImageUrl }) {
   const res = await apiFetch("/api/profile", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ teacherId, teacherName, school, subject, primaryColor, secondaryColor, headingFont, bodyFont }),
+    body: JSON.stringify({ teacherId, teacherName, school, subject, primaryColor, secondaryColor, headingFont, bodyFont, homeImageUrl }),
   });
   if (!res.ok) throw new Error(`Failed to save profile (${res.status})`);
   return res.json();
