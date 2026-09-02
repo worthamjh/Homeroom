@@ -8,6 +8,12 @@
 // had (backward compatible with existing saved data).
 
 import { apiFetch } from "./apiClient";
+
+// The lessonTitle a UNIT-level content document is stored under. The
+// Essential Question belongs to the unit, not to any lesson or board (it
+// is shown on every one of them), so it needs a document of its own in a
+// collection keyed by lesson. No real lesson is called this.
+export const UNIT_CONTENT_LESSON = "__unit__";
 export async function fetchBoardContent(teacherId, unitIdx, lessonTitle, panelIdx) {
   const params = new URLSearchParams({ teacherId, unitIdx: String(unitIdx), lessonTitle });
   if (panelIdx != null) params.set("panelIdx", String(panelIdx));

@@ -8,7 +8,7 @@ import { fetchProfile } from "./lib/profileApi";
 import { fetchCurriculum, saveCurriculum } from "./lib/curriculumApi";
 import CurriculumHistory from "./CurriculumHistory";
 import { fetchCheckedGoals, saveCheckedGoals } from "./lib/checkedGoalsApi";
-import { fetchBoardContent, saveBoardContent } from "./lib/boardContentApi";
+import { fetchBoardContent, saveBoardContent, UNIT_CONTENT_LESSON } from "./lib/boardContentApi";
 import {
   scopedKey, useScopedSetting,
   getActiveTeacherId, DEFAULT_TEACHER_ID,
@@ -3632,9 +3632,17 @@ export default function App() {
   // survive a different browser or a cleared cache, instead of living
   // only in this one browser's localStorage.
   // Unit-level hook — owns only the Essential Question, shared across
-  // every lesson and every sliding panel in the unit.
+  // every lesson and every sliding panel in the unit. It gets a Mongo key
+  // like the lesson hooks do, under a sentinel lesson title: it used to
+  // pass null, which left the Essential Question in this browser alone
+  // while everything else on the board synced -- typed at home, blank on
+  // the classroom machine. (Found while confirming that Reset Board does
+  // not touch it: it does not, and this is the hook that proves it.)
   const unitAgendaKey = scopedKey(`unitContent:u${activeUnitIdx ?? "none"}`);
-  const unitFields = useFullAgendaFields(unitAgendaKey, null);
+  const unitFields = useFullAgendaFields(
+    unitAgendaKey,
+    activeTeacherId && activeUnitIdx != null ? { teacherId: activeTeacherId, unitIdx: activeUnitIdx, lessonTitle: UNIT_CONTENT_LESSON } : null,
+  );
 
   // Flat (non-sliding) board hook — same key as the old single hook so
   // any content a teacher already entered is preserved without migration.
