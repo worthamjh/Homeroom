@@ -11,14 +11,27 @@ export async function fetchProfile(teacherId) {
   return res.json(); // null when this teacher hasn't onboarded yet
 }
 
-export async function saveProfile({ teacherId, teacherName, school, subject, primaryColor, secondaryColor, headingFont, bodyFont, homeImageUrl }) {
+export async function saveProfile({ teacherId, teacherName, school, subject, primaryColor, secondaryColor, headingFont, bodyFont, homeImageUrl, slug }) {
   const res = await apiFetch("/api/profile", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ teacherId, teacherName, school, subject, primaryColor, secondaryColor, headingFont, bodyFont, homeImageUrl }),
+    body: JSON.stringify({ teacherId, teacherName, school, subject, primaryColor, secondaryColor, headingFont, bodyFont, homeImageUrl, slug }),
   });
-  if (!res.ok) throw new Error(`Failed to save profile (${res.status})`);
+  if (!res.ok) {
+    // The server explains a bad or taken board address in words a
+    // teacher can act on; pass that through instead of a status code.
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.error || `Failed to save profile (${res.status})`);
+  }
   return res.json();
+}
+
+/** Who owns a short board address (gil-bilt.com/board/<slug>)? null if nobody. */
+export async function resolveBoardSlug(slug) {
+  const params = new URLSearchParams({ slug });
+  const res = await fetch(`/api/profile?${params}`);
+  if (!res.ok) throw new Error(`Failed to look up board address (${res.status})`);
+  return res.json();   // { teacherId } | null
 }
 
 // Downloads everything Homeroom holds for the signed-in teacher as one

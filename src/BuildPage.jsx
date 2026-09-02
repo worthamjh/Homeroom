@@ -211,12 +211,16 @@ function SignInPrompt() {
 // link, and the link itself. Writes the "boardShared" setting, which
 // api/_auth.js reads to let signed-out GETs through for this teacher
 // (view only; see the comment there). Opt-in, per teacher: Jay's call.
-function ShareBoard({ teacherId }) {
+function ShareBoard({ teacherId, slug }) {
   const [shared, setShared] = useScopedSetting("boardShared", "false", k => k === "true" || k === "false");
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const isShared = shared === "true";
-  const link = `${window.location.origin}/board?teacher=${encodeURIComponent(teacherId)}`;
+  // The short address when the teacher has set one (Profile page), else
+  // the id form. Both open the same board.
+  const link = slug
+    ? `${window.location.origin}/board/${slug}`
+    : `${window.location.origin}/board?teacher=${encodeURIComponent(teacherId)}`;
   const copy = () => {
     navigator.clipboard?.writeText(link)
       .then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500); })
@@ -252,6 +256,11 @@ function ShareBoard({ teacherId }) {
               <button type="button" onClick={copy} style={{ background: "var(--board-secondary)", color: "var(--board-secondary-fg)", border: "none", borderRadius: 4, padding: "7px 12px", fontFamily: "Oswald, sans-serif", fontSize: 12, letterSpacing: 0.5, cursor: "pointer", flexShrink: 0 }}>
                 {copied ? "Copied" : "Copy"}
               </button>
+            </div>
+          )}
+          {isShared && !slug && (
+            <div style={{ marginTop: 8, fontSize: 11.5, color: "rgba(255,255,255,0.5)", lineHeight: 1.45 }}>
+              Want a shorter link? Set a board address on your <a href="/profile?from=build" style={{ color: "var(--board-secondary-accent)" }}>Profile</a> page.
             </div>
           )}
         </div>
@@ -455,7 +464,7 @@ export default function BuildPage() {
           )}
           {isBlankTeacher && CLERK_CONFIGURED && (
             <SignedIn>
-              <ShareBoard teacherId={activeTeacherId} />
+              <ShareBoard teacherId={activeTeacherId} slug={teacherProfile?.slug} />
             </SignedIn>
           )}
           {/* The store is where the long tail of designs lives, so that

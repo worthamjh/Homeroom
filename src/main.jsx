@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { ClerkProvider } from '@clerk/clerk-react'
 import './index.css'
-import App from './App.jsx'
+import App, { BoardBySlug } from './App.jsx'
 import LandingPage from './LandingPage.jsx'
 import SettingsPage from './SettingsPage.jsx'
 import BuildPage from './BuildPage.jsx'
@@ -47,6 +47,7 @@ const routedApp = (
           blank-shell board once they're past onboarding. Also embedded
           live via iframe by BuildPage.jsx (?build=1) — see the src there. */}
       <Route path="/board" element={<App />} />
+      <Route path="/board/:slug" element={<BoardBySlug />} />
       {/* Opened in its own browser tab from the board's gear icon (see
           TopBar in WebsterGrovesChemistry.jsx) — a real, bookmarkable
           /settings URL rather than an in-app modal, so a teacher can

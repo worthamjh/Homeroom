@@ -52,6 +52,11 @@ export default function EditProfilePage() {
   // school and it fills the board's first screen, whole, with the board's
   // own colour around it where the shapes do not match.
   const [homeImageUrl,   setHomeImageUrl]   = useState("");
+  // The board's short address: gil-bilt.com/board/<slug>. Typed here as
+  // the teacher likes; lowercased and stripped to letters, digits and
+  // hyphens as they type, so what they see is what the link will be.
+  const [slug,           setSlug]           = useState("");
+  const tidySlug = (v) => v.toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/-{2,}/g, "-").replace(/^-/, "").slice(0, 40);
   const [photoBusy,      setPhotoBusy]      = useState(false);
   const [photoError,     setPhotoError]     = useState("");
   const handlePhoto = async (file) => {
@@ -84,6 +89,7 @@ export default function EditProfilePage() {
         setHeadingFont(p.headingFont   || DEFAULT_HEADING_FONT);
         setBodyFont(p.bodyFont         || DEFAULT_BODY_FONT);
         setHomeImageUrl(p.homeImageUrl || "");
+        setSlug(p.slug || "");
       })
       .catch(() => {}) // no profile yet — defaults stay
       .finally(() => { if (!cancelled) setLoading(false); });
@@ -101,7 +107,7 @@ export default function EditProfilePage() {
     setSaving(true);
     setError("");
     try {
-      await saveProfile({ teacherId, teacherName: teacherName.trim(), school: school.trim(), subject: subject.trim(), primaryColor, secondaryColor, headingFont, bodyFont, homeImageUrl: homeImageUrl || null });
+      await saveProfile({ teacherId, teacherName: teacherName.trim(), school: school.trim(), subject: subject.trim(), primaryColor, secondaryColor, headingFont, bodyFont, homeImageUrl: homeImageUrl || null, slug: slug.replace(/-$/, "") || null });
       // Go back to Build if we came from there, otherwise the board
       const from = new URLSearchParams(window.location.search).get("from");
       navigate(from === "build" ? "/build" : "/board");
@@ -163,6 +169,19 @@ export default function EditProfilePage() {
           <div style={{ marginBottom: 8 }}>
             <label style={labelStyle} htmlFor="ep-subject">Subject / room (optional)</label>
             <input id="ep-subject" style={fieldStyle} value={subject} onChange={e => setSubject(e.target.value)} placeholder="e.g. Chemistry, Room 214" />
+          </div>
+
+          {/* ── Board address ── */}
+          <div style={sectionHead}>Board Address</div>
+          <div style={{ marginBottom: 8 }}>
+            <label style={labelStyle} htmlFor="ep-slug">Short link for your board (optional)</label>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ fontFamily: "Lato, sans-serif", fontSize: 13, color: "rgba(255,255,255,0.45)", whiteSpace: "nowrap" }}>gil-bilt.com/board/</span>
+              <input id="ep-slug" style={{ ...fieldStyle, flex: 1, minWidth: 0 }} value={slug} onChange={e => setSlug(tidySlug(e.target.value))} placeholder="webster-groves" spellCheck={false} />
+            </div>
+            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.45)", fontFamily: "Lato, sans-serif", lineHeight: 1.5, marginTop: 6 }}>
+              A readable address to put in an email or on a projector bookmark. Lowercase letters, numbers and hyphens. It opens your board for anyone once Share is on in Build.
+            </div>
           </div>
 
           {/* ── Home screen photo ── */}

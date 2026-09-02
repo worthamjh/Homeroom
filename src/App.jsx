@@ -1,8 +1,33 @@
 import { useEffect, useState } from 'react'
 import { useUser } from '@clerk/clerk-react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams, useParams } from 'react-router-dom'
 import WebsterGrovesChemistry from './WebsterGrovesChemistry'
 import { fetchBoardSettings } from './lib/boardSettingsApi'
+import { resolveBoardSlug } from './lib/profileApi'
+
+// The /board/:slug route: a readable address (gil-bilt.com/board/webster-
+// groves) for a board that otherwise lives at /board?teacher=<account id>.
+// Looks the name up and hands off to the id form -- so every rule that
+// route enforces (sign-in, the shared-board switch, viewer mode) applies
+// unchanged. The address bar ends up showing the id form; the short one is
+// for the link you send, which is where it mattered (Jay: a link with
+// "clerk" and a random string in it "might look suspicious").
+export function BoardBySlug() {
+  const { slug } = useParams()
+  const navigate = useNavigate()
+  useEffect(() => {
+    let cancelled = false
+    resolveBoardSlug(slug || '')
+      .then(found => {
+        if (cancelled) return
+        if (found?.teacherId) navigate(`/board?teacher=${encodeURIComponent(found.teacherId)}`, { replace: true })
+        else navigate('/', { replace: true })
+      })
+      .catch(() => { if (!cancelled) navigate('/', { replace: true }) })
+    return () => { cancelled = true }
+  }, [slug, navigate])
+  return null
+}
 
 /**
  * The /board route.

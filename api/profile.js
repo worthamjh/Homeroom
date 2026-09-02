@@ -78,8 +78,34 @@ async function getCollection() {
   return client.db(DB_NAME).collection(COLLECTION);
 }
 
+// A board's short address: what goes after gil-bilt.com/board/. Lowercase
+// letters, digits and single hyphens, 3 to 40 characters. Chosen by the
+// teacher on the Profile page; unique across teachers.
+const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+export function normalizeSlug(value) {
+  if (typeof value !== "string") return null;
+  const v = value.trim().toLowerCase();
+  if (!v) return null;
+  return SLUG_RE.test(v) && v.length >= 3 && v.length <= 40 ? v : undefined;   // undefined = invalid
+}
+
 export default async function handler(req, res) {
   try {
+  // Short address lookup: /api/profile?slug=<name> answers { teacherId }
+  // for whoever owns that name, or null. Public on purpose -- it is a
+  // directory, and a teacher id is already in every board URL -- and it
+  // sits BEFORE the session check because a visitor following a short
+  // link has no session. Whether the board then opens is still the
+  // shared-board rule in api/_auth.js; this only says which board.
+  if (req.method === "GET" && typeof req.query?.slug === "string") {
+    if (!(await enforceRateLimit(req, res, { teacherId: "slug-lookup", bucket: "profile" }))) return;
+    const slug = normalizeSlug(req.query.slug);
+    if (!slug) { res.status(200).json(null); return; }
+    const col = await getCollection();
+    const doc = await col.findOne({ slug }, { projection: { teacherId: 1 } });
+    res.status(200).json(doc ? { teacherId: doc.teacherId } : null);
+    return;
+  }
   // Identity comes from the verified session, never from the request --
   // see api/_auth.js. Any teacherId still arriving in the query or body is
   // ignored, so a caller cannot name a teacher they are not.
@@ -98,12 +124,27 @@ export default async function handler(req, res) {
     }
 
     if (req.method === "POST") {
-      const { teacherName, school, subject, primaryColor, secondaryColor, headingFont, bodyFont, homeImageUrl } = req.body || {};
+      const { teacherName, school, subject, primaryColor, secondaryColor, headingFont, bodyFont, homeImageUrl, slug: rawSlug } = req.body || {};
       if (!teacherName) {
         res.status(400).json({ error: "teacherName is required" });
         return;
       }
       const col = await getCollection();
+      // The short address, if the teacher set one. Invalid is a 400 with
+      // the rule spelled out; taken by someone else is a 409. Absent or
+      // blank clears it.
+      const slug = normalizeSlug(rawSlug);
+      if (slug === undefined) {
+        res.status(400).json({ error: "A board address is 3 to 40 characters: lowercase letters, numbers and hyphens, like webster-groves." });
+        return;
+      }
+      if (slug) {
+        const taken = await col.findOne({ slug, teacherId: { $ne: String(teacherId) } }, { projection: { _id: 1 } });
+        if (taken) {
+          res.status(409).json({ error: `"${slug}" is already someone else's board address. Try another.` });
+          return;
+        }
+      }
       const now = new Date();
       const update = {
         teacherId: String(teacherId),
@@ -125,6 +166,7 @@ export default async function handler(req, res) {
         // this site. Anything else, including a stray "javascript:", is
         // dropped to null, which means no photo.
         homeImageUrl: sanitizeImageUrl(homeImageUrl),
+        slug,
         updatedAt: now,
       };
       // Upsert keyed on teacherId — a teacher only ever has one profile
@@ -160,5 +202,6 @@ function toClientShape(doc) {
     headingFont: doc.headingFont || null,
     bodyFont: doc.bodyFont || null,
     homeImageUrl: doc.homeImageUrl || null,
+    slug: doc.slug || null,
   };
 }
