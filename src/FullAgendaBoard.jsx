@@ -504,6 +504,14 @@ function PinnedDocLine({ docKey = "bellRinger", label = "Bell Ringer", folderNam
   const checked = !!(checkedLines && checkedLines[docKey]);
   const canToggle = typeof onToggleLine === "function";
   const tapOpens = !interactive && !!kamiUrl && !!onKamiOpen;
+  // The line takes the board's accent colour once a doc is attached --
+  // the same colour the section headings use -- and stays chalk white
+  // until then, so a glance says which lines open something. Ticked wins:
+  // a done line dims and strikes through like any other agenda item.
+  // Jay: "if a bell ringer or exit slip has a document created, then the
+  // color of the text matches the color of the header; if there is no
+  // document, then they are white."
+  const lineColor = checked ? surface.bodyTextChecked : (kamiUrl ? surface.accent : surface.bodyText);
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 2, paddingBottom: interactive ? 4 : 0 }}>
       <div style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "3px 2px" }}>
@@ -516,7 +524,7 @@ function PinnedDocLine({ docKey = "bellRinger", label = "Bell Ringer", folderNam
         <span
           onClick={tapOpens ? onKamiOpen : undefined}
           title={tapOpens ? `Tap to open ${label} in Kami` : undefined}
-          style={{ fontFamily: "Caveat, cursive", fontSize: 17, lineHeight: 1.4, minWidth: 0, color: checked ? surface.bodyTextChecked : surface.bodyText, textShadow: surface.textShadow, textDecoration: checked ? "line-through" : "none", cursor: tapOpens ? "pointer" : "default", borderRadius: 4, padding: "0 2px" }}
+          style={{ fontFamily: "Caveat, cursive", fontSize: 17, lineHeight: 1.4, minWidth: 0, color: lineColor, textShadow: surface.textShadow, textDecoration: checked ? "line-through" : "none", cursor: tapOpens ? "pointer" : "default", borderRadius: 4, padding: "0 2px" }}
           onMouseEnter={tapOpens ? (e => { e.currentTarget.style.background = "rgba(128,128,128,0.12)"; }) : undefined}
           onMouseLeave={tapOpens ? (e => { e.currentTarget.style.background = "transparent"; }) : undefined}
         >
