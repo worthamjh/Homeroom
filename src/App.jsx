@@ -1,7 +1,8 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useUser } from '@clerk/clerk-react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import WebsterGrovesChemistry from './WebsterGrovesChemistry'
+import { fetchBoardSettings } from './lib/boardSettingsApi'
 
 /**
  * The /board route.
@@ -47,17 +48,30 @@ function App() {
   // it shares the Clerk session and satisfies isSignedIn like any other
   // page.
   const publicDemo = explicitTeacher === 'local-teacher'
+  // A board its owner has SHARED (the "Share" switch on Build) also opens
+  // signed-out, view only. Whether it is shared is the server's call --
+  // api/_auth.js answers a signed-out GET for a shared board and 401s for
+  // any other -- so ask it, and show nothing until it answers. null =
+  // not asked yet / asking; true = shared.
+  const [sharedView, setSharedView] = useState(null)
 
   useEffect(() => {
     // Waits for isLoaded: Clerk reports signed-out before it has restored
     // the session, so acting early would bounce a signed-in teacher off
     // their own board on every refresh.
     if (!isLoaded || isSignedIn || publicDemo) return
-    navigate('/', { replace: true })
-  }, [isLoaded, isSignedIn, publicDemo, navigate])
+    if (!explicitTeacher) { navigate('/', { replace: true }); return }
+    let cancelled = false
+    fetchBoardSettings(explicitTeacher)
+      .then(() => { if (!cancelled) setSharedView(true) })
+      .catch(() => { if (!cancelled) navigate('/', { replace: true }) })
+    return () => { cancelled = true }
+  }, [isLoaded, isSignedIn, publicDemo, explicitTeacher, navigate])
 
-  // The public demo needs no session, so it renders straight away.
-  if (publicDemo) return <WebsterGrovesChemistry />
+  // The public demo needs no session, so it renders straight away. A
+  // signed-out visitor is a viewer: no Build button (Jay: "no build menu").
+  const viewer = isLoaded && !isSignedIn
+  if (publicDemo) return <WebsterGrovesChemistry viewer={viewer} />
 
   // Everything below deliberately renders NOTHING until Clerk has
   // answered. The first version of this guard read
@@ -72,7 +86,7 @@ function App() {
   // still page rather than a white flash, and Clerk resolves fast enough
   // that a spinner would itself be the flicker.
   if (!isLoaded) return null
-  if (!isSignedIn) return null   // redirect above is pending
+  if (!isSignedIn) return sharedView ? <WebsterGrovesChemistry viewer /> : null   // else the redirect above is pending
 
   return <WebsterGrovesChemistry />
 }

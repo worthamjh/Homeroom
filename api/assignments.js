@@ -56,7 +56,7 @@ export default async function handler(req, res) {
     // Identity comes from the verified session, never from the request --
     // see api/_auth.js. Any teacherId still arriving in the query or body
     // is ignored, so a caller cannot name a teacher they are not.
-    const teacherId = await resolveTeacherId(req, res);
+    const teacherId = await resolveTeacherId(req, res, { allowShared: true });   // a shared board may be read signed-out
     if (!teacherId) return;   // 401/503 already sent
     // Fails open if the limiter itself is unavailable -- see _rateLimit.js.
     if (!(await enforceRateLimit(req, res, { teacherId, bucket: "assignments" }))) return;

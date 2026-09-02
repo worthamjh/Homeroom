@@ -207,6 +207,59 @@ function SignInPrompt() {
   );
 }
 
+// The switch that makes a teacher's board viewable by anyone with its
+// link, and the link itself. Writes the "boardShared" setting, which
+// api/_auth.js reads to let signed-out GETs through for this teacher
+// (view only; see the comment there). Opt-in, per teacher: Jay's call.
+function ShareBoard({ teacherId }) {
+  const [shared, setShared] = useScopedSetting("boardShared", "false", k => k === "true" || k === "false");
+  const [open, setOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const isShared = shared === "true";
+  const link = `${window.location.origin}/board?teacher=${encodeURIComponent(teacherId)}`;
+  const copy = () => {
+    navigator.clipboard?.writeText(link)
+      .then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500); })
+      .catch(() => {});
+  };
+  return (
+    <div style={{ position: "relative", flexShrink: 0 }}>
+      <button
+        type="button"
+        onClick={() => setOpen(v => !v)}
+        title={isShared ? "Your board is viewable by anyone with its link" : "Share a view-only link to your board"}
+        style={{ background: "transparent", border: "none", padding: 0, color: isShared ? "var(--board-secondary-accent)" : "rgba(255,255,255,0.45)", fontFamily: "Oswald, sans-serif", fontSize: 12, textTransform: "uppercase", letterSpacing: 0.5, cursor: "pointer" }}
+      >
+        🔗 Share{isShared ? " · on" : ""}
+      </button>
+      {open && (
+        <div style={{ position: "absolute", right: 0, top: "calc(100% + 10px)", width: 340, background: "#1c1c1c", border: "1px solid #3a3a3a", borderRadius: 8, padding: 14, zIndex: 50, textAlign: "left", boxShadow: "0 12px 32px rgba(0,0,0,0.5)", fontFamily: "Lato, sans-serif" }}>
+          <label style={{ display: "flex", gap: 10, alignItems: "flex-start", cursor: "pointer", color: "#fff", fontSize: 13, lineHeight: 1.45 }}>
+            <input type="checkbox" checked={isShared} onChange={e => setShared(e.target.checked ? "true" : "false")} style={{ marginTop: 3 }} />
+            <span>
+              Anyone with the link can view this board
+              <span style={{ display: "block", color: "rgba(255,255,255,0.5)", fontSize: 11.5, marginTop: 2 }}>
+                View only. Build stays yours, and nothing a visitor does is saved.
+              </span>
+            </span>
+          </label>
+          {isShared && (
+            <div style={{ display: "flex", gap: 6, marginTop: 12 }}>
+              <input
+                readOnly value={link} onFocus={e => e.target.select()}
+                style={{ flex: 1, minWidth: 0, background: "#111", border: "1px solid #444", borderRadius: 4, color: "#ddd", fontSize: 11.5, padding: "7px 8px", fontFamily: "Lato, sans-serif" }}
+              />
+              <button type="button" onClick={copy} style={{ background: "var(--board-secondary)", color: "var(--board-secondary-fg)", border: "none", borderRadius: 4, padding: "7px 12px", fontFamily: "Oswald, sans-serif", fontSize: 12, letterSpacing: 0.5, cursor: "pointer", flexShrink: 0 }}>
+                {copied ? "Copied" : "Copy"}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function BuildPage() {
   const activeTeacherId = getActiveTeacherId();
   const isBlankTeacher = activeTeacherId !== DEFAULT_TEACHER_ID;
@@ -399,6 +452,11 @@ export default function BuildPage() {
                 </SignInButton>
               </SignedOut>
             </>
+          )}
+          {isBlankTeacher && CLERK_CONFIGURED && (
+            <SignedIn>
+              <ShareBoard teacherId={activeTeacherId} />
+            </SignedIn>
           )}
           {/* The store is where the long tail of designs lives, so that
               this page's settings panel can stay short. Not gated on

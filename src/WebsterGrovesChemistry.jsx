@@ -1972,7 +1972,7 @@ function KamiOverlay({ url, state, onToggleFullscreen, onClose, contained = fals
   );
 }
 
-function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropdown, setOpenDropdown, handleUnitOverview, handleLessonClick, goHome, titleMain, titleAccent, isBlankTeacher, onOpenHistory, onAddUnit, onAddLesson, onRenameUnit, onDeleteUnit, onMoveUnit, onRenameLesson, onDeleteLesson, onMoveLesson, onReorderLesson, onSetLessonOrder, onToggleUnitVisibility, onToggleLessonVisibility }) {
+function TopBar({ viewer = false, curriculum, activeUnitIdx, isOverview, activeLesson, openDropdown, setOpenDropdown, handleUnitOverview, handleLessonClick, goHome, titleMain, titleAccent, isBlankTeacher, onOpenHistory, onAddUnit, onAddLesson, onRenameUnit, onDeleteUnit, onMoveUnit, onRenameLesson, onDeleteLesson, onMoveLesson, onReorderLesson, onSetLessonOrder, onToggleUnitVisibility, onToggleLessonVisibility }) {
   // Build-mode-only local state for inline rename and two-step delete.
   const [renamingUnit, setRenamingUnit] = useState(null);   // unitIdx being renamed
   const [renameUnitVal, setRenameUnitVal] = useState("");
@@ -2043,7 +2043,7 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
             open-platform plan doc for the reasoning — Add Assignment and
             Add Calendar used to live inline here and were moved out for
             exactly this reason). */}
-        <button
+        {!viewer && <button
           onClick={e => {
             e.stopPropagation();
             // A named target ("homeroom-build" instead of "_blank") means
@@ -2065,7 +2065,7 @@ function TopBar({ curriculum, activeUnitIdx, isOverview, activeLesson, openDropd
           onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--board-primary-fg)"; }}
         >
           🛠
-        </button>
+        </button>}
       </div>
 
       {/* Unit nav */}
@@ -2492,7 +2492,9 @@ function resolveView(view, curriculumData) {
 // needed since the tour itself now creates the first real content.
 export const BLANK_CURRICULUM = [];
 
-export default function App() {
+// `viewer`: a signed-out visitor looking at a shared board (or the demo).
+// The board is the same; only the way into Build is gone.
+export default function App({ viewer = false } = {}) {
   // Which "teacher" is active — DEFAULT_TEACHER_ID is the real Webster
   // Groves site; anything else gets the blank shell below instead. See
   // getActiveTeacherId in boardConfig.js for how this is chosen
@@ -3726,6 +3728,7 @@ export default function App() {
 
   const goHome = () => { setActiveUnitIdx(null); setActiveLesson(null); setOpenDropdown(null); };
   const topBarProps = {
+    viewer,
     curriculum: activeCurriculum, activeUnitIdx, isOverview, activeLesson, openDropdown, setOpenDropdown, handleUnitOverview, handleLessonClick, goHome,
     titleMain: boardTitleMain, titleAccent: boardTitleAccent,
     isBlankTeacher, onAddUnit: handleAddUnit, onAddLesson: handleAddLesson,
