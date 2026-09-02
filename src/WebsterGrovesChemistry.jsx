@@ -1057,18 +1057,14 @@ function wrapOfficeDoc(url) {
 
 // The third way slides get onto a board, for a teacher whose deck lives
 // on their own desktop rather than in Drive (Jay: "teachers who have
-// things stored on their desktop can use this as well"). The file goes to
-// Cloudinary (see uploadSlidesFile); what comes back is a URL the board's
-// iframe can show. A PDF is shown by the browser itself, toolbar hidden
-// so it reads as slides rather than a document. A PowerPoint is rendered
-// by the Office viewer from its public Cloudinary URL -- the one route
-// Microsoft supports for framing a deck, and unlike a consumer OneDrive
-// link, a Cloudinary URL is a direct, public file the viewer can fetch.
+// things stored on their desktop can use this as well"). The PowerPoint
+// goes to Cloudinary (see uploadSlidesFile) and is rendered by the Office
+// viewer from its public Cloudinary URL -- the one route Microsoft
+// supports for framing a deck, and unlike a consumer OneDrive link, a
+// Cloudinary URL is a direct, public file the viewer can fetch.
 async function uploadSlidesFromComputer(file) {
-  const { url, kind } = await uploadSlidesFile(file);
-  return kind === "pdf"
-    ? `${url}#toolbar=0&navpanes=0&view=FitH`
-    : OFFICE_VIEWER + encodeURIComponent(url);
+  const { url } = await uploadSlidesFile(file);
+  return OFFICE_VIEWER + encodeURIComponent(url);
 }
 
 function embedUrlFromPaste(raw) {
@@ -1382,11 +1378,11 @@ export function AddSlidesCard(props) {
       promptText="Paste a Google Slides link (File → Share → Publish to web); the whole embed code is fine too."
       placeholder="https://docs.google.com/presentation/d/.../embed"
       onBrowseDrive={driveReady ? pickGoogleSlidesEmbed : undefined}
-      // A deck on the teacher's own computer, PDF or PowerPoint. See
+      // A PowerPoint on the teacher's own computer. See
       // uploadSlidesFromComputer for where it goes and how it is shown.
       onUploadFile={uploadSlidesFromComputer}
-      uploadAccept=".pdf,.ppt,.pptx,.pps,.ppsx,application/pdf,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"
-      uploadLabel="Upload a PDF or PowerPoint from your computer"
+      uploadAccept=".ppt,.pptx,.pps,.ppsx,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+      uploadLabel="Upload a PowerPoint from your computer"
     />
   );
 }

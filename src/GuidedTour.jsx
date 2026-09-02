@@ -164,7 +164,7 @@ const STEPS = [
     // PowerPoint (Jay, signed in with Microsoft: "technically they don't
     // have to paste a link, that is one option but they can just connect
     // google drive").
-    body: "Click “Add Slides”, then browse your Drive, upload a PDF or PowerPoint from your computer, or paste a link. It fills the board, ready to project.",
+    body: "Click “Add Slides”, then browse your Drive, upload a PowerPoint from your computer, or paste a link. It fills the board, ready to project.",
     ackLabel: "Got it",
   },
   {
@@ -463,7 +463,15 @@ export default function GuidedTour({ active, onDone, iframeRef, selected, boardW
       top = rect.top - GAP - TOOLTIP_H;
     } else {
       const roomOnLeft = rect.left - GAP - TOOLTIP_W >= EDGE;
-      left = roomOnLeft ? rect.left - GAP - TOOLTIP_W : rect.left + rect.width + GAP;
+      const roomOnRight = rect.left + rect.width + GAP + TOOLTIP_W <= viewportW - EDGE;
+      // A step that asked to be beside its target goes to the RIGHT when
+      // there is room. Left-first is what the sidebar wants (it hugs the
+      // right edge), but for the slides step left meant "over the
+      // smartboard" -- the exact spot the step was moved off of.
+      const preferRight = step.placement === "beside" && roomOnRight;
+      left = preferRight ? rect.left + rect.width + GAP
+        : roomOnLeft ? rect.left - GAP - TOOLTIP_W
+        : rect.left + rect.width + GAP;
       // Near the target's top rather than centred on it: a full-height
       // target centred would put the tooltip mid-screen, far from the
       // controls the step is actually talking about.

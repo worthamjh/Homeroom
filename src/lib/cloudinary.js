@@ -53,34 +53,31 @@ export async function uploadAssignmentPdf(file) {
 const MAX_SLIDES_BYTES = 10 * 1024 * 1024;
 
 /**
- * Uploads a slide deck a teacher has on their own computer -- a PDF or a
- * PowerPoint -- so a board can show it. Neither lands in Mongo itself:
- * like assignments, the file lives on Cloudinary and only its URL is
- * saved against the lesson (customSlidesUrl in api/boardContent.js).
+ * Uploads a PowerPoint a teacher has on their own computer so a board can
+ * show it. PowerPoint only, by Jay's call: a PDF is a worksheet and goes
+ * in Assignments, not in the slides slot ("pdfs don't go in the add
+ * slides section").
  *
- * A PDF goes up as an "image" resource, same as an assignment PDF, and is
- * shown straight in the board's iframe by the browser's own PDF viewer. A
- * PowerPoint goes up as a "raw" resource -- the bytes untouched -- and is
- * rendered by Microsoft's Office viewer from that public URL, the same
- * wrapper SharePoint links use (see wrapOfficeDoc in
- * WebsterGrovesChemistry.jsx).
+ * The file does not land in Mongo itself: like assignments, it lives on
+ * Cloudinary and only its URL is saved against the lesson
+ * (customSlidesUrl in api/boardContent.js). It goes up as a "raw"
+ * resource -- the bytes untouched -- and is rendered by Microsoft's Office
+ * viewer from that public URL, the same wrapper SharePoint links use (see
+ * wrapOfficeDoc in WebsterGrovesChemistry.jsx).
  *
  * @param {File} file
- * @returns {Promise<{ publicId: string, url: string, kind: "pdf" | "office" }>}
+ * @returns {Promise<{ publicId: string, url: string }>}
  */
 export async function uploadSlidesFile(file) {
   const name = String(file?.name || "").toLowerCase();
-  const kind = name.endsWith(".pdf") ? "pdf"
-    : /\.(pptx|ppt|ppsx|pps)$/.test(name) ? "office"
-    : null;
-  if (!kind) {
-    throw new Error("That file isn't a PDF or a PowerPoint. Save your slides as one of those and try again.");
+  if (!/\.(pptx|ppt|ppsx|pps)$/.test(name)) {
+    throw new Error("That file isn't a PowerPoint. Google Slides can go in by link or from Drive; a PDF belongs under Assignments.");
   }
   if (file.size > MAX_SLIDES_BYTES) {
     throw new Error("That file is over 10 MB, which is more than the board can show from here. Save it to Google Drive and use Browse Google Drive instead.");
   }
-  const data = await uploadToCloudinary(file, kind === "pdf" ? "image" : "raw");
-  return { publicId: data.public_id, url: data.secure_url, kind };
+  const data = await uploadToCloudinary(file, "raw");
+  return { publicId: data.public_id, url: data.secure_url };
 }
 
 /**
