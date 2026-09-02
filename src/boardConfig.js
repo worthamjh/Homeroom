@@ -1286,8 +1286,26 @@ export function useScopedSetting(storageKeyName, defaultValue, isValid, migrate)
   // gets a chance to merge in.
   const hasLoadedRemote = useRef(false);
 
+  // The key this hook is currently bound to. It CHANGES for a per-lesson
+  // setting (useLessonBoardCount): a blank teacher's lesson resolves only
+  // after the curriculum arrives from Mongo, so the hook mounts on the
+  // ":none" stand-in key and moves to the lesson's own key a beat later.
+  // `value` was read from localStorage once, at mount, for the FIRST key
+  // -- and the write-through below then wrote that stale value under the
+  // NEW key, and saved it to Mongo. So opening a lesson quietly reset its
+  // Number of Boards to 1 on every load (Jay: "when I have 5 selected,
+  // then go back to the board, I only have one board"). A key change now
+  // re-reads storage for the new key and skips that one write.
+  const boundKey = useRef(key);
+
   useEffect(() => {
     if (typeof window === "undefined") return;
+    if (boundKey.current !== key) {
+      boundKey.current = key;
+      hasLocalEdit.current = false;
+      setValue(read());
+      return;
+    }
     try { window.localStorage.setItem(key, value); } catch { /* ignore */ }
     if (hasLoadedRemote.current) {
       saveBoardSetting(teacherId, storageKeyName, value).catch(() => {});
