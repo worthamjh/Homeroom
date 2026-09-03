@@ -68,7 +68,13 @@ export function getActiveTeacherId() {
   try {
     const fromUrl = new URLSearchParams(window.location.search).get("teacher");
     if (fromUrl) {
-      window.localStorage.setItem(ACTIVE_TEACHER_STORAGE_KEY, fromUrl);
+      // On the board, ?teacher= is just which board this link opens; it
+      // must not become the remembered identity, or opening a colleague's
+      // shared link would leave Build pointed at the colleague. Elsewhere
+      // (Build's own iframe, a sandbox) it still sticks as before.
+      if (!window.location.pathname.startsWith("/board")) {
+        window.localStorage.setItem(ACTIVE_TEACHER_STORAGE_KEY, fromUrl);
+      }
       return fromUrl;
     }
     return window.localStorage.getItem(ACTIVE_TEACHER_STORAGE_KEY) || DEFAULT_TEACHER_ID;

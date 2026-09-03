@@ -92,14 +92,33 @@ export async function resolveTeacherId(req, res, { allowShared = false } = {}) {
       res.status(503).json({ error: "Server auth is not configured (CLERK_SECRET_KEY missing)." });
       return null;
     }
+    let own;
     try {
       const payload = await verifyToken(token, { secretKey });
       if (!payload?.sub) throw new Error("token has no subject");
-      return `${CLERK_ID_PREFIX}${payload.sub}`;
+      own = `${CLERK_ID_PREFIX}${payload.sub}`;
     } catch (err) {
       res.status(401).json({ error: "Invalid or expired session." });
       return null;
     }
+    // A signed-in teacher opening ANOTHER teacher's board link. Reads of
+    // a shared board (the endpoints that opt in, GET only) serve that
+    // board, the same as they would signed out; the public demo likewise.
+    // It used to serve the caller's OWN board whatever the link said --
+    // Jay, on a second account, opened his Webster Groves link and got
+    // the second account's empty board: "that takes me to my yahoo
+    // burner account." Writes never take this path: they need the
+    // owner's session and always go to the owner's own data.
+    if (allowShared && req.method === "GET") {
+      const requested = String(req.query?.teacherId || "");
+      if (requested && requested !== own) {
+        if (requested === PUBLIC_TEACHER_ID) return PUBLIC_TEACHER_ID;
+        if (await isBoardShared(requested, classroomIdFrom(req))) return requested;
+        res.status(403).json({ error: "That board isn't shared." });
+        return null;
+      }
+    }
+    return own;
   }
 
   // No token. Two things are still allowed, both READS: the public demo,

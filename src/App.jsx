@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams, useParams } from 'react-router-dom'
 import WebsterGrovesChemistry from './WebsterGrovesChemistry'
 import { fetchBoardSettings } from './lib/boardSettingsApi'
 import { getActiveClassroomId, setActiveClassroomId, DEFAULT_CLASSROOM_ID } from './lib/activeClassroom'
+import { CLERK_ID_PREFIX } from './boardConfig'
 import { resolveBoardSlug } from './lib/profileApi'
 
 // The /board/:slug route: a readable address (gil-bilt.com/board/webster-
@@ -82,10 +83,16 @@ export function BuildBySlug() {
  * landing page no longer links to it at all.
  */
 function App() {
-  const { isLoaded, isSignedIn } = useUser()
+  const { isLoaded, isSignedIn, user } = useUser()
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const explicitTeacher = searchParams.get('teacher')
+  // A signed-in teacher on a link to somebody ELSE's board is a viewer
+  // there, exactly like a signed-out visitor: the same shared-board check,
+  // the same view-only board, no Build button. (Their own links, and
+  // links with no ?teacher=, are their own board as before.)
+  const ownId = user ? `${CLERK_ID_PREFIX}${user.id}` : null
+  const foreign = !!(isLoaded && isSignedIn && explicitTeacher && ownId && explicitTeacher !== ownId)
 
   // Only the PUBLIC demo may be viewed without a session. The carve-out
   // used to accept any ?teacher= at all, so a board URL carrying a real
@@ -116,7 +123,8 @@ function App() {
     // Waits for isLoaded: Clerk reports signed-out before it has restored
     // the session, so acting early would bounce a signed-in teacher off
     // their own board on every refresh.
-    if (!isLoaded || isSignedIn || publicDemo) return
+    if (!isLoaded || publicDemo) return
+    if (isSignedIn && !foreign) return
     if (!explicitTeacher) { navigate('/', { replace: true }); return }
     let cancelled = false
     const goHome = () => { if (!cancelled) navigate('/', { replace: true }) }
@@ -140,7 +148,7 @@ function App() {
           .catch(goHome)
       })
     return () => { cancelled = true }
-  }, [isLoaded, isSignedIn, publicDemo, explicitTeacher, navigate])
+  }, [isLoaded, isSignedIn, foreign, publicDemo, explicitTeacher, navigate])
 
   // The public demo needs no session, so it renders straight away. A
   // signed-out visitor is a viewer: no Build button (Jay: "no build menu").
@@ -160,7 +168,7 @@ function App() {
   // still page rather than a white flash, and Clerk resolves fast enough
   // that a spinner would itself be the flicker.
   if (!isLoaded) return null
-  if (!isSignedIn) return sharedView ? <WebsterGrovesChemistry viewer /> : null   // else the redirect above is pending
+  if (!isSignedIn || foreign) return sharedView ? <WebsterGrovesChemistry viewer /> : null   // else the redirect above is pending
 
   return <WebsterGrovesChemistry />
 }
