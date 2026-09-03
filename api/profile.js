@@ -13,11 +13,11 @@
 // @clerk/backend's verifyToken, using CLERK_SECRET_KEY) is the same
 // future work flagged there, not done in this pass.
 import { MongoClient } from "mongodb";
-import { resolveTeacherId } from "./_auth.js";
+import { resolveTeacherId, PUBLIC_TEACHER_ID } from "./_auth.js";
 import { enforceRateLimit } from "./_rateLimit.js";
 import { capString, LIMITS } from "./_validate.js";
 import { DEFAULT_CLASSROOM_ID } from "./_classroom.js";
-import { findDistrictById, toClientDistrict, DISTRICT_ID_RE } from "./_districts.js";
+import { findDistrictById, findDistrictByDomain, toClientDistrict, DISTRICT_ID_RE } from "./_districts.js";
 
 const DB_NAME = process.env.MONGODB_DB || "homeroom";
 const COLLECTION = "profiles";
@@ -146,6 +146,21 @@ export default async function handler(req, res) {
   // sits BEFORE the session check because a visitor following a short
   // link has no session. Whether the board then opens is still the
   // shared-board rule in api/_auth.js; this only says which board.
+  // Partner district lookup: /api/profile?districtDomain=wgmail.org or
+  // ?districtId=webster-groves answers the district, or null. Public,
+  // like the address lookup below, and lives here rather than in its own
+  // file because Vercel's Hobby plan allows twelve serverless functions
+  // per deployment and this project has twelve. Rate-limited per address.
+  if (req.method === "GET" && (typeof req.query?.districtDomain === "string" || typeof req.query?.districtId === "string")) {
+    if (!(await enforceRateLimit(req, res, { teacherId: PUBLIC_TEACHER_ID, bucket: "district" }))) return;
+    const doc = typeof req.query.districtId === "string" && req.query.districtId
+      ? await findDistrictById(req.query.districtId)
+      : await findDistrictByDomain(req.query.districtDomain);
+    res.setHeader("Cache-Control", "public, max-age=300");
+    res.status(200).json(toClientDistrict(doc));
+    return;
+  }
+
   if (req.method === "GET" && typeof req.query?.slug === "string") {
     if (!(await enforceRateLimit(req, res, { teacherId: "slug-lookup", bucket: "profile" }))) return;
     const slug = normalizeSlug(req.query.slug);
