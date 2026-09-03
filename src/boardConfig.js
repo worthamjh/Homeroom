@@ -1101,13 +1101,14 @@ export const DESIGN_AREAS = {
   // more types over time. That way teachers can select what type of paper
   // they want for bell ringers."
   PAPER: "paper",
-  // Notebooks: a many-page PDF of one blank template, kept per unit, that
-  // rests on the chalk ledge. See src/lib/notebooks.js.
+  // Notebooks: a many-page PDF of one blank template, kept per unit,
+  // pinned to the bulletin board. See src/lib/notebooks.js.
   NOTEBOOK: "notebook",
 };
 
-// Which notebook sits on the chalk ledge for this classroom: a template id
-// from NOTEBOOK_TEMPLATES, or "" for none. Per classroom, like the rest of
+// Which notebook is pinned to the bulletin board for this classroom: a
+// template id from NOTEBOOK_TEMPLATES, or "" for none. (Named for the
+// chalk ledge, where it lived for an hour; the stored key stays.) Per classroom, like the rest of
 // the board's look; the notebooks a teacher OWNS are teacher-level, in the
 // store (see DESIGN_AREAS.NOTEBOOK).
 export const LEDGE_NOTEBOOK_KEY = "ledgeNotebook";
@@ -1251,7 +1252,7 @@ export function designCatalog(primaryColor, secondaryColor) {
     {
       area: DESIGN_AREAS.NOTEBOOK,
       label: DESIGN_AREA_LABELS[DESIGN_AREAS.NOTEBOOK],
-      blurb: "A notebook of blank templates that rests on the chalk ledge. Every unit gets its own copy. Choose which one is out under Bulletin Board in Build.",
+      blurb: "A notebook of blank templates, pinned to the bulletin board. Every unit gets its own copy. Choose which one is out under Bulletin Board in Build.",
       options: NOTEBOOK_TEMPLATES.map(t => ({ id: t.id, label: `${t.label} · ${t.pages} pages`, preview: { kind: "notebook", template: t } })),
     },
   ];

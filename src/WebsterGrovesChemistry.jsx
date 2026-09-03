@@ -4,7 +4,7 @@ import { useFullAgendaFields, ObjectivesChecklist, EditableField, ResetBoardButt
 import { fetchExtraAssignments, createExtraAssignment, deleteExtraAssignment, updateExtraAssignment, reorderExtraAssignments } from "./lib/extraAssignments";
 import { uploadAssignmentPdf, uploadSlidesFile } from "./lib/cloudinary";
 import { googleDriveConfigured, ensureGoogleScriptsLoaded, pickGoogleSlidesEmbed, pickGoogleDriveAssignmentFiles, pickGoogleCalendar, driveErrorMessage, createNotebookDoc } from "./lib/googleDrive";
-import LedgeNotebook from "./LedgeNotebook";
+import BulletinNotebook from "./BulletinNotebook";
 import { notebookTemplate } from "./lib/notebooks";
 import { fetchProfile } from "./lib/profileApi";
 import { fetchCurriculum, saveCurriculum } from "./lib/curriculumApi";
@@ -3793,9 +3793,12 @@ export default function App({ viewer = false } = {}) {
   // falling back to the flat layout's fullAgendaFields.
   const kamiUrlKey = `${kamiSourceField}KamiUrl`;
 
-  // The notebook on the chalk ledge. Which template is out is a classroom
-  // setting; the unit's own copy of it is a Kami link on the unit's board
-  // content, made the first time it is opened. See src/lib/notebooks.js.
+  // The notebook pinned to the bulletin board. Which template is out is a
+  // classroom setting (the key still says "ledge", where it first lived);
+  // the unit's own copy of it is a Kami link on the unit's board content,
+  // made the first time it is opened -- in Build, or by the signed-in
+  // owner on the live board (Jay tapped it there first and "clicking the
+  // notebook does nothing" was the result). See src/lib/notebooks.js.
   const ledgeNotebook = notebookTemplate(ledgeNotebookId);
   const notebookDocs = (unitFields.content.notebookDocs && typeof unitFields.content.notebookDocs === "object") ? unitFields.content.notebookDocs : {};
   const ledgeNotebookUrl = ledgeNotebook ? (notebookDocs[ledgeNotebook.id] || "") : "";
@@ -3942,7 +3945,25 @@ export default function App({ viewer = false } = {}) {
               {bulletinStyle.trim && (
                 <div style={{ height: 10, flexShrink: 0, backgroundImage: bulletinStyle.trim, backgroundRepeat: "repeat-x", backgroundSize: "24px 10px" }} />
               )}
-              <div style={{ flex: 1 }} />
+              {/* The notebook, pinned at the right end of the strip (Jay:
+                  "put them on the actual bulletin board"). Inset past the
+                  widest scallop band so it never sits on the border. Which
+                  notebook is a Bulletin Board setting; see BulletinNotebook. */}
+              <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "flex-end", padding: `4px ${SPACE.lg}px`, minHeight: 0 }}>
+                {ledgeNotebook && activeUnit && (
+                  <BulletinNotebook
+                    template={ledgeNotebook}
+                    unitLabel={activeUnit.unit}
+                    kamiUrl={ledgeNotebookUrl}
+                    interactive={isBuildMode || !viewer}
+                    creating={notebookCreating}
+                    error={notebookError}
+                    open={!!kamiState && kamiSourceField === "notebook"}
+                    onOpen={openNotebook}
+                    onCreate={createNotebook}
+                  />
+                )}
+              </div>
               {bulletinStyle.trim && (
                 <div style={{ height: 10, flexShrink: 0, backgroundImage: bulletinStyle.trim, backgroundRepeat: "repeat-x", backgroundSize: "24px 10px" }} />
               )}
@@ -4258,26 +4279,11 @@ export default function App({ viewer = false } = {}) {
               })()}
             </div>
 
-            {/* Chalk ledge / marker tray — styled per the Board Surface preset.
-                With a notebook out it grows just enough to hold it; the
-                chalk stays at the left, the notebook rests at the right. */}
-            <div style={{ height: ledgeNotebook && activeUnit ? "auto" : 8, minHeight: 8, background: surface.ledgeBg, borderTop: `2px solid ${surface.ledgeBorder}`, display: "flex", alignItems: "center", padding: ledgeNotebook && activeUnit ? `3px ${SPACE.sm}px` : `0 ${SPACE.sm}px`, gap: SPACE.xs }}>
+            {/* Chalk ledge / marker tray — styled per the Board Surface preset. */}
+            <div style={{ height: 8, background: surface.ledgeBg, borderTop: `2px solid ${surface.ledgeBorder}`, display: "flex", alignItems: "center", padding: `0 ${SPACE.sm}px`, gap: SPACE.xs }}>
               {[["#f0f0f0", 18], ["var(--board-secondary)", 18], ["#f0f0f0", 12]].map(([c, w], i) => (
                 <div key={i} style={{ width: w, height: 4, borderRadius: 1, background: c }} />
               ))}
-              {ledgeNotebook && activeUnit && (
-                <LedgeNotebook
-                  template={ledgeNotebook}
-                  unitLabel={activeUnit.unit}
-                  kamiUrl={ledgeNotebookUrl}
-                  interactive={isBuildMode}
-                  creating={notebookCreating}
-                  error={notebookError}
-                  open={!!kamiState && kamiSourceField === "notebook"}
-                  onOpen={openNotebook}
-                  onCreate={createNotebook}
-                />
-              )}
             </div>
           </div>
         </div>

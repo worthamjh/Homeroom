@@ -365,10 +365,9 @@ export default function BoardSettingsPanel({ selected, onSelect, panelCountInfo,
 
                   {/* Notebooks live in this menu because that is where Jay
                       asked for them ("select it from the bulletin board
-                      menu"); the notebook itself rests on the chalk ledge
-                      at the bottom right of the board, where it is always
-                      in view and covers nothing. */}
-                  <SectionHeading help="The notebook rests on the chalk ledge at the bottom right of the board. Each unit gets its own copy the first time you open it there, saved to a Notebooks folder in your Drive. Tap it on the board to write in it. Add notebooks in the Store.">Notebook</SectionHeading>
+                      menu") and because that is where it hangs: pinned at
+                      the right end of the strip. */}
+                  <SectionHeading help="The notebook hangs at the right end of the bulletin board. Each unit gets its own copy the first time you open it, saved to a Notebooks folder in your Drive. Tap it on the board to write in it. Add notebooks in the Store.">Notebook</SectionHeading>
                   <RadioRow selected={!ledgeNotebookId} onClick={() => setLedgeNotebookId("")} label="None" />
                   {NOTEBOOK_TEMPLATES.filter(t => shows(DESIGN_AREAS.NOTEBOOK, t.id, ledgeNotebookId)).map(t => (
                     <RadioRow key={t.id} selected={ledgeNotebookId === t.id} onClick={() => setLedgeNotebookId(t.id)} label={`${t.label} · ${t.pages} pages`} />
