@@ -2601,6 +2601,15 @@ export default function App({ viewer = false } = {}) {
   // before classrooms existed.
   const activeClassroom = teacherProfile?.classrooms?.find(c => c.id === getActiveClassroomId()) || null;
   const boardTitleMain = isBlankTeacher ? (teacherProfile?.school || "Your School") : undefined;
+  // The tab title names the classroom, so a bookmark of this board is
+  // called "Biology · Gil-Bilt Classroom" rather than the same thing as
+  // every other tab. (Bookmarks take the page title as their name.)
+  useEffect(() => {
+    if (!isBlankTeacher || typeof document === "undefined") return;
+    const name = activeClassroom?.name || activeClassroom?.subject || teacherProfile?.subject;
+    document.title = name ? `${name} · Gil-Bilt Classroom` : "Gil-Bilt Classroom";
+    return () => { document.title = "Gil-Bilt Classroom"; };
+  }, [isBlankTeacher, activeClassroom?.name, activeClassroom?.subject, teacherProfile?.subject]);
   // The accent word is the classroom's subject; with none typed, the
   // classroom's NAME, since that is what the teacher called it (Jay made
   // a "Biology" room and the title still said Chemistry, because the

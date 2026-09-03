@@ -3,7 +3,7 @@ import { useUser } from '@clerk/clerk-react'
 import { useNavigate, useSearchParams, useParams } from 'react-router-dom'
 import WebsterGrovesChemistry from './WebsterGrovesChemistry'
 import { fetchBoardSettings } from './lib/boardSettingsApi'
-import { getActiveClassroomId, DEFAULT_CLASSROOM_ID } from './lib/activeClassroom'
+import { getActiveClassroomId, setActiveClassroomId, DEFAULT_CLASSROOM_ID } from './lib/activeClassroom'
 import { resolveBoardSlug } from './lib/profileApi'
 
 // The /board/:slug route: a readable address (gil-bilt.com/board/webster-
@@ -28,6 +28,34 @@ export function BoardBySlug() {
         else navigate('/', { replace: true })
       })
       .catch(() => { if (!cancelled) navigate('/', { replace: true }) })
+    return () => { cancelled = true }
+  }, [slug, navigate])
+  return null
+}
+
+/**
+ * /build/<slug>: the same short address, opening Build for that
+ * classroom. So a teacher with several courses can keep one bookmark per
+ * course on the bookmarks bar and switch by clicking (Jay: "easy for
+ * teachers who have multiple courses to bookmark their course links").
+ * Build itself still gates on sign-in.
+ */
+export function BuildBySlug() {
+  const { slug } = useParams()
+  const navigate = useNavigate()
+  useEffect(() => {
+    let cancelled = false
+    resolveBoardSlug(slug || '')
+      .then(found => {
+        if (cancelled) return
+        if (found?.teacherId) {
+          const room = found.classroomId || DEFAULT_CLASSROOM_ID
+          setActiveClassroomId(room)
+          navigate(room === DEFAULT_CLASSROOM_ID ? '/build' : `/build?class=${encodeURIComponent(room)}`, { replace: true })
+        }
+        else navigate('/build', { replace: true })
+      })
+      .catch(() => { if (!cancelled) navigate('/build', { replace: true }) })
     return () => { cancelled = true }
   }, [slug, navigate])
   return null

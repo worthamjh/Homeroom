@@ -90,6 +90,53 @@ export function normalizeSlug(value) {
   return SLUG_RE.test(v) && v.length >= 3 && v.length <= 40 ? v : undefined;   // undefined = invalid
 }
 
+// A readable address made for a classroom that has none: the school (or
+// the teacher's name) and the classroom's name, lowercased and hyphenated
+// -- "webster-groves-biology" -- with -2, -3... when someone already has
+// it. Jay: "have gilbilt generate a short link that isnt hideous. What if
+// multiple teachers use the same link addition?" A teacher can still
+// change it on the Profile page; an address they typed is never replaced.
+export function slugify(text) {
+  return String(text || "")
+    .toLowerCase()
+    .normalize("NFKD").replace(/[\u0300-\u036f]/g, "")   // é -> e
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+async function slugTaken(col, teacherId, s) {
+  const other = await col.findOne(
+    { teacherId: { $ne: String(teacherId) }, $or: [{ slug: s }, { "classrooms.slug": s }] },
+    { projection: { _id: 1 } }
+  );
+  return !!other;
+}
+
+// Fills in a slug for every classroom in the list that lacks one, in
+// place. Returns true when anything changed.
+export async function ensureClassroomSlugs(col, teacherId, { school, teacherName, classrooms }) {
+  if (!Array.isArray(classrooms)) return false;
+  const own = new Set(classrooms.map(c => c?.slug).filter(Boolean));
+  let changed = false;
+  for (const c of classrooms) {
+    if (!c || c.slug) continue;
+    const who = slugify(school) || slugify(teacherName) || "board";
+    const what = slugify(c.name) || slugify(c.subject) || "class";
+    let base = `${who}-${what}`.replace(/-{2,}/g, "-").slice(0, 40).replace(/-+$/, "");
+    if (base.length < 3) base = `${base}-board`.replace(/^-/, "");
+    let candidate = base;
+    for (let n = 2; own.has(candidate) || await slugTaken(col, teacherId, candidate); n++) {
+      if (n > 60) { candidate = `${base.slice(0, 33)}-${Math.random().toString(36).slice(2, 8)}`; break; }
+      const suffix = `-${n}`;
+      candidate = base.slice(0, 40 - suffix.length).replace(/-+$/, "") + suffix;
+    }
+    c.slug = candidate;
+    own.add(candidate);
+    changed = true;
+  }
+  return changed;
+}
+
 export default async function handler(req, res) {
   try {
   // Short address lookup: /api/profile?slug=<name> answers { teacherId }
@@ -188,6 +235,8 @@ export default async function handler(req, res) {
         if (!classrooms.some(c => c.id === DEFAULT_CLASSROOM_ID)) {
           classrooms.unshift({ id: DEFAULT_CLASSROOM_ID, name: subject ? String(subject) : "My classroom", subject: subject ? capString(String(subject), LIMITS.NAME) : null, slug: slug || null, homeImageUrl: sanitizeImageUrl(homeImageUrl) });
         }
+        // Any classroom saved without an address gets one made for it.
+        await ensureClassroomSlugs(col, teacherId, { school, teacherName, classrooms });
       }
       // Every address in play -- the top-level one and each classroom's --
       // must be nobody else's.

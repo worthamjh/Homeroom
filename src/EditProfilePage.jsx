@@ -313,7 +313,7 @@ Your other classrooms are not affected.`;
               <input id="ep-slug" style={{ ...fieldStyle, flex: 1, minWidth: 0 }} value={slug} onChange={e => setSlug(tidySlug(e.target.value))} placeholder="webster-groves" spellCheck={false} />
             </div>
             <div style={{ fontSize: 12, color: "rgba(255,255,255,0.45)", fontFamily: "Lato, sans-serif", lineHeight: 1.5, marginTop: 6 }}>
-              A readable address to put in an email or on a projector bookmark. Lowercase letters, numbers and hyphens. It opens your board for anyone once Share is on in Build.
+              Made for you from your school and classroom name when you save, if you leave it blank; change it here if you'd like something else. Lowercase letters, numbers and hyphens. It opens your board for anyone once Share is on in Build, and gil-bilt.com/build/<i>address</i> opens Build for this classroom.
             </div>
           </div>
 

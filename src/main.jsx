@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { ClerkProvider } from '@clerk/clerk-react'
 import './index.css'
-import App, { BoardBySlug } from './App.jsx'
+import App, { BoardBySlug, BuildBySlug } from './App.jsx'
 import LandingPage from './LandingPage.jsx'
 import SettingsPage from './SettingsPage.jsx'
 import BuildPage from './BuildPage.jsx'
@@ -59,6 +59,7 @@ const routedApp = (
           inline on the board itself, which can be projected in class
           and should show zero add/edit affordances. See BuildPage.jsx. */}
       <Route path="/build" element={<BuildPage />} />
+      <Route path="/build/:slug" element={<BuildBySlug />} />
       <Route path="/profile" element={<EditProfilePage />} />
       {/* The design store — browse every look Homeroom can put on a
           board and add the ones you want. Build's settings panel then

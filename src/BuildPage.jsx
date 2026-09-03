@@ -222,9 +222,22 @@ function ShareBoard({ teacherId, slug }) {
   const link = slug
     ? `${window.location.origin}/board/${slug}`
     : `${window.location.origin}/board?teacher=${encodeURIComponent(teacherId)}${classroomQuery()}`;
+  // The teacher's own way back to THIS classroom's Build: one bookmark
+  // per course on the bookmarks bar (Jay). Same short address, under
+  // /build/.
+  const room = getActiveClassroomId();
+  const buildLink = slug
+    ? `${window.location.origin}/build/${slug}`
+    : `${window.location.origin}/build${room === DEFAULT_CLASSROOM_ID ? "" : `?class=${encodeURIComponent(room)}`}`;
+  const [copiedBuild, setCopiedBuild] = useState(false);
   const copy = () => {
     navigator.clipboard?.writeText(link)
       .then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500); })
+      .catch(() => {});
+  };
+  const copyBuild = () => {
+    navigator.clipboard?.writeText(buildLink)
+      .then(() => { setCopiedBuild(true); setTimeout(() => setCopiedBuild(false), 1500); })
       .catch(() => {});
   };
   return (
@@ -264,6 +277,21 @@ function ShareBoard({ teacherId, slug }) {
               Want a shorter link? Set a board address on your <a href="/profile?from=build" style={{ color: "var(--board-secondary-accent)" }}>Profile</a> page.
             </div>
           )}
+          <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px solid #333" }}>
+            <div style={{ color: "#fff", fontSize: 12.5, marginBottom: 2 }}>Your Build link for this classroom</div>
+            <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 11.5, lineHeight: 1.45, marginBottom: 8 }}>
+              Bookmark one per course and switch classes from the bookmarks bar. Opens Build; sign-in still required.
+            </div>
+            <div style={{ display: "flex", gap: 6 }}>
+              <input
+                readOnly value={buildLink} onFocus={e => e.target.select()}
+                style={{ flex: 1, minWidth: 0, background: "#111", border: "1px solid #444", borderRadius: 4, color: "#ddd", fontSize: 11.5, padding: "7px 8px", fontFamily: "Lato, sans-serif" }}
+              />
+              <button type="button" onClick={copyBuild} style={{ background: "transparent", color: "var(--board-secondary-accent)", border: "1px solid rgba(255,255,255,0.25)", borderRadius: 4, padding: "7px 12px", fontFamily: "Oswald, sans-serif", fontSize: 12, letterSpacing: 0.5, cursor: "pointer", flexShrink: 0 }}>
+                {copiedBuild ? "Copied" : "Copy"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -316,6 +344,15 @@ export default function BuildPage() {
       .catch(() => {});
     return () => { cancelled = true; };
   }, [isBlankTeacher, activeTeacherId]);
+  // Tab title names the classroom being built, so a bookmark of this
+  // page says which one it opens.
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const room = teacherProfile?.classrooms?.find(c => c.id === getActiveClassroomId());
+    const name = room?.name || room?.subject || teacherProfile?.subject;
+    document.title = name ? `Build · ${name} · Gil-Bilt Classroom` : "Build · Gil-Bilt Classroom";
+    return () => { document.title = "Gil-Bilt Classroom"; };
+  }, [teacherProfile]);
   const themeVars = isBlankTeacher
     ? boardThemeVars(teacherProfile?.primaryColor, teacherProfile?.secondaryColor)
     : boardThemeVars();
