@@ -146,7 +146,7 @@ export default function ProfileOnboarding({ teacherId, onComplete }) {
         </div>
         {district && (
           <div style={{ marginBottom: 16, padding: "10px 12px", background: "rgba(232,119,34,0.10)", border: "1px solid rgba(232,119,34,0.35)", borderRadius: 6, fontSize: 12.5, color: "rgba(255,255,255,0.8)", lineHeight: 1.5, fontFamily: "Lato, sans-serif" }}>
-            <strong style={{ color: "#fff" }}>{district.name}</strong> is a Gil-Bilt partner. Your district's colors and quick links are set up for you. Pick your school and your board gets its photo too.
+            Looks like you're with <strong style={{ color: "#fff" }}>{district.name}</strong>. Its colors and quick links are filled in for you. Pick your school and your board gets its photo too. Change any of it whenever you like.
           </div>
         )}
         {district?.schools?.length ? (

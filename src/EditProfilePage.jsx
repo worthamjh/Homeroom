@@ -276,7 +276,7 @@ Your other classrooms are not affected.`;
           <div style={{ marginBottom: 16 }}>
             {district && (
               <div style={{ marginBottom: 8, fontSize: 12, color: "rgba(255,255,255,0.55)", fontFamily: "Lato, sans-serif", lineHeight: 1.5 }}>
-                <strong style={{ color: "rgba(255,255,255,0.85)" }}>{district.name}</strong> is a Gil-Bilt partner: its quick links are on your board's footer, and your school's photo fills any classroom without its own.
+                Your board uses <strong style={{ color: "rgba(255,255,255,0.85)" }}>{district.name}</strong>'s quick links in its footer, and your school's photo fills any classroom without its own.
               </div>
             )}
             {district?.schools?.length ? (
