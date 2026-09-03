@@ -12,7 +12,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { registerAuthTokenGetter } from "./lib/apiClient";
 import { useUser, useAuth } from "@clerk/clerk-react";
 import { fetchBoardSettings, saveBoardSetting } from "./lib/boardSettingsApi";
-import { getActiveClassroomId, setActiveClassroomId, DEFAULT_CLASSROOM_ID } from "./lib/activeClassroom";
+import { getActiveClassroomId, setActiveClassroomId, DEFAULT_CLASSROOM_ID, currentSlugRoute } from "./lib/activeClassroom";
 export { getActiveClassroomId, setActiveClassroomId, classroomQuery, DEFAULT_CLASSROOM_ID } from "./lib/activeClassroom";
 // Named here as a plain string rather than referencing OWNED_DESIGN_OPTIONS_KEY,
 // which is declared further down this module (const, not hoisted).
@@ -66,6 +66,9 @@ export const CLERK_CONFIGURED = Boolean(import.meta.env.VITE_CLERK_PUBLISHABLE_K
 export function getActiveTeacherId() {
   if (typeof window === "undefined") return DEFAULT_TEACHER_ID;
   try {
+    // A board showing at its short address: the address says who.
+    const viaSlug = currentSlugRoute();
+    if (viaSlug) return viaSlug.teacherId;
     const fromUrl = new URLSearchParams(window.location.search).get("teacher");
     if (fromUrl) {
       // On the board, ?teacher= is just which board this link opens; it

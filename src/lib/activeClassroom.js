@@ -17,6 +17,21 @@ const CLASSROOM_RE = /^[a-z0-9][a-z0-9-]{0,39}$/;
 
 const valid = (v) => (typeof v === "string" && CLASSROOM_RE.test(v) ? v : null);
 
+// A short address (gil-bilt.com/board/webster-groves, or just
+// gil-bilt.com/webster-groves) used to redirect to the id form, so the
+// address bar showed "clerk" and a random string a moment after the link
+// was opened (Jay: "im not sure the short links work exactly how
+// intended"). Now the board renders AT the short address. The route
+// looks the name up once and records what it stands for here; the
+// teacher-id and classroom-id getters answer from it while that path is
+// showing. Module state, not storage: it is only ever true of this page.
+let slugRoute = null;   // { path, teacherId, classroomId }
+export function setSlugRoute(route) { slugRoute = route ? { ...route } : null; }
+export function currentSlugRoute() {
+  if (typeof window === "undefined" || !slugRoute) return null;
+  return window.location.pathname === slugRoute.path ? slugRoute : null;
+}
+
 // A ?class= that names a classroom the profile no longer has -- deleted
 // on the Profile page, or a stale link -- means the main classroom, not an
 // empty board that looks like the data is gone (Jay, on a Build tab still
@@ -45,6 +60,8 @@ export function getActiveClassroomId() {
     // followed a Physics link and then a Chemistry one was still shown
     // Physics, because the first visit had been remembered. Build and
     // Profile are the teacher's own pages and do remember.
+    const viaSlug = currentSlugRoute();
+    if (viaSlug) return viaSlug.classroomId || DEFAULT_CLASSROOM_ID;
     const onBoard = window.location.pathname.startsWith("/board");
     if (fromUrl) {
       if (!onBoard) window.localStorage.setItem(STORAGE_KEY, fromUrl);

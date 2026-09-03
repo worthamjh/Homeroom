@@ -3,7 +3,7 @@ import { useUser } from '@clerk/clerk-react'
 import { useNavigate, useSearchParams, useParams } from 'react-router-dom'
 import WebsterGrovesChemistry from './WebsterGrovesChemistry'
 import { fetchBoardSettings } from './lib/boardSettingsApi'
-import { getActiveClassroomId, setActiveClassroomId, DEFAULT_CLASSROOM_ID } from './lib/activeClassroom'
+import { getActiveClassroomId, setActiveClassroomId, DEFAULT_CLASSROOM_ID, setSlugRoute, currentSlugRoute } from './lib/activeClassroom'
 import { CLERK_ID_PREFIX } from './boardConfig'
 import { resolveBoardSlug } from './lib/profileApi'
 
@@ -17,21 +17,27 @@ import { resolveBoardSlug } from './lib/profileApi'
 export function BoardBySlug() {
   const { slug } = useParams()
   const navigate = useNavigate()
+  // Resolved once per address, then the board renders HERE, at the short
+  // address, rather than redirecting to the id form (see setSlugRoute in
+  // lib/activeClassroom.js). Every rule of the /board route still applies:
+  // App below reads the teacher from the resolved address.
+  const [ready, setReady] = useState(() => !!currentSlugRoute())
   useEffect(() => {
+    if (currentSlugRoute()) { setReady(true); return }
     let cancelled = false
     resolveBoardSlug(slug || '')
       .then(found => {
         if (cancelled) return
         if (found?.teacherId) {
-          const room = found.classroomId && found.classroomId !== 'main' ? `&class=${encodeURIComponent(found.classroomId)}` : ''
-          navigate(`/board?teacher=${encodeURIComponent(found.teacherId)}${room}`, { replace: true })
+          setSlugRoute({ path: window.location.pathname, teacherId: found.teacherId, classroomId: found.classroomId || DEFAULT_CLASSROOM_ID })
+          setReady(true)
         }
         else navigate('/', { replace: true })
       })
       .catch(() => { if (!cancelled) navigate('/', { replace: true }) })
     return () => { cancelled = true }
   }, [slug, navigate])
-  return null
+  return ready ? <App /> : null
 }
 
 /**
@@ -86,7 +92,9 @@ function App() {
   const { isLoaded, isSignedIn, user } = useUser()
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
-  const explicitTeacher = searchParams.get('teacher')
+  // The board this URL names: ?teacher=<id>, or the teacher a short
+  // address resolved to (BoardBySlug above).
+  const explicitTeacher = searchParams.get('teacher') || currentSlugRoute()?.teacherId || null
   // A signed-in teacher on a link to somebody ELSE's board is a viewer
   // there, exactly like a signed-out visitor: the same shared-board check,
   // the same view-only board, no Build button. (Their own links, and
