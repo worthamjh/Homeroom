@@ -714,6 +714,14 @@ export async function pickGoogleCalendar() {
 
   return new Promise((resolve) => {
     // ── overlay ──────────────────────────────────────────────────────────────
+    // Inside Build the board is an iframe as tall as the whole board,
+    // scaled and scrolled by the PARENT page (see LiveBuildBoard), so a
+    // fixed, centred dialog centres on the whole board -- usually below
+    // the fold. Jay, after adding calendars: "it shifted the whole set of
+    // options down to where i could not see any of them." keepInView
+    // (below) moves the dialog into the part of the frame the parent can
+    // see, and follows the parent's scrolling. On a standalone board it
+    // does nothing.
     const overlay = document.createElement("div");
     Object.assign(overlay.style, {
       position: "fixed", inset: "0",
@@ -823,6 +831,7 @@ export async function pickGoogleCalendar() {
       btn.onmouseleave = () => { btn.style.borderColor = "#444"; btn.style.background = "#2a2a2a"; };
 
       btn.onclick = async () => {
+        stopFollowing();
         document.body.removeChild(overlay);
         // The embed URL renders only for someone who can already see the
         // calendar -- which the signed-in teacher always can, so this fails
@@ -884,10 +893,12 @@ export async function pickGoogleCalendar() {
     });
     cancelBtn.onmouseenter = () => { cancelBtn.style.borderColor = "#888"; cancelBtn.style.color = "#fff"; };
     cancelBtn.onmouseleave = () => { cancelBtn.style.borderColor = "#555"; cancelBtn.style.color = "rgba(255,255,255,0.5)"; };
-    cancelBtn.onclick = () => { document.body.removeChild(overlay); resolve(null); };
+    let stopFollowing = () => {};
+    const close = (value) => { stopFollowing(); document.body.removeChild(overlay); resolve(value); };
+    cancelBtn.onclick = () => close(null);
 
     // click backdrop to cancel
-    overlay.onclick = (e) => { if (e.target === overlay) { document.body.removeChild(overlay); resolve(null); } };
+    overlay.onclick = (e) => { if (e.target === overlay) close(null); };
 
     modal.appendChild(title);
     modal.appendChild(hint);
@@ -895,7 +906,36 @@ export async function pickGoogleCalendar() {
     modal.appendChild(cancelBtn);
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
+    stopFollowing = keepInView(overlay, modal);
   });
+}
+
+// Keeps a fixed dialog inside the part of this frame its parent page can
+// see. Returns a function that stops following the parent's scrolling.
+// Same-origin only (Build's iframe is); anything else is left centred.
+function keepInView(overlay, modal) {
+  const frame = typeof window !== "undefined" ? window.frameElement : null;
+  const parent = typeof window !== "undefined" ? window.parent : null;
+  if (!frame || !parent || parent === window) return () => {};
+  const place = () => {
+    try {
+      const rect = frame.getBoundingClientRect();                         // parent viewport px, after scaling
+      const scale = (frame.offsetHeight ? rect.height / frame.offsetHeight : 1) || 1;
+      const parentH = parent.innerHeight;
+      const visTop = Math.max(0, rect.top);
+      const visBottom = Math.min(parentH, rect.bottom);
+      const visibleH = Math.max(0, visBottom - visTop) / scale;          // in this frame's px
+      const offsetTop = (visTop - rect.top) / scale;                      // where the visible part starts
+      overlay.style.alignItems = "flex-start";
+      modal.style.maxHeight = `${Math.max(240, visibleH - 32)}px`;
+      const free = visibleH - modal.offsetHeight;
+      modal.style.marginTop = `${Math.max(0, offsetTop) + Math.max(16, free / 2)}px`;
+    } catch { /* cross-origin parent: leave the dialog centred */ }
+  };
+  place();
+  parent.addEventListener("scroll", place, { passive: true });
+  parent.addEventListener("resize", place);
+  return () => { parent.removeEventListener("scroll", place); parent.removeEventListener("resize", place); };
 }
 
 /**
