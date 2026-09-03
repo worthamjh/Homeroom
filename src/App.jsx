@@ -3,6 +3,7 @@ import { useUser } from '@clerk/clerk-react'
 import { useNavigate, useSearchParams, useParams } from 'react-router-dom'
 import WebsterGrovesChemistry from './WebsterGrovesChemistry'
 import { fetchBoardSettings } from './lib/boardSettingsApi'
+import { getActiveClassroomId, DEFAULT_CLASSROOM_ID } from './lib/activeClassroom'
 import { resolveBoardSlug } from './lib/profileApi'
 
 // The /board/:slug route: a readable address (gil-bilt.com/board/webster-
@@ -90,9 +91,26 @@ function App() {
     if (!isLoaded || isSignedIn || publicDemo) return
     if (!explicitTeacher) { navigate('/', { replace: true }); return }
     let cancelled = false
+    const goHome = () => { if (!cancelled) navigate('/', { replace: true }) }
     fetchBoardSettings(explicitTeacher)
       .then(() => { if (!cancelled) setSharedView(true) })
-      .catch(() => { if (!cancelled) navigate('/', { replace: true }) })
+      .catch(() => {
+        // The URL names a classroom that is not shared -- or no longer
+        // exists (deleted on the Profile page, or a stale link). If the
+        // teacher's MAIN board is shared, show that instead of bouncing
+        // the visitor to the home page: drop the ?class= so every
+        // request below asks for the main classroom.
+        const room = getActiveClassroomId()
+        if (room === DEFAULT_CLASSROOM_ID) { goHome(); return }
+        fetchBoardSettings(explicitTeacher, DEFAULT_CLASSROOM_ID)
+          .then(() => {
+            if (cancelled) return
+            const url = new URL(window.location.href)
+            url.searchParams.delete('class')
+            window.location.replace(url.toString())
+          })
+          .catch(goHome)
+      })
     return () => { cancelled = true }
   }, [isLoaded, isSignedIn, publicDemo, explicitTeacher, navigate])
 

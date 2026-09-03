@@ -6,8 +6,11 @@
 
 import { apiFetch } from "./apiClient";
 import { getActiveClassroomId } from "./activeClassroom";
-export async function fetchBoardSettings(teacherId) {
-  const params = new URLSearchParams({ teacherId, classroomId: getActiveClassroomId() });
+// classroomId defaults to the active one; App.jsx's shared-board probe
+// passes "main" explicitly to ask about the main board when the URL names
+// a classroom that turns out not to exist.
+export async function fetchBoardSettings(teacherId, classroomId = getActiveClassroomId()) {
+  const params = new URLSearchParams({ teacherId, classroomId });
   const res = await apiFetch(`/api/boardSettings?${params}`);
   if (!res.ok) throw new Error(`Failed to load board settings (${res.status})`);
   return res.json(); // null when nothing's been saved yet

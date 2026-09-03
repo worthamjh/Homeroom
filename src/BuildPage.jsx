@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/clerk-react";
 import { getActiveTeacherId, DEFAULT_TEACHER_ID, CLERK_CONFIGURED, boardThemeVars, useScopedSetting, BUILD_TOUR_DONE_KEY, DEFAULT_BUILD_TOUR_DONE, readCurrentView, getActiveClassroomId, setActiveClassroomId, classroomQuery, DEFAULT_CLASSROOM_ID } from "./boardConfig";
+import { dropUnknownClassroom } from "./lib/activeClassroom";
 import { fetchProfile } from "./lib/profileApi";
 import BoardSettingsPanel from "./BoardSettingsPanel";
 import GuidedTour from "./GuidedTour";
@@ -306,7 +307,12 @@ export default function BuildPage() {
     if (!isBlankTeacher) return;
     let cancelled = false;
     fetchProfile(activeTeacherId)
-      .then(p => { if (!cancelled) setTeacherProfile(p); })
+      .then(p => {
+        if (cancelled) return;
+        // A ?class= for a classroom that is gone reloads as the main one.
+        if (dropUnknownClassroom(p?.classrooms)) return;
+        setTeacherProfile(p);
+      })
       .catch(() => {});
     return () => { cancelled = true; };
   }, [isBlankTeacher, activeTeacherId]);

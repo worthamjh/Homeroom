@@ -17,6 +17,24 @@ const CLASSROOM_RE = /^[a-z0-9][a-z0-9-]{0,39}$/;
 
 const valid = (v) => (typeof v === "string" && CLASSROOM_RE.test(v) ? v : null);
 
+// A ?class= that names a classroom the profile no longer has -- deleted
+// on the Profile page, or a stale link -- means the main classroom, not an
+// empty board that looks like the data is gone (Jay, on a Build tab still
+// pointed at a classroom he had just deleted: "I think it deleted both?").
+// Call once the profile has loaded; it rewrites the URL in place (no
+// history entry) and clears the remembered id, and returns true when it
+// did, so the caller can reload against the right classroom.
+export function dropUnknownClassroom(classrooms) {
+  if (typeof window === "undefined" || !Array.isArray(classrooms) || !classrooms.length) return false;
+  const current = getActiveClassroomId();
+  if (current === DEFAULT_CLASSROOM_ID || classrooms.some(c => c?.id === current)) return false;
+  try { window.localStorage.setItem(STORAGE_KEY, DEFAULT_CLASSROOM_ID); } catch { /* ignore */ }
+  const url = new URL(window.location.href);
+  url.searchParams.delete("class");
+  window.location.replace(url.toString());
+  return true;
+}
+
 export function getActiveClassroomId() {
   if (typeof window === "undefined") return DEFAULT_CLASSROOM_ID;
   try {

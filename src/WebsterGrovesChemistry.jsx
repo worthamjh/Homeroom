@@ -6,6 +6,7 @@ import { uploadAssignmentPdf, uploadSlidesFile } from "./lib/cloudinary";
 import { googleDriveConfigured, ensureGoogleScriptsLoaded, pickGoogleSlidesEmbed, pickGoogleDriveAssignmentFiles, pickGoogleCalendar, driveErrorMessage, createNotebookDoc } from "./lib/googleDrive";
 import BulletinNotebook from "./BulletinNotebook";
 import { notebookTemplate } from "./lib/notebooks";
+import { dropUnknownClassroom } from "./lib/activeClassroom";
 import { fetchProfile } from "./lib/profileApi";
 import { fetchCurriculum, saveCurriculum } from "./lib/curriculumApi";
 import CurriculumHistory from "./CurriculumHistory";
@@ -2582,7 +2583,12 @@ export default function App({ viewer = false } = {}) {
     if (!isBlankTeacher) return;
     let cancelled = false;
     fetchProfile(activeTeacherId)
-      .then(p => { if (!cancelled) setTeacherProfile(p); })
+      .then(p => {
+        if (cancelled) return;
+        // A ?class= for a classroom that is gone reloads as the main one.
+        if (dropUnknownClassroom(p?.classrooms)) return;
+        setTeacherProfile(p);
+      })
       .catch(() => {}); // no profile yet, or a transient error — falls back to defaults below
     return () => { cancelled = true; };
   }, [isBlankTeacher, activeTeacherId]);
