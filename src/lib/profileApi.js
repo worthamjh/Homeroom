@@ -38,11 +38,11 @@ export async function fetchProfile(teacherId) {
   return profile;
 }
 
-export async function saveProfile({ teacherId, teacherName, school, subject, primaryColor, secondaryColor, headingFont, bodyFont, homeImageUrl, slug, classrooms }) {
+export async function saveProfile({ teacherId, teacherName, school, subject, primaryColor, secondaryColor, headingFont, bodyFont, homeImageUrl, slug, classrooms, districtId, schoolId }) {
   const res = await apiFetch("/api/profile", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ teacherId, teacherName, school, subject, primaryColor, secondaryColor, headingFont, bodyFont, homeImageUrl, slug, classrooms }),
+    body: JSON.stringify({ teacherId, teacherName, school, subject, primaryColor, secondaryColor, headingFont, bodyFont, homeImageUrl, slug, classrooms, ...(districtId !== undefined ? { districtId } : {}), ...(schoolId !== undefined ? { schoolId } : {}) }),
   });
   if (!res.ok) {
     // The server explains a bad or taken board address in words a

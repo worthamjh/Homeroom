@@ -9,6 +9,7 @@ import {
   ensureFontsLoaded,
 } from "./boardConfig";
 import { fetchProfile, saveProfile, downloadMyData, deleteMyAccount, deleteClassroom } from "./lib/profileApi";
+import { fetchDistrictByDomain, emailDomain } from "./lib/districtApi";
 import { uploadImage, cloudinaryConfigured } from "./lib/cloudinary";
 import { getActiveClassroomId, setActiveClassroomId, DEFAULT_CLASSROOM_ID } from "./lib/activeClassroom";
 
@@ -44,6 +45,17 @@ export default function EditProfilePage() {
   const [teacherName,    setTeacherName]    = useState("");
   const [school,         setSchool]         = useState("");
   const [subject,        setSubject]        = useState("");
+  // The partner district this profile belongs to (from the profile, or
+  // found now from the sign-in email for a profile made before districts
+  // existed), and which of its schools. Picking a school sets the school
+  // name; the school's photo shows on any classroom without its own.
+  const [district,       setDistrict]       = useState(null);
+  const [schoolId,       setSchoolId]       = useState("");
+  const pickSchool = (id) => {
+    setSchoolId(id);
+    const s = district?.schools?.find(x => x.id === id);
+    if (s) setSchool(s.name);
+  };
   const [primaryColor,   setPrimaryColor]   = useState(DEFAULT_PRIMARY_COLOR);
   const [secondaryColor, setSecondaryColor] = useState(DEFAULT_SECONDARY_COLOR);
   const [headingFont,    setHeadingFont]    = useState(DEFAULT_HEADING_FONT);
@@ -156,6 +168,14 @@ Your other classrooms are not affected.`;
         if (cancelled || !p) return;
         setTeacherName(p.teacherName   || "");
         setSchool(p.school             || "");
+        setSchoolId(p.schoolId || "");
+        if (p.district) setDistrict(p.district);
+        else {
+          // A profile from before districts: see if the sign-in email is
+          // a partner's, so the school list and links can be offered now.
+          const domain = emailDomain(user?.primaryEmailAddress?.emailAddress || "");
+          if (domain) fetchDistrictByDomain(domain).then(d => { if (!cancelled && d) setDistrict(d); }).catch(() => {});
+        }
         // Classroom fields come from the classroom list (always present,
         // see api/profile.js), not from the top-level mirror.
         setPrimaryColor(p.primaryColor   || DEFAULT_PRIMARY_COLOR);
@@ -194,7 +214,7 @@ Your other classrooms are not affected.`;
     try {
       const list = withSelected();
       const main = list.find(c => c.id === DEFAULT_CLASSROOM_ID) || list[0];
-      await saveProfile({ teacherId, teacherName: teacherName.trim(), school: school.trim(), subject: main.subject || "", primaryColor, secondaryColor, headingFont, bodyFont, homeImageUrl: main.homeImageUrl || null, slug: main.slug || null, classrooms: list });
+      await saveProfile({ teacherId, teacherName: teacherName.trim(), school: school.trim(), subject: main.subject || "", primaryColor, secondaryColor, headingFont, bodyFont, homeImageUrl: main.homeImageUrl || null, slug: main.slug || null, classrooms: list, districtId: district?.id || null, schoolId: district ? (schoolId || null) : null });
       // Land on the classroom that was being edited: Build if we came from
       // there, otherwise its board.
       setActiveClassroomId(selectedId);
@@ -253,8 +273,25 @@ Your other classrooms are not affected.`;
             <input id="ep-name" style={fieldStyle} value={teacherName} onChange={e => setTeacherName(e.target.value)} placeholder="e.g. Ms. Rivera" autoFocus />
           </div>
           <div style={{ marginBottom: 16 }}>
-            <label style={labelStyle} htmlFor="ep-school">School (optional)</label>
-            <input id="ep-school" style={fieldStyle} value={school} onChange={e => setSchool(e.target.value)} placeholder="e.g. Webster Groves High School" />
+            {district && (
+              <div style={{ marginBottom: 8, fontSize: 12, color: "rgba(255,255,255,0.55)", fontFamily: "Lato, sans-serif", lineHeight: 1.5 }}>
+                <strong style={{ color: "rgba(255,255,255,0.85)" }}>{district.name}</strong> is a Gil-Bilt partner: its quick links are on your board's footer, and your school's photo fills any classroom without its own.
+              </div>
+            )}
+            {district?.schools?.length ? (
+              <>
+                <label style={labelStyle} htmlFor="ep-school-pick">Your school</label>
+                <select id="ep-school-pick" value={schoolId} onChange={e => pickSchool(e.target.value)} style={{ ...fieldStyle, cursor: "pointer" }}>
+                  <option value="">Choose your school…</option>
+                  {district.schools.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+              </>
+            ) : (
+              <>
+                <label style={labelStyle} htmlFor="ep-school">School (optional)</label>
+                <input id="ep-school" style={fieldStyle} value={school} onChange={e => setSchool(e.target.value)} placeholder="e.g. Webster Groves High School" />
+              </>
+            )}
           </div>
           {/* ── Classrooms ── */}
           <div style={sectionHead}>Classrooms</div>

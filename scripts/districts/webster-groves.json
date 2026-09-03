@@ -1,0 +1,29 @@
+{
+  "id": "webster-groves",
+  "name": "Webster Groves School District",
+  "website": "https://www.webster.k12.mo.us/",
+  "domains": ["wgmail.org", "webster.k12.mo.us"],
+  "primaryColor": "#1a1a1a",
+  "secondaryColor": "#E87722",
+  "schools": [
+    { "id": "wghs", "name": "Webster Groves High School", "homeImageUrl": "/images/wghs-building.jpg" },
+    { "id": "hixson", "name": "Hixson Middle School", "homeImageUrl": null },
+    { "id": "steger", "name": "Steger Sixth Grade Center", "homeImageUrl": null },
+    { "id": "avery", "name": "Avery Elementary", "homeImageUrl": null },
+    { "id": "bristol", "name": "Bristol Elementary", "homeImageUrl": null },
+    { "id": "clark", "name": "Clark Elementary", "homeImageUrl": null },
+    { "id": "edgar-road", "name": "Edgar Road Elementary", "homeImageUrl": null },
+    { "id": "givens", "name": "Givens Elementary", "homeImageUrl": null },
+    { "id": "hudson", "name": "Hudson Elementary", "homeImageUrl": null }
+  ],
+  "footerLinks": [
+    { "label": "Drive", "href": "https://drive.google.com/", "icon": "/logos/drive.png" },
+    { "label": "Gmail", "href": "https://mail.google.com/", "icon": "/logos/gmail.png" },
+    { "label": "EdPuzzle", "href": "https://edpuzzle.com/", "icon": "/logos/edpuzzle.png" },
+    { "label": "YouTube", "href": "https://www.youtube.com/", "icon": "/logos/youtube.png" },
+    { "label": "Kahoot!", "href": "https://kahoot.com/", "icon": "/logos/kahoot.png" },
+    { "label": "Clever", "href": "https://clever.com/", "icon": "/logos/clever.png" },
+    { "label": "Canvas", "href": "https://wgsd.instructure.com/", "icon": "/logos/canvas.png" },
+    { "label": "WGHS", "href": "https://www.webster.k12.mo.us/wghs", "icon": "/logos/wghs.png" }
+  ]
+}

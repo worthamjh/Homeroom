@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
+import { useUser } from "@clerk/clerk-react";
 import { saveProfile } from "./lib/profileApi";
+import { fetchDistrictByDomain, emailDomain } from "./lib/districtApi";
 import { DEFAULT_PRIMARY_COLOR, DEFAULT_SECONDARY_COLOR, DEFAULT_HEADING_FONT, DEFAULT_BODY_FONT, HEADING_FONT_OPTIONS, BODY_FONT_OPTIONS, ensureFontsLoaded } from "./boardConfig";
 
 /**
@@ -27,6 +29,37 @@ export default function ProfileOnboarding({ teacherId, onComplete }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
+  // A partner district, found from the sign-up email's domain: its
+  // colours are filled in, and its schools are offered as a list --
+  // picking one sets the school name and the home-screen photo. A
+  // teacher can still change any of it. See api/_districts.js.
+  const { user } = useUser();
+  const email = user?.primaryEmailAddress?.emailAddress || user?.emailAddresses?.[0]?.emailAddress || "";
+  const [district, setDistrict] = useState(null);
+  const [schoolId, setSchoolId] = useState("");
+  useEffect(() => {
+    const domain = emailDomain(email);
+    if (!domain) return;
+    let cancelled = false;
+    fetchDistrictByDomain(domain)
+      .then(d => {
+        if (cancelled || !d) return;
+        setDistrict(d);
+        if (d.primaryColor) setPrimaryColor(d.primaryColor);
+        if (d.secondaryColor) setSecondaryColor(d.secondaryColor);
+        if (d.headingFont) setHeadingFont(d.headingFont);
+        if (d.bodyFont) setBodyFont(d.bodyFont);
+      })
+      .catch(() => {});   // no district, or a hiccup: the plain form is fine
+    return () => { cancelled = true; };
+  }, [email]);
+  const pickSchool = (id) => {
+    setSchoolId(id);
+    const s = district?.schools?.find(x => x.id === id);
+    if (s) setSchool(s.name);
+  };
+  const pickedSchool = district?.schools?.find(x => x.id === schoolId) || null;
+
   // Pre-load any non-default font so the live preview renders correctly
   // before the teacher saves — avoids the flash of fallback font on pick.
   useEffect(() => { ensureFontsLoaded([headingFont, bodyFont]); }, [headingFont, bodyFont]);
@@ -48,6 +81,9 @@ export default function ProfileOnboarding({ teacherId, onComplete }) {
         secondaryColor,
         headingFont,
         bodyFont,
+        homeImageUrl: pickedSchool?.homeImageUrl || null,
+        districtId: district?.id || null,
+        schoolId: pickedSchool?.id || null,
       });
       onComplete(saved);
     } catch (err) {
@@ -108,16 +144,39 @@ export default function ProfileOnboarding({ teacherId, onComplete }) {
             autoFocus
           />
         </div>
-        <div style={{ marginBottom: 16 }}>
-          <label style={labelStyle} htmlFor="school">School (optional)</label>
-          <input
-            id="school"
-            style={fieldStyle}
-            value={school}
-            onChange={e => setSchool(e.target.value)}
-            placeholder="e.g. Webster Groves High School"
-          />
-        </div>
+        {district && (
+          <div style={{ marginBottom: 16, padding: "10px 12px", background: "rgba(232,119,34,0.10)", border: "1px solid rgba(232,119,34,0.35)", borderRadius: 6, fontSize: 12.5, color: "rgba(255,255,255,0.8)", lineHeight: 1.5, fontFamily: "Lato, sans-serif" }}>
+            <strong style={{ color: "#fff" }}>{district.name}</strong> is a Gil-Bilt partner. Your district's colors and quick links are set up for you. Pick your school and your board gets its photo too.
+          </div>
+        )}
+        {district?.schools?.length ? (
+          <div style={{ marginBottom: 16 }}>
+            <label style={labelStyle} htmlFor="schoolPick">Your school</label>
+            <div style={{ position: "relative" }}>
+              <select
+                id="schoolPick"
+                value={schoolId}
+                onChange={e => pickSchool(e.target.value)}
+                style={{ ...fieldStyle, appearance: "none", cursor: "pointer", paddingRight: 28 }}
+              >
+                <option value="">Choose your school…</option>
+                {district.schools.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+              <span style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", color: "rgba(255,255,255,0.4)", pointerEvents: "none", fontSize: 10 }}>▾</span>
+            </div>
+          </div>
+        ) : (
+          <div style={{ marginBottom: 16 }}>
+            <label style={labelStyle} htmlFor="school">School (optional)</label>
+            <input
+              id="school"
+              style={fieldStyle}
+              value={school}
+              onChange={e => setSchool(e.target.value)}
+              placeholder="e.g. Webster Groves High School"
+            />
+          </div>
+        )}
         <div style={{ marginBottom: 24 }}>
           <label style={labelStyle} htmlFor="subject">Subject / room (optional)</label>
           <input

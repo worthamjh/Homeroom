@@ -17,6 +17,7 @@ import { resolveTeacherId } from "./_auth.js";
 import { enforceRateLimit } from "./_rateLimit.js";
 import { capString, LIMITS } from "./_validate.js";
 import { DEFAULT_CLASSROOM_ID } from "./_classroom.js";
+import { findDistrictById, toClientDistrict, DISTRICT_ID_RE } from "./_districts.js";
 
 const DB_NAME = process.env.MONGODB_DB || "homeroom";
 const COLLECTION = "profiles";
@@ -171,12 +172,27 @@ export default async function handler(req, res) {
       // 200 + null (not 404) when no profile exists yet — the client's
       // "does this teacher need onboarding" check just tests for a falsy
       // body, no need to special-case a 404 response.
-      res.status(200).json(doc ? toClientShape(doc) : null);
+      res.status(200).json(doc ? await withDistrict(doc) : null);
       return;
     }
 
     if (req.method === "POST") {
-      const { teacherName, school, subject, primaryColor, secondaryColor, headingFont, bodyFont, homeImageUrl, slug: rawSlug, classrooms: rawClassrooms } = req.body || {};
+      const { teacherName, school, subject, primaryColor, secondaryColor, headingFont, bodyFont, homeImageUrl, slug: rawSlug, classrooms: rawClassrooms, districtId: rawDistrictId, schoolId: rawSchoolId } = req.body || {};
+      // A partner district and a school in it (see api/_districts.js).
+      // Only a district that exists, and only one of its schools; "" or
+      // null clears either. Left out of the body entirely = unchanged.
+      let districtId, schoolId;
+      if (rawDistrictId !== undefined) {
+        if (!rawDistrictId) { districtId = null; schoolId = null; }
+        else {
+          const d = DISTRICT_ID_RE.test(String(rawDistrictId)) ? await findDistrictById(String(rawDistrictId)) : null;
+          if (!d) { res.status(400).json({ error: "That district isn't one Gil-Bilt knows." }); return; }
+          districtId = d.id;
+          schoolId = rawSchoolId && (d.schools || []).some(s => s.id === rawSchoolId) ? String(rawSchoolId) : null;
+        }
+      } else if (rawSchoolId !== undefined) {
+        schoolId = rawSchoolId ? String(rawSchoolId) : null;
+      }
       if (!teacherName) {
         res.status(400).json({ error: "teacherName is required" });
         return;
@@ -275,6 +291,8 @@ export default async function handler(req, res) {
         slug,
         updatedAt: now,
         ...(classrooms ? { classrooms } : {}),
+        ...(districtId !== undefined ? { districtId } : {}),
+        ...(schoolId !== undefined ? { schoolId } : {}),
       };
       if (classrooms) {
         const main = classrooms.find(c => c.id === DEFAULT_CLASSROOM_ID);
@@ -293,7 +311,7 @@ export default async function handler(req, res) {
         { upsert: true }
       );
       const saved = await col.findOne({ teacherId: update.teacherId });
-      res.status(200).json(toClientShape(saved));
+      res.status(200).json(await withDistrict(saved));
       return;
     }
 
@@ -304,9 +322,24 @@ export default async function handler(req, res) {
   }
 }
 
+// The profile plus its partner district, resolved, so the board and Build
+// get colours, footer links and the school's photo in the one read they
+// already make. `district` is null for a teacher with none.
+async function withDistrict(doc) {
+  const shape = toClientShape(doc);
+  let district = null;
+  if (doc.districtId) {
+    try { district = toClientDistrict(await findDistrictById(doc.districtId), doc.schoolId || null); }
+    catch (err) { console.error("[api/profile] district lookup failed", err?.message || err); }
+  }
+  return { ...shape, district };
+}
+
 function toClientShape(doc) {
   return {
     teacherId: doc.teacherId,
+    districtId: doc.districtId || null,
+    schoolId: doc.schoolId || null,
     teacherName: doc.teacherName,
     school: doc.school || "",
     subject: doc.subject || "",

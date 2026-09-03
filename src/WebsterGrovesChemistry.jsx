@@ -127,16 +127,30 @@ const FOOTER_LINKS = [
   { label: "WGHS", href: "https://www.webster.k12.mo.us/wghs", icon: "/logos/wghs.png" },
 ];
 
-function ToolsFooter() {
+// What a teacher with no partner district gets: the tools every classroom
+// uses, and nothing tied to one school. A partner district's own list
+// (Canvas, Infinite Campus, the school site...) replaces this; see
+// api/_districts.js. Webster Groves' own board keeps FOOTER_LINKS.
+const GENERIC_FOOTER_LINKS = [
+  { label: "Drive", href: "https://drive.google.com/", icon: "/logos/drive.png" },
+  { label: "Gmail", href: "https://mail.google.com/", icon: "/logos/gmail.png" },
+  { label: "EdPuzzle", href: "https://edpuzzle.com/", icon: "/logos/edpuzzle.png" },
+  { label: "YouTube", href: "https://www.youtube.com/", icon: "/logos/youtube.png" },
+  { label: "Kahoot!", href: "https://kahoot.com/", icon: "/logos/kahoot.png" },
+];
+
+function ToolsFooter({ links = FOOTER_LINKS }) {
   return (
     <div style={{ background: "var(--board-primary)", borderTop: "4px solid var(--board-secondary)", padding: `${SPACE.md}px ${SPACE.lg}px`, display: "flex", flexWrap: "wrap", justifyContent: "center", gap: SPACE.md, flexShrink: 0 }}>
-      {FOOTER_LINKS.map((t, i) => (
+      {links.map((t, i) => (
         <a key={i} href={t.href} target="_blank" rel="noopener noreferrer" title={t.label}
           style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 48, height: 48, background: "transparent", borderRadius: 10, padding: 6, transition: "transform 0.15s" }}
           onMouseEnter={e => e.currentTarget.style.transform = "scale(1.08)"}
           onMouseLeave={e => e.currentTarget.style.transform = "scale(1)"}
         >
-          <img src={t.icon} alt={t.label} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+          {t.icon
+            ? <img src={t.icon} alt={t.label} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+            : <span style={{ fontFamily: "Oswald, sans-serif", fontSize: 11, color: "#fff", textAlign: "center", lineHeight: 1.1 }}>{t.label}</span>}
         </a>
       ))}
     </div>
@@ -3949,7 +3963,11 @@ export default function App({ viewer = false } = {}) {
                 rather have some black border than cut off the top of the
                 school like it is in the demo page." */}
             {(() => {
-              const homeImage = (activeClassroom ? activeClassroom.homeImageUrl : teacherProfile?.homeImageUrl) || (!isBlankTeacher ? "/images/wghs-building.jpg" : null);
+              // A classroom with no photo of its own shows the school's, when
+              // the teacher picked one from a partner district's list.
+              const homeImage = (activeClassroom ? activeClassroom.homeImageUrl : teacherProfile?.homeImageUrl)
+                || teacherProfile?.district?.school?.homeImageUrl
+                || (!isBlankTeacher ? "/images/wghs-building.jpg" : null);
               if (homeImage) {
                 return (
                   <img
@@ -4441,7 +4459,7 @@ export default function App({ viewer = false } = {}) {
       </>
       )}
 
-      <ToolsFooter />
+      <ToolsFooter links={isBlankTeacher ? (teacherProfile?.district?.footerLinks?.length ? teacherProfile.district.footerLinks : GENERIC_FOOTER_LINKS) : FOOTER_LINKS} />
 
       <DriveNotice />
 
