@@ -287,6 +287,12 @@ function ShareBoard({ teacherId, slug, bookmarkName }) {
                 title="Drag me onto the bookmarks bar (or click to open the board)"
                 style={{ display: "inline-flex", alignItems: "center", background: "var(--board-secondary)", color: "var(--board-secondary-fg)", textDecoration: "none", borderRadius: 6, padding: "8px 14px", fontFamily: "Oswald, sans-serif", fontSize: 13, letterSpacing: 0.4, cursor: "grab", boxShadow: "0 2px 6px rgba(0,0,0,0.4)", userSelect: "none" }}
               >
+                {/* Grip dots as a drawing, not a character: a dragged link
+                    becomes a bookmark named after its TEXT, and the dots
+                    were ending up in the name. An SVG has no text. */}
+                <svg aria-hidden width="8" height="14" viewBox="0 0 8 14" style={{ marginRight: 9, opacity: 0.75, flexShrink: 0 }}>
+                  {[1, 6, 11].map(y => [1, 6].map(x => <circle key={x + "-" + y} cx={x + 0.5} cy={y + 0.5} r="1.3" fill="currentColor" />))}
+                </svg>
                 {bookmarkName}
               </a>
               <span aria-hidden style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>← drag</span>
