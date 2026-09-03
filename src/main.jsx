@@ -67,6 +67,10 @@ const routedApp = (
           that panel short while the catalogue grows. See
           DesignStorePage.jsx and the design catalogue in boardConfig.js. */}
       <Route path="/store" element={<DesignStorePage />} />
+      {/* gil-bilt.com/<address> with the "/board/" left out -- which is
+          what people type from memory (Jay did). Last, so every real page
+          above wins; an address nobody owns goes to the front door. */}
+      <Route path="/:slug" element={<BoardBySlug />} />
     </Routes>
   </BrowserRouter>
 );
