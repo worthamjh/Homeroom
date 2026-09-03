@@ -967,11 +967,15 @@ function Stars({ height = 68 }) {
   );
 }
 
-// The Drive file id in a slides embed picked from Drive
-// (docs.google.com/presentation/d/<id>/embed). A deck published to the
-// web (/d/e/2PACX-...) carries no file id and cannot be checked.
+// What identifies a Google Slides embed: the Drive file id of a deck
+// picked from Drive (docs.google.com/presentation/d/<id>/embed), or the
+// "2PACX-..." id of a deck published to the web (/d/e/<id>/embed). Either
+// is enough for the server to ask Google whether the deck still exists.
 function driveFileIdFromSlidesUrl(src) {
-  const m = new RegExp("docs\\.google\\.com/presentation/d/(?!e/)([A-Za-z0-9_-]{20,})").exec(String(src || ""));
+  const s = String(src || "");
+  const pub = new RegExp("docs\\.google\\.com/presentation/d/e/(2PACX-[A-Za-z0-9_-]{20,})").exec(s);
+  if (pub) return pub[1];
+  const m = new RegExp("docs\\.google\\.com/presentation/d/(?!e/)([A-Za-z0-9_-]{20,})").exec(s);
   return m ? m[1] : null;
 }
 

@@ -146,10 +146,19 @@ async function driveFileLooksAvailable(fileId) {
   try {
     const ctl = new AbortController();
     const timer = setTimeout(() => ctl.abort(), 6000);
-    const r = await fetch(`https://drive.google.com/thumbnail?id=${encodeURIComponent(fileId)}&sz=w64`, { redirect: "follow", signal: ctl.signal });
+    // A deck published to the web has a "2PACX-..." id and no Drive
+    // thumbnail; its embed page answers 200 while it exists (even from the
+    // trash) and 404 once it is gone or unpublished. A deck picked from
+    // Drive has a file id, and Drive's thumbnail is the tell.
+    const published = fileId.startsWith("2PACX-");
+    const url = published
+      ? `https://docs.google.com/presentation/d/e/${encodeURIComponent(fileId)}/embed?start=false`
+      : `https://drive.google.com/thumbnail?id=${encodeURIComponent(fileId)}&sz=w64`;
+    const r = await fetch(url, { redirect: "follow", signal: ctl.signal });
     clearTimeout(timer);
     const type = r.headers.get("content-type") || "";
-    if (r.status === 404 || r.status === 500 || (r.ok && !type.startsWith("image/"))) available = false;
+    if (published) available = r.status !== 404;
+    else if (r.status === 404 || r.status === 500 || (r.ok && !type.startsWith("image/"))) available = false;
     else if (r.ok && type.startsWith("image/")) available = true;
   } catch { available = true; }
   slidesProbeCache.set(fileId, { at: Date.now(), available });
