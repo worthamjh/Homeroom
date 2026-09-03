@@ -76,18 +76,22 @@ function buildPdf(content) {
   return pdf;
 }
 
-// id is what gets stored; label is what a teacher sees in the menu.
+// id is what gets stored; label is what a teacher sees in the menu; thumb
+// is a rendering of the actual page (public/papers/thumbs, made from these
+// same PDFs) so the store shows the sheet itself rather than a sketch of
+// it. Jay: "make the images of the previews bigger so the user can see
+// what they look like in full on the thumbnail."
 export const BUILT_IN_PAPERS = [
-  { id: "builtin:plain", label: "Plain", build: () => buildPdf("") },
-  { id: "builtin:wide", label: "Wide Ruled", build: () => buildPdf(ruledContent(WIDE_RULE)) },
-  { id: "builtin:college", label: "College Ruled", build: () => buildPdf(ruledContent(COLLEGE_RULE)) },
-  { id: "builtin:graph", label: "Graph Paper", build: () => buildPdf(gridContent()) },
+  { id: "builtin:plain", label: "Plain", thumb: "/papers/thumbs/plain.png", build: () => buildPdf("") },
+  { id: "builtin:wide", label: "Wide Ruled", thumb: "/papers/thumbs/wide.png", build: () => buildPdf(ruledContent(WIDE_RULE)) },
+  { id: "builtin:college", label: "College Ruled", thumb: "/papers/thumbs/college.png", build: () => buildPdf(ruledContent(COLLEGE_RULE)) },
+  { id: "builtin:graph", label: "Graph Paper", thumb: "/papers/thumbs/graph.png", build: () => buildPdf(gridContent()) },
   // A designed page rather than a drawn one: shipped as a static PDF under
   // public/papers and fetched at create time. The same page the CER
   // Notebook repeats (public/notebooks/cer-25.pdf); one page here, for a
   // single Bell Ringer or Exit Slip. Jay: "the cer template i suppose
   // could be added to the bellringer/exitslip section".
-  { id: "builtin:cer", label: "CER", file: "/papers/cer.pdf" },
+  { id: "builtin:cer", label: "CER", thumb: "/papers/thumbs/cer.png", file: "/papers/cer.pdf" },
 ];
 
 export function isBuiltInPaper(id) {

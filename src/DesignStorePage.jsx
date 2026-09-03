@@ -67,47 +67,31 @@ function Preview({ preview }) {
     );
   }
 
-  if (preview.kind === "paper") {
-    // A sheet, drawn the way the PDF is: rules at a pitch, or a grid, or
-    // nothing. Scaled to the box rather than to the real inch so the
-    // three ruled papers read as clearly different at 74px tall.
-    const rule = (color, pitch, vertical = false) =>
-      `repeating-linear-gradient(${vertical ? "90deg" : "0deg"}, ${color} 0 1px, transparent 1px ${pitch}px)`;
-    const layers = [];
-    if (preview.paper === "builtin:wide") layers.push(rule("#9fc2e6", 11), "linear-gradient(90deg, transparent 0 14px, #e6a8a8 14px 15px, transparent 15px)");
-    if (preview.paper === "builtin:college") layers.push(rule("#9fc2e6", 8), "linear-gradient(90deg, transparent 0 14px, #e6a8a8 14px 15px, transparent 15px)");
-    if (preview.paper === "builtin:graph") layers.push(rule("#ccd6e0", 8), rule("#ccd6e0", 8, true));
-    if (preview.paper === "builtin:cer") {
-      // The CER page: its header band and the three section boxes.
-      return (
-        <div style={{ ...box, background: "#fff", display: "flex", justifyContent: "center", alignItems: "flex-end" }}>
-          <div style={{ width: "58%", height: "88%", position: "relative", background: "#fff", boxShadow: "0 1px 4px rgba(0,0,0,0.35)", borderRadius: "1px 1px 0 0", overflow: "hidden" }}>
-            <div style={{ position: "absolute", left: 0, right: 0, top: 0, height: 9, background: "#1f3a5f" }} />
-            {[0, 1, 2].map(i => (
-              <div key={i} style={{ position: "absolute", left: 5, right: 5, top: 14 + i * 19, height: 15, border: "1px solid #c7ccd3", borderRadius: 2, borderTopWidth: 3, borderTopColor: ["#1f3a5f", "#2e7d6e", "#c87f0a"][i] }} />
-            ))}
-          </div>
-        </div>
-      );
-    }
+  // Papers and notebooks show the real page, whole and upright, the way
+  // an assignment tile shows its file -- a rendering of the very PDF the
+  // teacher will get, not a sketch of it. Taller than the other previews
+  // on purpose: a Letter page at 74px tall is a white rectangle.
+  if (preview.kind === "paper" || preview.kind === "notebook") {
+    const thumb = preview.kind === "paper" ? preview.thumb : preview.template?.thumb;
+    const pages = preview.kind === "notebook" ? preview.template?.pages : null;
     return (
-      <div style={{ ...box, background: "#fff", display: "flex", justifyContent: "center", alignItems: "flex-end" }}>
-        <div style={{ width: "58%", height: "88%", background: layers.length ? layers.join(", ") + ", #fff" : "#fff", backgroundColor: "#fff", boxShadow: "0 1px 4px rgba(0,0,0,0.35)", borderRadius: "1px 1px 0 0" }} />
-      </div>
-    );
-  }
-
-  if (preview.kind === "notebook") {
-    // A closed notebook: spiral down the left, the template's header band
-    // across the top, and three faint boxes for the sections on the page.
-    return (
-      <div style={{ ...box, background: "#fff", display: "flex", justifyContent: "center", alignItems: "center" }}>
-        <div style={{ width: "58%", height: "84%", position: "relative", background: "#fff", borderRadius: "2px 3px 3px 2px", boxShadow: "0 1px 4px rgba(0,0,0,0.35)", overflow: "hidden" }}>
-          <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 7, background: "repeating-linear-gradient(180deg, #6b7280 0 2px, transparent 2px 6px)", opacity: 0.7 }} />
-          <div style={{ position: "absolute", left: 7, right: 0, top: 0, height: 9, background: "#1f3a5f" }} />
-          {[0, 1, 2].map(i => (
-            <div key={i} style={{ position: "absolute", left: 11, right: 4, top: 14 + i * 19, height: 15, border: "1px solid #c7ccd3", borderRadius: 2, borderTopWidth: 3, borderTopColor: ["#1f3a5f", "#2e7d6e", "#c87f0a"][i] }} />
-          ))}
+      <div style={{ ...box, height: 210, background: "#2a2a2a", display: "flex", justifyContent: "center", alignItems: "center" }}>
+        <div style={{ position: "relative", height: "92%", aspectRatio: "8.5 / 11" }}>
+          {thumb ? (
+            <img src={thumb} alt="" draggable={false} style={{ display: "block", width: "100%", height: "100%", objectFit: "contain", background: "#fff", borderRadius: 2, boxShadow: "0 2px 6px rgba(0,0,0,0.45)" }} />
+          ) : (
+            <div style={{ width: "100%", height: "100%", background: "#fff", borderRadius: 2, boxShadow: "0 2px 6px rgba(0,0,0,0.45)" }} />
+          )}
+          {pages != null && (
+            <>
+              {/* Spiral down the left edge, and the page count, so a
+                  notebook reads as a notebook and not a loose sheet. */}
+              <div aria-hidden style={{ position: "absolute", left: -4, top: 6, bottom: 6, width: 8, background: "repeating-linear-gradient(180deg, #d5d9df 0 3px, #7a8290 3px 7px)", borderRadius: 2, opacity: 0.95 }} />
+              <div style={{ position: "absolute", right: 5, bottom: 5, background: "rgba(20,20,20,0.85)", color: "#fff", fontFamily: "Lato, sans-serif", fontSize: 10, fontWeight: 700, padding: "2px 6px", borderRadius: 3 }}>
+                {pages} pages
+              </div>
+            </>
+          )}
         </div>
       </div>
     );

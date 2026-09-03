@@ -20,6 +20,7 @@ export const NOTEBOOK_TEMPLATES = [
     label: "CER Notebook",
     pages: 25,
     file: "/notebooks/cer-25.pdf",
+    thumb: "/papers/thumbs/cer.png",
     blurb: "Claim, Evidence, Reasoning. 25 pages, one response per page.",
   },
 ];

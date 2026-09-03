@@ -1246,7 +1246,7 @@ export function designCatalog(primaryColor, secondaryColor) {
       area: DESIGN_AREAS.PAPER,
       label: DESIGN_AREA_LABELS[DESIGN_AREAS.PAPER],
       blurb: "The sheet a Bell Ringer or Exit Slip doc starts from. Papers you add show up under “Create Bell Ringer doc” and “Create Exit Slip doc” on the board.",
-      options: BUILT_IN_PAPERS.map(p => ({ id: p.id, label: p.label, preview: { kind: "paper", paper: p.id } })),
+      options: BUILT_IN_PAPERS.map(p => ({ id: p.id, label: p.label, preview: { kind: "paper", paper: p.id, thumb: p.thumb } })),
     },
     {
       area: DESIGN_AREAS.NOTEBOOK,
