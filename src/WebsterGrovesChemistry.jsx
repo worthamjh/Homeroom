@@ -3706,6 +3706,9 @@ export default function App({ viewer = false } = {}) {
   const unitFields = useFullAgendaFields(
     unitAgendaKey,
     activeTeacherId && activeUnitIdx != null ? { teacherId: activeTeacherId, unitIdx: activeUnitIdx, lessonTitle: UNIT_CONTENT_LESSON } : null,
+    // Questions typed before this hook synced live only in that browser;
+    // push them up the first time the server comes back empty for them.
+    { backfill: ["essentialQuestion"] },
   );
 
   // Flat (non-sliding) board hook — same key as the old single hook so

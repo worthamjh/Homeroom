@@ -126,7 +126,17 @@ const DEFAULT_SURFACE = { accent: "var(--board-secondary-accent)", headerText: "
 // merged over the localStorage-seeded state — remote wins per-field,
 // since another device may have edited more recently than this browser's
 // own cache.
-export function useFullAgendaFields(storageKey, mongoKey) {
+// `backfill` (optional: array of field names) heals content that was saved
+// before this hook had a Mongo mirror. The unit-level Essential Question
+// used to pass mongoKey null, so what a teacher typed then lives only in
+// that browser's localStorage: it shows for the teacher and is blank for
+// everyone else. When the fetch comes back and the server has NO value
+// for a listed field while this browser has a non-empty one, push the
+// local value up once. Safe because remote text is never written to
+// localStorage (only a save is), so the only browsers holding local text
+// are ones the teacher typed in. Remote wins whenever it has anything,
+// including "" from a deliberate clear.
+export function useFullAgendaFields(storageKey, mongoKey, { backfill = [] } = {}) {
   const [content, setContent] = useState(() => loadContent(storageKey));
   const [editingKey, setEditingKey] = useState(null);
   const [checkedAgendaLines, setCheckedAgendaLines] = useState(() => loadAgendaChecked(storageKey));
@@ -141,16 +151,35 @@ export function useFullAgendaFields(storageKey, mongoKey) {
     setCheckedLearningGoalsLines(loadLearningGoalsChecked(storageKey));
   }, [storageKey]);
 
+  const lastRemote = useRef(null);
   useEffect(() => {
     if (!mongoKey) return;
     let cancelled = false;
+    lastRemote.current = null;
     fetchBoardContent(mongoKey.teacherId, mongoKey.unitIdx, mongoKey.lessonTitle, mongoKey.panelIdx)
       .then(remote => {
-        if (cancelled || !remote) return;
+        if (cancelled) return;
+        lastRemote.current = remote || null;
+        if (!remote) return;
         const { checkedAgendaLines: remoteChecked, checkedLearningGoalsLines: remoteGoalsChecked, ...remoteText } = remote;
         if (Object.keys(remoteText).length) setContent(prev => ({ ...prev, ...remoteText }));
         if (remoteChecked && Object.keys(remoteChecked).length) setCheckedAgendaLines(prev => ({ ...prev, ...remoteChecked }));
         if (remoteGoalsChecked && Object.keys(remoteGoalsChecked).length) setCheckedLearningGoalsLines(prev => ({ ...prev, ...remoteGoalsChecked }));
+      })
+      .then(() => {
+        if (!backfill.length || cancelled) return;
+        // Read localStorage fresh rather than closing over state, so a save
+        // made while the fetch was in flight is not pushed twice.
+        const local = loadContent(storageKey);
+        const patch = {};
+        for (const field of backfill) {
+          const remoteVal = lastRemote.current?.[field];
+          if (typeof remoteVal === "string") continue;   // server has a value (even ""): it wins
+          if (typeof local[field] === "string" && local[field].trim()) patch[field] = local[field];
+        }
+        if (Object.keys(patch).length) {
+          saveBoardContent(mongoKey.teacherId, mongoKey.unitIdx, mongoKey.lessonTitle, patch, mongoKey.panelIdx).catch(() => {});
+        }
       })
       .catch(() => {}); // no saved data yet, or a transient error — this browser's own cache stands
     return () => { cancelled = true; };
