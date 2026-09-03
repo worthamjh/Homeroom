@@ -8,7 +8,7 @@ import {
   HEADING_FONT_OPTIONS, BODY_FONT_OPTIONS,
   ensureFontsLoaded,
 } from "./boardConfig";
-import { fetchProfile, saveProfile, downloadMyData, deleteMyAccount } from "./lib/profileApi";
+import { fetchProfile, saveProfile, downloadMyData, deleteMyAccount, deleteClassroom } from "./lib/profileApi";
 import { uploadImage, cloudinaryConfigured } from "./lib/cloudinary";
 import { getActiveClassroomId, setActiveClassroomId, DEFAULT_CLASSROOM_ID } from "./lib/activeClassroom";
 
@@ -89,6 +89,47 @@ export default function EditProfilePage() {
   };
   const renameClassroom = (name) => setClassrooms(list => list.map(c => c.id === selectedId ? { ...c, name } : c));
   const selectedClassroom = classrooms.find(c => c.id === selectedId) || null;
+  // Deleting a classroom happens right away, not on Save: it wipes that
+  // classroom's units, lessons, board and assignments on the server, and
+  // a change like that should not sit in a form waiting to be committed
+  // with the colour picks. The main classroom has no delete button (it is
+  // what a board URL without ?class= means); deleting the account is how
+  // that one goes.
+  const [deletingClassroom, setDeletingClassroom] = useState(false);
+  const removeClassroom = async () => {
+    const c = selectedClassroom;
+    if (!c || c.id === DEFAULT_CLASSROOM_ID || deletingClassroom) return;
+    const label = c.name || c.subject || "this classroom";
+    const isNew = !c.slug && !c.subject && !c.homeImageUrl && c.name === "New classroom";
+    const msg = isNew
+      ? `Remove "${label}"?`
+      : `Delete "${label}"?
+
+Its units, lessons, board content, board settings and assignments will be deleted for good. Files it made in your Google Drive stay there.
+
+Your other classrooms are not affected.`;
+    if (typeof window !== "undefined" && !window.confirm(msg)) return;
+    setDeletingClassroom(true);
+    setError("");
+    try {
+      // A classroom added on this page and never saved is not on the
+      // server yet; just drop it from the list.
+      const saved = savedClassroomIds.includes(c.id);
+      if (saved) await deleteClassroom(c.id);
+      const rest = withSelected().filter(x => x.id !== c.id);
+      setClassrooms(rest);
+      setSavedClassroomIds(ids => ids.filter(id => id !== c.id));
+      if (getActiveClassroomId() === c.id) setActiveClassroomId(DEFAULT_CLASSROOM_ID);
+      showClassroom(rest.find(x => x.id === DEFAULT_CLASSROOM_ID) || rest[0]);
+    } catch (err) {
+      setError(err?.message || "Couldn't delete that classroom — try again.");
+    } finally {
+      setDeletingClassroom(false);
+    }
+  };
+  // Which classroom ids the server knows about, so Delete can tell a
+  // saved classroom from one added a moment ago.
+  const [savedClassroomIds, setSavedClassroomIds] = useState([]);
   const [photoBusy,      setPhotoBusy]      = useState(false);
   const [photoError,     setPhotoError]     = useState("");
   const handlePhoto = async (file) => {
@@ -123,6 +164,7 @@ export default function EditProfilePage() {
         setBodyFont(p.bodyFont         || DEFAULT_BODY_FONT);
         const list = p.classrooms?.length ? p.classrooms : [{ id: DEFAULT_CLASSROOM_ID, name: p.subject || "My classroom", subject: p.subject || "", slug: p.slug || null, homeImageUrl: p.homeImageUrl || null }];
         setClassrooms(list);
+        setSavedClassroomIds(list.map(c => c.id));
         const wanted = new URLSearchParams(window.location.search);
         const startOn = list.find(c => c.id === getActiveClassroomId()) || list[0];
         showClassroom(startOn);
@@ -235,7 +277,25 @@ export default function EditProfilePage() {
           {selectedClassroom && (
             <div style={{ marginBottom: 8 }}>
               <label style={labelStyle} htmlFor="ep-classroom-name">Classroom name</label>
-              <input id="ep-classroom-name" style={fieldStyle} value={selectedClassroom.name || ""} onChange={e => renameClassroom(e.target.value)} placeholder="e.g. Chemistry, 3rd hour" />
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <input id="ep-classroom-name" style={{ ...fieldStyle, flex: 1, minWidth: 0 }} value={selectedClassroom.name || ""} onChange={e => renameClassroom(e.target.value)} placeholder="e.g. Chemistry, 3rd hour" />
+                {selectedClassroom.id !== DEFAULT_CLASSROOM_ID && (
+                  <button
+                    type="button"
+                    onClick={removeClassroom}
+                    disabled={deletingClassroom}
+                    title="Delete this classroom and everything on its board"
+                    style={{ background: "transparent", color: "#ff8a8a", border: "1px solid rgba(255,138,138,0.5)", borderRadius: 6, padding: "8px 12px", fontFamily: "Lato, sans-serif", fontSize: 12, cursor: deletingClassroom ? "default" : "pointer", whiteSpace: "nowrap", opacity: deletingClassroom ? 0.6 : 1 }}
+                  >
+                    {deletingClassroom ? "Deleting…" : "Delete classroom"}
+                  </button>
+                )}
+              </div>
+              {selectedClassroom.id === DEFAULT_CLASSROOM_ID && classrooms.length > 1 && (
+                <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", fontFamily: "Lato, sans-serif", marginTop: 4 }}>
+                  This is your main classroom; it can't be deleted on its own.
+                </div>
+              )}
             </div>
           )}
 

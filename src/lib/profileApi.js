@@ -73,6 +73,25 @@ export async function downloadMyData() {
  * required by the server too (see api/deleteAccount.js), so a stray call
  * from anywhere cannot do this by accident.
  */
+/**
+ * Deletes one classroom and everything stored for it (units, lessons,
+ * board settings and content, assignments). The main classroom cannot be
+ * deleted this way. Irreversible; the confirm string is required by the
+ * server too (see api/deleteClassroom.js).
+ */
+export async function deleteClassroom(classroomId) {
+  const res = await apiFetch("/api/deleteClassroom", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ classroomId, confirm: "DELETE" }),
+  });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => ({}));
+    throw new Error(detail.error || `Couldn't delete that classroom (${res.status}).`);
+  }
+  return res.json();
+}
+
 export async function deleteMyAccount() {
   const res = await apiFetch("/api/deleteAccount", {
     method: "POST",
