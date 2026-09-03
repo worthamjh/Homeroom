@@ -276,7 +276,7 @@ function ShareBoard({ teacherId, slug, bookmarkName }) {
           <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px solid #333" }}>
             <div style={{ color: "#fff", fontSize: 12.5, marginBottom: 2 }}>Put this board on your bookmarks bar</div>
             <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 11.5, lineHeight: 1.45, marginBottom: 10 }}>
-              Drag the tag below up onto your bookmarks bar. One tag per course, and switching classes is one click.
+              Drag this onto your bookmarks bar. If you teach more than one course, add one for each.
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <a
@@ -285,12 +285,11 @@ function ShareBoard({ teacherId, slug, bookmarkName }) {
                 rel="noopener"
                 draggable="true"
                 title="Drag me onto the bookmarks bar (or click to open the board)"
-                style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "var(--board-secondary)", color: "var(--board-secondary-fg)", textDecoration: "none", borderRadius: 6, padding: "8px 12px", fontFamily: "Oswald, sans-serif", fontSize: 13, letterSpacing: 0.4, cursor: "grab", boxShadow: "0 2px 6px rgba(0,0,0,0.4)", userSelect: "none" }}
+                style={{ display: "inline-flex", alignItems: "center", background: "var(--board-secondary)", color: "var(--board-secondary-fg)", textDecoration: "none", borderRadius: 6, padding: "8px 14px", fontFamily: "Oswald, sans-serif", fontSize: 13, letterSpacing: 0.4, cursor: "grab", boxShadow: "0 2px 6px rgba(0,0,0,0.4)", userSelect: "none" }}
               >
-                <span aria-hidden style={{ opacity: 0.8 }}>⠿</span>
                 {bookmarkName}
               </a>
-              <span style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>← drag</span>
+              <span aria-hidden style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>← drag</span>
             </div>
             <div style={{ marginTop: 8, fontSize: 11.5, color: "rgba(255,255,255,0.5)", lineHeight: 1.45 }}>
               No bookmarks bar showing? Press {isMac ? "⌘⇧B" : "Ctrl+Shift+B"} to show it. Or open the board and press {isMac ? "⌘D" : "Ctrl+D"} to bookmark it there.
@@ -547,8 +546,8 @@ export default function BuildPage() {
                 slug={(teacherProfile?.classrooms?.find(c => c.id === getActiveClassroomId()) || {}).slug ?? (getActiveClassroomId() === DEFAULT_CLASSROOM_ID ? teacherProfile?.slug : null)}
                 bookmarkName={(() => {
                   const room = teacherProfile?.classrooms?.find(c => c.id === getActiveClassroomId());
-                  const course = room?.name || room?.subject || teacherProfile?.subject || "My board";
-                  return teacherProfile?.school ? `${course} · ${teacherProfile.school}` : course;
+                  // Just the course. Jay: "Teachers know where they work already."
+                  return room?.name || room?.subject || teacherProfile?.subject || "My board";
                 })()}
               />
             </SignedIn>
