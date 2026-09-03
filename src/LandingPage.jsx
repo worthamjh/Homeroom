@@ -97,7 +97,13 @@ function ClerkAwareLanding() {
           <UserButton afterSignOutUrl="/" />
         </div>
         {profile === null ? (
-          <ProfileOnboarding teacherId={teacherId} onComplete={setProfile} />
+          // A new account's first stop is Build, where the tour starts and
+          // the first unit gets added -- not the board, which is empty and
+          // has nothing to click yet (Jay, testing sign-up as a stranger:
+          // "should there be something that points the user to click the
+          // build menu"). A returning teacher with a profile still lands on
+          // their board (the effect above).
+          <ProfileOnboarding teacherId={teacherId} onComplete={() => navigate("/build")} />
         ) : (
           <div style={{ color: "rgba(255,255,255,0.5)", fontFamily: "Lato, sans-serif", fontSize: 14 }}>
             Taking you to your board…
