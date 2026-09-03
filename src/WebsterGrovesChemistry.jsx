@@ -967,17 +967,59 @@ function Stars({ height = 68 }) {
   );
 }
 
+// The Drive file id in a slides embed picked from Drive
+// (docs.google.com/presentation/d/<id>/embed). A deck published to the
+// web (/d/e/2PACX-...) carries no file id and cannot be checked.
+function driveFileIdFromSlidesUrl(src) {
+  const m = new RegExp("docs\\.google\\.com/presentation/d/(?!e/)([A-Za-z0-9_-]{20,})").exec(String(src || ""));
+  return m ? m[1] : null;
+}
+
 function SmartBoard({ src }) {
   // Width-driven sizing on purpose: the frame is always exactly the width of
   // its column (100%) and height falls out of the 16:9 ratio. This makes it
   // structurally impossible for the board to grow wider than its column,
   // no matter how much vertical room is available (unlike a height-driven
   // flex/aspect-ratio approach, which can blow out sideways on tall screens).
+  //
+  // A deck deleted from Drive (or whose sharing was pulled) used to leave
+  // Google's own error page sitting in the frame, which says nothing a
+  // student or a substitute can act on. The embed is cross-origin, so the
+  // frame cannot be read; the server checks Drive's thumbnail for the file
+  // instead (see slidesProbe in api/profile.js -- from the page, ad
+  // blockers turn the same check into a false alarm). Wording stays
+  // hedged because "deleted" and "no longer shared" look identical from
+  // outside. Silence on any error: a notice must never be a guess.
+  const fileId = driveFileIdFromSlidesUrl(src);
+  const [unavailable, setUnavailable] = useState(false);
+  useEffect(() => {
+    setUnavailable(false);
+    if (!fileId) return;
+    let cancelled = false;
+    fetch(`/api/profile?slidesProbe=${encodeURIComponent(fileId)}`)
+      .then(r => (r.ok ? r.json() : null))
+      .then(j => { if (!cancelled && j && j.available === false) setUnavailable(true); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [fileId]);
   return (
     <div style={{ width: "100%", maxWidth: "100%", minWidth: 0, height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", boxSizing: "border-box" }}>
       <div style={{ width: "100%", maxWidth: "100%", boxSizing: "border-box", background: "#111", borderRadius: "8px 8px 0 0", padding: "8px 8px 0", border: "2px solid #2a2a2a", borderBottom: "none", pointerEvents: "auto" }}>
-        <div style={{ width: "100%", background: "#0a0a0a", borderRadius: "4px 4px 0 0", aspectRatio: "16/9", overflow: "hidden", border: "1px solid var(--board-primary)" }}>
+        <div style={{ width: "100%", background: "#0a0a0a", borderRadius: "4px 4px 0 0", aspectRatio: "16/9", overflow: "hidden", border: "1px solid var(--board-primary)", position: "relative" }}>
           <iframe src={src} style={{ width: "100%", height: "100%", border: "none", display: "block" }} allowFullScreen title="slides" />
+          {unavailable && (
+            <div style={{ position: "absolute", inset: 0, background: "rgba(10,10,10,0.94)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", padding: 24, gap: 10 }}>
+              <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 20, letterSpacing: 1, textTransform: "uppercase", color: "var(--board-secondary-accent, #E87722)" }}>
+                These slides can't be shown
+              </div>
+              <div style={{ fontFamily: "Lato, sans-serif", fontSize: 14, lineHeight: 1.5, color: "rgba(255,255,255,0.75)", maxWidth: 440 }}>
+                The deck may have been deleted from Google Drive, or its sharing may have changed.
+                {isBuildMode
+                  ? " Use Change, above the board, to pick another deck or restore this one in Drive."
+                  : " The teacher can pick the slides again in Build."}
+              </div>
+            </div>
+          )}
         </div>
       </div>
       <div style={{ width: "100%", height: 18, flexShrink: 0, boxSizing: "border-box", background: "#111", border: "2px solid #2a2a2a", borderTop: "1px solid #333", borderRadius: "0 0 6px 6px", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 12px", pointerEvents: "auto" }}>

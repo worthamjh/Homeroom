@@ -138,6 +138,24 @@ export async function ensureClassroomSlugs(col, teacherId, { school, teacherName
   return changed;
 }
 
+const slidesProbeCache = new Map();   // fileId -> { at, available }
+async function driveFileLooksAvailable(fileId) {
+  const hit = slidesProbeCache.get(fileId);
+  if (hit && Date.now() - hit.at < 10 * 60 * 1000) return hit.available;
+  let available = true;   // any doubt (network trouble, odd answer) leaves the board alone
+  try {
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), 6000);
+    const r = await fetch(`https://drive.google.com/thumbnail?id=${encodeURIComponent(fileId)}&sz=w64`, { redirect: "follow", signal: ctl.signal });
+    clearTimeout(timer);
+    const type = r.headers.get("content-type") || "";
+    if (r.status === 404 || r.status === 500 || (r.ok && !type.startsWith("image/"))) available = false;
+    else if (r.ok && type.startsWith("image/")) available = true;
+  } catch { available = true; }
+  slidesProbeCache.set(fileId, { at: Date.now(), available });
+  return available;
+}
+
 export default async function handler(req, res) {
   try {
   // Short address lookup: /api/profile?slug=<name> answers { teacherId }
@@ -146,6 +164,23 @@ export default async function handler(req, res) {
   // sits BEFORE the session check because a visitor following a short
   // link has no session. Whether the board then opens is still the
   // shared-board rule in api/_auth.js; this only says which board.
+  // Is a Drive slide deck still there? /api/profile?slidesProbe=<fileId>
+  // answers { available: true|false }. The board asks before it shows a
+  // "these slides can't be shown" notice over a deck that was deleted from
+  // Drive. Done here, not in the browser: an image probe from the page is
+  // blocked by ad blockers (Jay's own Chrome answered 503 for every Google
+  // image), which would flag every deck as gone. Drive's thumbnail for a
+  // shared deck is an image; for a deleted one it is an error page. Cached
+  // ten minutes per file so a classroom of reloads costs one lookup.
+  if (req.method === "GET" && typeof req.query?.slidesProbe === "string") {
+    if (!(await enforceRateLimit(req, res, { teacherId: PUBLIC_TEACHER_ID, bucket: "slidesProbe" }))) return;
+    const id = req.query.slidesProbe;
+    if (!/^[A-Za-z0-9_-]{20,}$/.test(id)) { res.status(400).json({ error: "bad file id" }); return; }
+    res.setHeader("Cache-Control", "public, max-age=600");
+    res.status(200).json({ available: await driveFileLooksAvailable(id) });
+    return;
+  }
+
   // Partner district lookup: /api/profile?districtDomain=wgmail.org or
   // ?districtId=webster-groves answers the district, or null. Public,
   // like the address lookup below, and lives here rather than in its own
