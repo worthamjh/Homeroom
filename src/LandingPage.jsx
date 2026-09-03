@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { SignedIn, SignedOut, SignInButton, SignUpButton, UserButton, useUser } from "@clerk/clerk-react";
 import { CLERK_CONFIGURED, CLERK_ID_PREFIX } from "./boardConfig";
-import { fetchProfile } from "./lib/profileApi";
+import { fetchProfile, readCachedProfile } from "./lib/profileApi";
 import ProfileOnboarding from "./ProfileOnboarding";
 import { LegalLinks } from "./LegalPage";
 
@@ -61,9 +61,15 @@ function ClerkAwareLanding() {
   useEffect(() => {
     if (!isLoaded || !isSignedIn || !teacherId) return;
     let cancelled = false;
+    // The last profile this browser saw for this teacher sends them to
+    // their board at once, rather than showing the front door for a beat
+    // while the server is asked (Jay: "shows the homepage for a second").
+    // The fetch still runs and its answer replaces the cached one.
+    const cached = readCachedProfile(teacherId);
+    if (cached) setProfile(cached);
     fetchProfile(teacherId)
       .then(p => { if (!cancelled) setProfile(p); })
-      .catch(() => { if (!cancelled) setProfile(null); }); // fail open into onboarding rather than stall forever
+      .catch(() => { if (!cancelled && !cached) setProfile(null); }); // fail open into onboarding rather than stall forever
     return () => { cancelled = true; };
   }, [isLoaded, isSignedIn, teacherId]);
 

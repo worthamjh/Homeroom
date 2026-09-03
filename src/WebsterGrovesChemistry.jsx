@@ -9,7 +9,7 @@ import { notebookTemplate } from "./lib/notebooks";
 import { LegalLinks } from "./LegalPage";
 import { dropUnknownClassroom } from "./lib/activeClassroom";
 import { fetchProfile, readCachedProfile } from "./lib/profileApi";
-import { fetchCurriculum, saveCurriculum } from "./lib/curriculumApi";
+import { fetchCurriculum, saveCurriculum, readCachedCurriculum } from "./lib/curriculumApi";
 import CurriculumHistory from "./CurriculumHistory";
 import { fetchCheckedGoals, saveCheckedGoals } from "./lib/checkedGoalsApi";
 import { fetchBoardContent, saveBoardContent, UNIT_CONTENT_LESSON } from "./lib/boardContentApi";
@@ -2622,7 +2622,9 @@ export default function App({ viewer = false } = {}) {
   // Webster Groves site (DEFAULT_TEACHER_ID) never fetches or writes this
   // at all; its curriculum stays the hardcoded `curriculum` export below,
   // unrelated to any of this.
-  const [blankUnits, setBlankUnits] = useState(BLANK_CURRICULUM);
+  // Seeded from the last units this browser saw, so a deep link resolves
+  // its unit and lesson on the first render (see readCachedCurriculum).
+  const [blankUnits, setBlankUnits] = useState(() => (isBlankTeacher && readCachedCurriculum(activeTeacherId)) || BLANK_CURRICULUM);
   useEffect(() => {
     if (!isBlankTeacher) return;
     let cancelled = false;
