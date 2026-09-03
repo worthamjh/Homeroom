@@ -12,7 +12,7 @@ import {
   wallColorSwatch, isCustomWallColor,
   BOARD_SURFACES, DEFAULT_BOARD_SURFACE, BOARD_SURFACE_STORAGE_KEY, surfaceColors,
   BOARD_ACCENT_PRESETS, DEFAULT_BOARD_ACCENT, BOARD_ACCENT_STORAGE_KEY,
-  isBoardAccentKey, isCustomBoardAccent, boardAccentBaseColor,
+  isBoardAccentKey, isCustomBoardAccent, boardAccentBaseColor, boardAccentPresetLabel,
   SLIDING_BOARDS_ENABLED_KEY, DEFAULT_SLIDING_BOARDS_ENABLED,
   SLIDING_BOARDS_COUNT_KEY, DEFAULT_SLIDING_BOARDS_COUNT, SLIDING_BOARDS_COUNT_OPTIONS,
   DESIGN_AREAS, useOwnedDesignOptions,
@@ -243,6 +243,17 @@ export default function BoardSettingsPanel({ selected, onSelect, panelCountInfo,
   const [wallTypeKey, setWallTypeKey] = useScopedSetting(WALL_TYPE_STORAGE_KEY, DEFAULT_WALL_TYPE, k => !!WALL_TYPES[k]);
   const [wallColorKey, setWallColorKey] = useScopedSetting(WALL_COLOR_STORAGE_KEY, DEFAULT_WALL_COLOR_BY_TYPE[DEFAULT_WALL_TYPE], null);
   const [boardSurfaceKey, setBoardSurfaceKey] = useScopedSetting(BOARD_SURFACE_STORAGE_KEY, DEFAULT_BOARD_SURFACE, k => !!BOARD_SURFACES[k]);
+  // The typed-hex box under Header & Accent Color: what is being typed,
+  // committed on Enter or on clicking away, if it is a real colour.
+  const [accentHexDraft, setAccentHexDraft] = useState("");
+  const commitAccentHex = () => {
+    const raw = accentHexDraft.trim();
+    if (!raw) return;
+    const hex = (raw.startsWith("#") ? raw : `#${raw}`).toLowerCase();
+    const full = /^#[0-9a-f]{3}$/.test(hex) ? `#${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}` : hex;
+    if (isCustomBoardAccent(full)) setBoardAccentKey(full);
+    setAccentHexDraft("");
+  };
   const [boardAccentKey, setBoardAccentKey] = useScopedSetting(BOARD_ACCENT_STORAGE_KEY, DEFAULT_BOARD_ACCENT, isBoardAccentKey);
   // Swatches show the colour AFTER the contrast pass, so a pick that had
   // to be corrected shows itself as corrected rather than lying about what
@@ -252,7 +263,7 @@ export default function BoardSettingsPanel({ selected, onSelect, panelCountInfo,
   // just the accent color"). The note under the list already says the
   // colour gets adjusted, so the swatch does not have to say it too.
   const accentPreview = (key) => {
-    const base = boardAccentBaseColor(key, primaryColor, secondaryColor);
+    const base = boardAccentBaseColor(key, primaryColor, secondaryColor, boardSurfaceKey);
     return surfaceColors(boardSurfaceKey, base).accent;
   };
   // Number of Boards edits THIS LESSON now, not the whole board (see
@@ -459,7 +470,7 @@ export default function BoardSettingsPanel({ selected, onSelect, panelCountInfo,
                       key={a.id}
                       selected={boardAccentKey === a.id}
                       onClick={() => setBoardAccentKey(a.id)}
-                      label={a.label}
+                      label={boardAccentPresetLabel(a.id, boardSurfaceKey)}
                       swatch={
                         <span style={{ width: 16, height: 16, borderRadius: 3, flexShrink: 0, background: accentPreview(a.id), border: `2px solid ${boardAccentKey === a.id ? "var(--board-secondary)" : "rgba(255,255,255,0.3)"}` }} />
                       }
@@ -468,14 +479,29 @@ export default function BoardSettingsPanel({ selected, onSelect, panelCountInfo,
                   <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 14px 2px" }}>
                     <input
                       type="color"
-                      value={boardAccentBaseColor(boardAccentKey, primaryColor, secondaryColor)}
+                      value={boardAccentBaseColor(boardAccentKey, primaryColor, secondaryColor, boardSurfaceKey)}
                       onChange={e => setBoardAccentKey(e.target.value)}
+                      onBlur={e => { if (isCustomBoardAccent(e.target.value) && e.target.value !== boardAccentKey) setBoardAccentKey(e.target.value); }}
                       title="Pick any header color"
                       style={{ width: 26, height: 26, padding: 0, border: `2px solid ${isCustomBoardAccent(boardAccentKey) ? "var(--board-secondary)" : "rgba(255,255,255,0.3)"}`, borderRadius: 4, background: "transparent", cursor: "pointer", flexShrink: 0 }}
                     />
-                    <span style={{ fontFamily: "Lato, sans-serif", fontSize: 12, color: isCustomBoardAccent(boardAccentKey) ? "#fff" : "rgba(255,255,255,0.55)" }}>
-                      {isCustomBoardAccent(boardAccentKey) ? `Custom ${boardAccentKey.toUpperCase()}` : "Custom color…"}
-                    </span>
+                    {/* A hex box of our own. Chrome's picker only commits a
+                        typed code on Enter -- click away and it is dropped
+                        (Jay: "when you make a custom color and click off
+                        of it, the option does not save"). This one saves
+                        on Enter AND on clicking away. */}
+                    <input
+                      type="text"
+                      value={accentHexDraft}
+                      onChange={e => setAccentHexDraft(e.target.value)}
+                      onFocus={e => e.target.select()}
+                      onBlur={commitAccentHex}
+                      onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); e.currentTarget.blur(); } if (e.key === "Escape") { setAccentHexDraft(""); e.currentTarget.blur(); } }}
+                      placeholder={isCustomBoardAccent(boardAccentKey) ? boardAccentKey.toUpperCase() : "Custom, e.g. #E87722"}
+                      spellCheck={false}
+                      title="Type a hex colour and press Enter or click away"
+                      style={{ width: 118, fontFamily: "Lato, sans-serif", fontSize: 12, padding: "5px 8px", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 4, color: "#fff", outline: "none" }}
+                    />
                   </div>
 
                   <SectionHeading help="Sets how many boards this lesson has — just this one; every lesson keeps its own count and new ones start at 1. Pick 1 for a single flat board, or 2–5 to slide between them in class the way a real sliding chalkboard does. You always get exactly the number you pick, so any board you don't fill simply stays blank.">Number of Boards{hasLessonOpen ? ` — ${currentLesson.lessonTitle}` : ""}</SectionHeading>

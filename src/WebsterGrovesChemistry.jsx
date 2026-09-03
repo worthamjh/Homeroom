@@ -3023,6 +3023,7 @@ export default function App({ viewer = false } = {}) {
     boardAccentKey,
     isBlankTeacher ? teacherProfile?.primaryColor : undefined,
     isBlankTeacher ? teacherProfile?.secondaryColor : undefined,
+    boardSurfaceKey,
   ));
   // One number does both jobs: 1 means a single flat board, 2-5 slide.
   const slidingCount = parseInt(lessonBoardCount, 10) || 1;
@@ -4329,11 +4330,21 @@ export default function App({ viewer = false } = {}) {
               })()}
             </div>
 
-            {/* Chalk ledge / marker tray — styled per the Board Surface preset. */}
+            {/* Chalk ledge / marker tray — styled per the Board Surface preset.
+                Chalk on a chalkboard; on a whiteboard, dry-erase markers
+                (Jay: "change the chalk pieces to dry erase markers"): a
+                capped barrel each, in the four colours every tray has. */}
             <div style={{ height: 8, background: surface.ledgeBg, borderTop: `2px solid ${surface.ledgeBorder}`, display: "flex", alignItems: "center", padding: `0 ${SPACE.sm}px`, gap: SPACE.xs }}>
-              {[["#f0f0f0", 18], ["var(--board-secondary)", 18], ["#f0f0f0", 12]].map(([c, w], i) => (
-                <div key={i} style={{ width: w, height: 4, borderRadius: 1, background: c }} />
-              ))}
+              {boardSurfaceKey === "dryErase"
+                ? ["#1c1c1c", "#d0312d", "#1f5fbf", "#2e8b57"].map((c, i) => (
+                    <div key={i} title="Dry-erase marker" style={{ display: "flex", alignItems: "center", height: 5 }}>
+                      <div style={{ width: 5, height: 5, borderRadius: "1px 0 0 1px", background: c, boxShadow: "inset -1px 0 0 rgba(0,0,0,0.3)" }} />
+                      <div style={{ width: 15, height: 5, borderRadius: "0 2px 2px 0", background: `linear-gradient(180deg, #f4f4f4, #cfcfcf)`, boxShadow: `inset 0 -1px 0 rgba(0,0,0,0.25)` }} />
+                    </div>
+                  ))
+                : [["#f0f0f0", 18], ["var(--board-secondary)", 18], ["#f0f0f0", 12]].map(([c, w], i) => (
+                    <div key={i} style={{ width: w, height: 4, borderRadius: 1, background: c }} />
+                  ))}
             </div>
           </div>
         </div>

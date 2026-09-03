@@ -886,10 +886,20 @@ export function isBoardAccentKey(value) {
 
 // What the setting resolves to BEFORE the contrast pass -- the colour the
 // teacher actually asked for. surfaceColors() is what makes it legible.
-export function boardAccentBaseColor(key, primaryColor, secondaryColor) {
+// The third preset is the writing tool's own colour: chalk on a
+// chalkboard, a black marker on a whiteboard. Same stored id ("chalk"),
+// so switching surfaces keeps a teacher's choice; only what it means
+// changes. (Jay: "having 'chalk white' on the dry erase board as an
+// option is kinda goofy.")
+const MARKER_BLACK = "#1c1c1c";
+export function boardAccentPresetLabel(id, boardSurfaceKey) {
+  if (id === "chalk" && boardSurfaceKey === "dryErase") return "Marker Black";
+  return BOARD_ACCENT_PRESETS.find(p => p.id === id)?.label || id;
+}
+export function boardAccentBaseColor(key, primaryColor, secondaryColor, boardSurfaceKey) {
   if (isCustomBoardAccent(key)) return key.trim();
   if (key === "primary") return primaryColor || DEFAULT_PRIMARY_COLOR;
-  if (key === "chalk") return CHALK_WHITE;
+  if (key === "chalk") return boardSurfaceKey === "dryErase" ? MARKER_BLACK : CHALK_WHITE;
   return secondaryColor || DEFAULT_SECONDARY_COLOR;
 }
 
