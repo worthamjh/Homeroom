@@ -212,7 +212,7 @@ function SignInPrompt() {
 // link, and the link itself. Writes the "boardShared" setting, which
 // api/_auth.js reads to let signed-out GETs through for this teacher
 // (view only; see the comment there). Opt-in, per teacher: Jay's call.
-function ShareBoard({ teacherId, slug }) {
+function ShareBoard({ teacherId, slug, bookmarkName }) {
   const [shared, setShared] = useScopedSetting("boardShared", "false", k => k === "true" || k === "false");
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -222,24 +222,13 @@ function ShareBoard({ teacherId, slug }) {
   const link = slug
     ? `${window.location.origin}/board/${slug}`
     : `${window.location.origin}/board?teacher=${encodeURIComponent(teacherId)}${classroomQuery()}`;
-  // The teacher's own way back to THIS classroom's Build: one bookmark
-  // per course on the bookmarks bar (Jay). Same short address, under
-  // /build/.
-  const room = getActiveClassroomId();
-  const buildLink = slug
-    ? `${window.location.origin}/build/${slug}`
-    : `${window.location.origin}/build${room === DEFAULT_CLASSROOM_ID ? "" : `?class=${encodeURIComponent(room)}`}`;
-  const [copiedBuild, setCopiedBuild] = useState(false);
   const copy = () => {
     navigator.clipboard?.writeText(link)
       .then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500); })
       .catch(() => {});
   };
-  const copyBuild = () => {
-    navigator.clipboard?.writeText(buildLink)
-      .then(() => { setCopiedBuild(true); setTimeout(() => setCopiedBuild(false), 1500); })
-      .catch(() => {});
-  };
+  // Mac shows the Command key for bookmarking; everything else Ctrl.
+  const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent || "");
   return (
     <div style={{ position: "relative", flexShrink: 0 }}>
       <button
@@ -277,19 +266,34 @@ function ShareBoard({ teacherId, slug }) {
               Want a shorter link? Set a board address on your <a href="/profile?from=build" style={{ color: "var(--board-secondary-accent)" }}>Profile</a> page.
             </div>
           )}
+          {/* Putting the board on the bookmarks bar. A page cannot add a
+              bookmark itself, but a link DRAGGED onto the bar becomes one,
+              named after the link's text -- so this chip is a real link
+              carrying the course name. Jay: "make sure that not
+              technically proficient teachers have an easy way to add
+              their class link to the address board." One chip per
+              course, dragged once, is the class switcher. */}
           <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px solid #333" }}>
-            <div style={{ color: "#fff", fontSize: 12.5, marginBottom: 2 }}>Your Build link for this classroom</div>
-            <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 11.5, lineHeight: 1.45, marginBottom: 8 }}>
-              Bookmark one per course and switch classes from the bookmarks bar. Opens Build; sign-in still required.
+            <div style={{ color: "#fff", fontSize: 12.5, marginBottom: 2 }}>Put this board on your bookmarks bar</div>
+            <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 11.5, lineHeight: 1.45, marginBottom: 10 }}>
+              Drag the tag below up onto your bookmarks bar. One tag per course, and switching classes is one click.
             </div>
-            <div style={{ display: "flex", gap: 6 }}>
-              <input
-                readOnly value={buildLink} onFocus={e => e.target.select()}
-                style={{ flex: 1, minWidth: 0, background: "#111", border: "1px solid #444", borderRadius: 4, color: "#ddd", fontSize: 11.5, padding: "7px 8px", fontFamily: "Lato, sans-serif" }}
-              />
-              <button type="button" onClick={copyBuild} style={{ background: "transparent", color: "var(--board-secondary-accent)", border: "1px solid rgba(255,255,255,0.25)", borderRadius: 4, padding: "7px 12px", fontFamily: "Oswald, sans-serif", fontSize: 12, letterSpacing: 0.5, cursor: "pointer", flexShrink: 0 }}>
-                {copiedBuild ? "Copied" : "Copy"}
-              </button>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <a
+                href={link}
+                target="_blank"
+                rel="noopener"
+                draggable="true"
+                title="Drag me onto the bookmarks bar (or click to open the board)"
+                style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "var(--board-secondary)", color: "var(--board-secondary-fg)", textDecoration: "none", borderRadius: 6, padding: "8px 12px", fontFamily: "Oswald, sans-serif", fontSize: 13, letterSpacing: 0.4, cursor: "grab", boxShadow: "0 2px 6px rgba(0,0,0,0.4)", userSelect: "none" }}
+              >
+                <span aria-hidden style={{ opacity: 0.8 }}>⠿</span>
+                {bookmarkName}
+              </a>
+              <span style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>← drag</span>
+            </div>
+            <div style={{ marginTop: 8, fontSize: 11.5, color: "rgba(255,255,255,0.5)", lineHeight: 1.45 }}>
+              No bookmarks bar showing? Press {isMac ? "⌘⇧B" : "Ctrl+Shift+B"} to show it. Or open the board and press {isMac ? "⌘D" : "Ctrl+D"} to bookmark it there.
             </div>
           </div>
         </div>
@@ -538,7 +542,15 @@ export default function BuildPage() {
           )}
           {isBlankTeacher && CLERK_CONFIGURED && (
             <SignedIn>
-              <ShareBoard teacherId={activeTeacherId} slug={(teacherProfile?.classrooms?.find(c => c.id === getActiveClassroomId()) || {}).slug ?? (getActiveClassroomId() === DEFAULT_CLASSROOM_ID ? teacherProfile?.slug : null)} />
+              <ShareBoard
+                teacherId={activeTeacherId}
+                slug={(teacherProfile?.classrooms?.find(c => c.id === getActiveClassroomId()) || {}).slug ?? (getActiveClassroomId() === DEFAULT_CLASSROOM_ID ? teacherProfile?.slug : null)}
+                bookmarkName={(() => {
+                  const room = teacherProfile?.classrooms?.find(c => c.id === getActiveClassroomId());
+                  const course = room?.name || room?.subject || teacherProfile?.subject || "My board";
+                  return teacherProfile?.school ? `${course} · ${teacherProfile.school}` : course;
+                })()}
+              />
             </SignedIn>
           )}
           {/* The store is where the long tail of designs lives, so that
