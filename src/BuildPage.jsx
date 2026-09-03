@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/clerk-react";
 import { getActiveTeacherId, DEFAULT_TEACHER_ID, CLERK_CONFIGURED, boardThemeVars, useScopedSetting, BUILD_TOUR_DONE_KEY, DEFAULT_BUILD_TOUR_DONE, readCurrentView, getActiveClassroomId, setActiveClassroomId, classroomQuery, DEFAULT_CLASSROOM_ID } from "./boardConfig";
 import { dropUnknownClassroom } from "./lib/activeClassroom";
-import { fetchProfile } from "./lib/profileApi";
+import { fetchProfile, readCachedProfile } from "./lib/profileApi";
 import BoardSettingsPanel from "./BoardSettingsPanel";
 import GuidedTour from "./GuidedTour";
 
@@ -339,7 +339,9 @@ export default function BuildPage() {
   // Same theming as the real board (see WebsterGrovesChemistry.jsx) — Build
   // renders outside the iframe, so it needs its own profile fetch rather
   // than inheriting the embedded board's CSS vars.
-  const [teacherProfile, setTeacherProfile] = useState(null);
+  // Seeded from the cache so Build's own buttons are in the teacher's
+  // colours from the first frame (the board inside does the same).
+  const [teacherProfile, setTeacherProfile] = useState(() => isBlankTeacher ? readCachedProfile(activeTeacherId) : null);
   useEffect(() => {
     if (!isBlankTeacher) return;
     let cancelled = false;

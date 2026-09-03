@@ -7,7 +7,7 @@ import { googleDriveConfigured, ensureGoogleScriptsLoaded, pickGoogleSlidesEmbed
 import BulletinNotebook from "./BulletinNotebook";
 import { notebookTemplate } from "./lib/notebooks";
 import { dropUnknownClassroom } from "./lib/activeClassroom";
-import { fetchProfile } from "./lib/profileApi";
+import { fetchProfile, readCachedProfile } from "./lib/profileApi";
 import { fetchCurriculum, saveCurriculum } from "./lib/curriculumApi";
 import CurriculumHistory from "./CurriculumHistory";
 import { fetchCheckedGoals, saveCheckedGoals } from "./lib/checkedGoalsApi";
@@ -2578,19 +2578,27 @@ export default function App({ viewer = false } = {}) {
   // primary)/var(--board-secondary), see boardThemeVars in boardConfig.js).
   // The real Webster Groves site (DEFAULT_TEACHER_ID) never fetches or
   // reads this — it keeps its own fixed branding regardless.
-  const [teacherProfile, setTeacherProfile] = useState(null);
+  // Seeded from the last profile this browser saw, so the first frame is
+  // already in the teacher's colours. With nothing cached (a first visit,
+  // a visitor's incognito window) the board stays dark until the profile
+  // answers, rather than flashing Webster Groves orange first; a slow or
+  // failed answer stops the wait after a moment and the defaults show.
+  const [teacherProfile, setTeacherProfile] = useState(() => isBlankTeacher ? readCachedProfile(activeTeacherId) : null);
+  const [profileSettled, setProfileSettled] = useState(() => !isBlankTeacher || !!readCachedProfile(activeTeacherId));
   useEffect(() => {
     if (!isBlankTeacher) return;
     let cancelled = false;
+    const giveUp = setTimeout(() => { if (!cancelled) setProfileSettled(true); }, 2500);
     fetchProfile(activeTeacherId)
       .then(p => {
         if (cancelled) return;
         // A ?class= for a classroom that is gone reloads as the main one.
         if (dropUnknownClassroom(p?.classrooms)) return;
         setTeacherProfile(p);
+        setProfileSettled(true);
       })
-      .catch(() => {}); // no profile yet, or a transient error — falls back to defaults below
-    return () => { cancelled = true; };
+      .catch(() => { if (!cancelled) setProfileSettled(true); }); // no profile yet, or a transient error — falls back to defaults below
+    return () => { cancelled = true; clearTimeout(giveUp); };
   }, [isBlankTeacher, activeTeacherId]);
   const themeVars = isBlankTeacher
     ? boardThemeVars(teacherProfile?.primaryColor, teacherProfile?.secondaryColor, teacherProfile?.headingFont, teacherProfile?.bodyFont)
@@ -3914,6 +3922,12 @@ export default function App({ viewer = false } = {}) {
   // pixel reference inside these embedded copies breaks that loop: it no
   // longer depends on whatever height the iframe happens to have.
   const oneScreenHeight = (isPreviewMode || isBuildMode) ? "900px" : "100vh";
+
+  // Nothing of the board shows until its colours are known (see
+  // profileSettled above): a still dark page beats a wrong-coloured one.
+  if (!profileSettled) {
+    return <div style={{ minHeight: oneScreenHeight, background: "#141414" }} />;
+  }
 
   return (
     <div onClick={() => setOpenDropdown(null)}

@@ -4,11 +4,38 @@
 // lib/extraAssignments.js.
 
 import { apiFetch } from "./apiClient";
+// The last profile this browser saw for a teacher, so a board can paint
+// in the right colours on its FIRST frame instead of in Webster Groves
+// orange until the fetch lands (Jay, on a new maroon account: "it
+// flashed the webster groves color scheme for a second then goes to the
+// user color scheme"). Purely a paint hint: the fetch still runs and
+// wins. Colours, fonts and names only -- nothing here is secret, and a
+// shared board's visitor gets the same public profile anyway.
+const PROFILE_CACHE_PREFIX = "homeroom:profile:";
+export function readCachedProfile(teacherId) {
+  if (typeof window === "undefined" || !teacherId) return null;
+  try {
+    const raw = window.localStorage.getItem(PROFILE_CACHE_PREFIX + teacherId);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+function cacheProfile(teacherId, profile) {
+  if (typeof window === "undefined" || !teacherId) return;
+  try {
+    if (profile) window.localStorage.setItem(PROFILE_CACHE_PREFIX + teacherId, JSON.stringify(profile));
+    else window.localStorage.removeItem(PROFILE_CACHE_PREFIX + teacherId);
+  } catch { /* ignore */ }
+}
+
 export async function fetchProfile(teacherId) {
   const params = new URLSearchParams({ teacherId });
   const res = await apiFetch(`/api/profile?${params}`);
   if (!res.ok) throw new Error(`Failed to load profile (${res.status})`);
-  return res.json(); // null when this teacher hasn't onboarded yet
+  const profile = await res.json(); // null when this teacher hasn't onboarded yet
+  cacheProfile(teacherId, profile);
+  return profile;
 }
 
 export async function saveProfile({ teacherId, teacherName, school, subject, primaryColor, secondaryColor, headingFont, bodyFont, homeImageUrl, slug, classrooms }) {
@@ -23,7 +50,9 @@ export async function saveProfile({ teacherId, teacherName, school, subject, pri
     const body = await res.json().catch(() => null);
     throw new Error(body?.error || `Failed to save profile (${res.status})`);
   }
-  return res.json();
+  const saved = await res.json();
+  cacheProfile(teacherId, saved);
+  return saved;
 }
 
 /** Who owns a short board address (gil-bilt.com/board/<slug>)? null if nobody. */
