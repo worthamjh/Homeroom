@@ -6,6 +6,7 @@ import { uploadAssignmentPdf, uploadSlidesFile } from "./lib/cloudinary";
 import { googleDriveConfigured, ensureGoogleScriptsLoaded, pickGoogleSlidesEmbed, pickGoogleDriveAssignmentFiles, pickGoogleCalendar, driveErrorMessage, createNotebookDoc } from "./lib/googleDrive";
 import BulletinNotebook from "./BulletinNotebook";
 import { notebookTemplate } from "./lib/notebooks";
+import { LegalLinks } from "./LegalPage";
 import { dropUnknownClassroom } from "./lib/activeClassroom";
 import { fetchProfile, readCachedProfile } from "./lib/profileApi";
 import { fetchCurriculum, saveCurriculum } from "./lib/curriculumApi";
@@ -153,6 +154,7 @@ function ToolsFooter({ links = FOOTER_LINKS }) {
             : <span style={{ fontFamily: "Oswald, sans-serif", fontSize: 11, color: "#fff", textAlign: "center", lineHeight: 1.1 }}>{t.label}</span>}
         </a>
       ))}
+      <LegalLinks style={{ width: "100%", textAlign: "center", marginTop: 2, opacity: 0.8 }} color="rgba(255,255,255,0.35)" />
     </div>
   );
 }

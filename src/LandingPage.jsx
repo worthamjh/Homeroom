@@ -4,6 +4,7 @@ import { SignedIn, SignedOut, SignInButton, SignUpButton, UserButton, useUser } 
 import { CLERK_CONFIGURED, CLERK_ID_PREFIX } from "./boardConfig";
 import { fetchProfile } from "./lib/profileApi";
 import ProfileOnboarding from "./ProfileOnboarding";
+import { LegalLinks } from "./LegalPage";
 
 /**
  * LandingPage — the new "/" route. Used to be the Webster Groves board
@@ -152,6 +153,7 @@ function Shell({ children }) {
       }}
     >
       {children}
+      <LegalLinks style={{ position: "absolute", bottom: 16, left: 0, right: 0, textAlign: "center" }} />
     </div>
   );
 }

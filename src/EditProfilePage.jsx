@@ -10,6 +10,7 @@ import {
 } from "./boardConfig";
 import { fetchProfile, saveProfile, downloadMyData, deleteMyAccount, deleteClassroom } from "./lib/profileApi";
 import { fetchDistrictByDomain, emailDomain } from "./lib/districtApi";
+import { LegalLinks } from "./LegalPage";
 import { uploadImage, cloudinaryConfigured } from "./lib/cloudinary";
 import { getActiveClassroomId, setActiveClassroomId, DEFAULT_CLASSROOM_ID } from "./lib/activeClassroom";
 
@@ -566,6 +567,7 @@ Your other classrooms are not affected.`;
             )}
           </div>
         </div>
+        <LegalLinks style={{ textAlign: "center", marginTop: 28 }} />
       </div>
     </Shell>
   );

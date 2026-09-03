@@ -9,6 +9,7 @@ import SettingsPage from './SettingsPage.jsx'
 import BuildPage from './BuildPage.jsx'
 import EditProfilePage from './EditProfilePage.jsx'
 import DesignStorePage from './DesignStorePage.jsx'
+import LegalPage from './LegalPage.jsx'
 import { useSyncAuthIdentity, CLERK_CONFIGURED } from './boardConfig.js'
 
 const CLERK_PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
@@ -67,6 +68,10 @@ const routedApp = (
           that panel short while the catalogue grows. See
           DesignStorePage.jsx and the design catalogue in boardConfig.js. */}
       <Route path="/store" element={<DesignStorePage />} />
+      {/* Privacy Policy and Terms of Service. Before the bare-address
+          catch-all below, so these names are never taken for a board. */}
+      <Route path="/privacy" element={<LegalPage />} />
+      <Route path="/terms" element={<LegalPage />} />
       {/* gil-bilt.com/<address> with the "/board/" left out -- which is
           what people type from memory (Jay did). Last, so every real page
           above wins; an address nobody owns goes to the front door. */}
