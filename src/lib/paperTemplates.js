@@ -82,15 +82,26 @@ export const BUILT_IN_PAPERS = [
   { id: "builtin:wide", label: "Wide Ruled", build: () => buildPdf(ruledContent(WIDE_RULE)) },
   { id: "builtin:college", label: "College Ruled", build: () => buildPdf(ruledContent(COLLEGE_RULE)) },
   { id: "builtin:graph", label: "Graph Paper", build: () => buildPdf(gridContent()) },
+  // A designed page rather than a drawn one: shipped as a static PDF under
+  // public/papers and fetched at create time. The same page the CER
+  // Notebook repeats (public/notebooks/cer-25.pdf); one page here, for a
+  // single Bell Ringer or Exit Slip. Jay: "the cer template i suppose
+  // could be added to the bellringer/exitslip section".
+  { id: "builtin:cer", label: "CER", file: "/papers/cer.pdf" },
 ];
 
 export function isBuiltInPaper(id) {
   return typeof id === "string" && id.startsWith("builtin:");
 }
 
-export function buildBuiltInPaperPdf(id) {
+export async function buildBuiltInPaperPdf(id) {
   const paper = BUILT_IN_PAPERS.find(p => p.id === id);
   if (!paper) return null;
+  if (paper.file) {
+    const res = await fetch(paper.file);
+    if (!res.ok) throw new Error(`Couldn't load the ${paper.label} paper (${res.status}).`);
+    return res.blob();
+  }
   // Latin-1: PDF operators are ASCII, so a byte-per-char conversion is exact.
   const text = paper.build();
   const bytes = new Uint8Array(text.length);

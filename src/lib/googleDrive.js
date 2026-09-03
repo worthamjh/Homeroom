@@ -1025,7 +1025,7 @@ export async function createKamiBellRingerDoc({ title, templateId, folderName, p
   // it works for a teacher who has set nothing up at all.
   if (isBuiltInPaper(templateId)) {
     try {
-      const blob = buildBuiltInPaperPdf(templateId);
+      const blob = await buildBuiltInPaperPdf(templateId);
       if (!blob) throw new Error(`Unknown built-in paper: ${templateId}`);
       file = await uploadPdfToDrive(accessToken, { name, parents, blob });
     } catch (err) {

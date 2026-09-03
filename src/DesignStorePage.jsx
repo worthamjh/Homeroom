@@ -77,6 +77,19 @@ function Preview({ preview }) {
     if (preview.paper === "builtin:wide") layers.push(rule("#9fc2e6", 11), "linear-gradient(90deg, transparent 0 14px, #e6a8a8 14px 15px, transparent 15px)");
     if (preview.paper === "builtin:college") layers.push(rule("#9fc2e6", 8), "linear-gradient(90deg, transparent 0 14px, #e6a8a8 14px 15px, transparent 15px)");
     if (preview.paper === "builtin:graph") layers.push(rule("#ccd6e0", 8), rule("#ccd6e0", 8, true));
+    if (preview.paper === "builtin:cer") {
+      // The CER page: its header band and the three section boxes.
+      return (
+        <div style={{ ...box, background: "#fff", display: "flex", justifyContent: "center", alignItems: "flex-end" }}>
+          <div style={{ width: "58%", height: "88%", position: "relative", background: "#fff", boxShadow: "0 1px 4px rgba(0,0,0,0.35)", borderRadius: "1px 1px 0 0", overflow: "hidden" }}>
+            <div style={{ position: "absolute", left: 0, right: 0, top: 0, height: 9, background: "#1f3a5f" }} />
+            {[0, 1, 2].map(i => (
+              <div key={i} style={{ position: "absolute", left: 5, right: 5, top: 14 + i * 19, height: 15, border: "1px solid #c7ccd3", borderRadius: 2, borderTopWidth: 3, borderTopColor: ["#1f3a5f", "#2e7d6e", "#c87f0a"][i] }} />
+            ))}
+          </div>
+        </div>
+      );
+    }
     return (
       <div style={{ ...box, background: "#fff", display: "flex", justifyContent: "center", alignItems: "flex-end" }}>
         <div style={{ width: "58%", height: "88%", background: layers.length ? layers.join(", ") + ", #fff" : "#fff", backgroundColor: "#fff", boxShadow: "0 1px 4px rgba(0,0,0,0.35)", borderRadius: "1px 1px 0 0" }} />
