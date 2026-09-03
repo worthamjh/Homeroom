@@ -240,14 +240,19 @@ const STEPS = [
     // think guiding the user to try the sliding mechanism would be
     // useful." So: this step rings the control, the next one rings the
     // arrows and waits for a real slide.
+    // "Got it" used to move on regardless, so a teacher who left it at 1
+    // arrived at "Slide the board" with no arrows to slide and a hint to
+    // go back (Jay: "you have to go back and click 2, some people might
+    // get stuck there"). Now the step waits for 2 or more -- picking it
+    // IS the advance -- and "Skip step" is the way past for a teacher who
+    // wants a flat board; the slide step then skips itself (below).
     id: "board-count",
     frame: "sidebar",
     selector: '[data-tour="tour-board-count"]',
     missingHint: "Open “Blackboard” in the side panel, with a lesson showing on the board — Number of Boards lives at the bottom of it.",
-    gate: "ack",
+    gate: "auto",
     title: "Number of boards",
-    body: "1 is a single flat board. 2 to 5 stack up like a real sliding chalkboard, each with its own goals and content. Pick 2 or more to try it.",
-    ackLabel: "Got it",
+    body: "1 is a single flat board. 2 to 5 stack up like a real sliding chalkboard, each with its own goals and content. Pick 2 or more to try it, or skip this step to keep a single board.",
   },
   {
     id: "slide-board",
@@ -489,7 +494,15 @@ export default function GuidedTour({ active, onDone, iframeRef, selected, boardW
       } else if (step.id === "open-lesson") {
         done = boardTargetExists(iframeRef.current, '[data-tour="tour-learning-goals"]')
           || boardTargetExists(iframeRef.current, '[data-tour="tour-add-slides"]');
+      } else if (step.id === "board-count") {
+        // Satisfied the moment the board is a sliding one: the arrows
+        // exist only with 2 or more boards.
+        done = boardTargetExists(iframeRef.current, '[data-tour="tour-slide-handle"]');
       } else if (step.id === "slide-board") {
+        // With a single board there is nothing to slide, so this step
+        // does not apply: skip it rather than ask for a setting the
+        // teacher just chose not to make.
+        if (!boardTargetExists(iframeRef.current, '[data-tour="tour-slide-handle"]')) { advance(); return; }
         // A parked board is one the teacher has slid aside -- the real
         // thing this step asks for, not a click on the tooltip.
         done = boardTargetExists(iframeRef.current, '[data-tour="tour-slide-handle"][data-parked="true"]');
