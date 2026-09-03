@@ -30,7 +30,7 @@ import {
   useLessonBoardCount, seedLessonBoardCount,
   SLIDING_BOARDS_ENABLED_KEY, DEFAULT_SLIDING_BOARDS_ENABLED,
   SLIDING_BOARDS_COUNT_KEY, DEFAULT_SLIDING_BOARDS_COUNT,
-  getActiveClassroomId, classroomQuery,
+  getActiveClassroomId, classroomQuery, DEFAULT_CLASSROOM_ID,
   BELL_RINGER_PLACEMENT_KEY, DEFAULT_BELL_RINGER_PLACEMENT, isBellRingerPlacement,
   EXIT_SLIP_PLACEMENT_KEY, DEFAULT_EXIT_SLIP_PLACEMENT,
   LEDGE_NOTEBOOK_KEY, DEFAULT_LEDGE_NOTEBOOK, isLedgeNotebookValue,
@@ -2601,7 +2601,14 @@ export default function App({ viewer = false } = {}) {
   // before classrooms existed.
   const activeClassroom = teacherProfile?.classrooms?.find(c => c.id === getActiveClassroomId()) || null;
   const boardTitleMain = isBlankTeacher ? (teacherProfile?.school || "Your School") : undefined;
-  const boardTitleAccent = isBlankTeacher ? (activeClassroom?.subject || teacherProfile?.subject || "Your Subject") : undefined;
+  // The accent word is the classroom's subject; with none typed, the
+  // classroom's NAME, since that is what the teacher called it (Jay made
+  // a "Biology" room and the title still said Chemistry, because the
+  // fallback jumped straight to the main classroom's subject). Only a
+  // classroom with neither falls back to the profile's subject.
+  const boardTitleAccent = isBlankTeacher
+    ? (activeClassroom?.subject || (activeClassroom && activeClassroom.id !== DEFAULT_CLASSROOM_ID ? activeClassroom.name : "") || teacherProfile?.subject || "Your Subject")
+    : undefined;
 
   // A real board tab starts at the homepage by default, same as always —
   // UNLESS it's a deep link with explicit ?unit=&lesson= params (see

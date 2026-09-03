@@ -301,7 +301,7 @@ Your other classrooms are not affected.`;
 
           <div style={{ marginBottom: 8 }}>
             <label style={labelStyle} htmlFor="ep-subject">Subject / room for this classroom (optional)</label>
-            <input id="ep-subject" style={fieldStyle} value={subject} onChange={e => setSubject(e.target.value)} placeholder="e.g. Chemistry, Room 214" />
+            <input id="ep-subject" style={fieldStyle} value={subject} onChange={e => setSubject(e.target.value)} placeholder={selectedClassroom && selectedClassroom.id !== DEFAULT_CLASSROOM_ID ? `Shown in the board title; blank means "${selectedClassroom.name || "the classroom name"}"` : "e.g. Chemistry, Room 214"} />
           </div>
 
           {/* ── Board address ── */}
