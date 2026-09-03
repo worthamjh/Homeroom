@@ -20,6 +20,7 @@
 // vendor, no SDK" spirit as cloudinary.js.
 
 import { isBuiltInPaper, buildBuiltInPaperPdf } from "./paperTemplates";
+import { NOTEBOOK_FOLDER_NAME, notebookDocTitle } from "./notebooks";
 import { apiFetch } from "./apiClient";
 
 const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
@@ -978,7 +979,7 @@ Content-Type: application/pdf
 }
 
 // `folderName`: "Bell Ringers" by default; Exit Slips get their own.
-export async function createKamiBellRingerDoc({ title, templateId, folderName } = {}) {
+export async function createKamiBellRingerDoc({ title, templateId, folderName, pdfBlob, docLabel = "Bell Ringer" } = {}) {
   await ensureGoogleScriptsLoaded();
   const accessToken = await requestAccessToken();
 
@@ -1007,6 +1008,17 @@ export async function createKamiBellRingerDoc({ title, templateId, folderName } 
   // a teacher being unable to make a bell ringer at all.
   let file = null;
   let templateError = null;
+
+  // A ready-made PDF (a notebook) is simply uploaded. No blank-doc
+  // fallback for this one: a notebook that is not the notebook is worse
+  // than an error the teacher can retry.
+  if (pdfBlob) {
+    try {
+      file = await uploadPdfToDrive(accessToken, { name, parents, blob: pdfBlob });
+    } catch (err) {
+      throw new Error(`Couldn't save the ${docLabel} to Drive: ${err?.message || err}`);
+    }
+  }
 
   // A built-in paper is generated here and uploaded, not copied: the app
   // owns files it creates, so this needs no picker and no per-file grant --
@@ -1058,4 +1070,22 @@ export async function createKamiBellRingerDoc({ title, templateId, folderName } 
   // silent fallback looks exactly like the template not working at all,
   // with nothing on screen to explain why.
   return { kamiUrl, fileId: file.id, name: file.name, templateError };
+}
+
+// One unit's copy of a notebook template: the static PDF under
+// public/notebooks, uploaded to a "Notebooks" folder in the teacher's
+// Drive and opened through Kami like a Bell Ringer. Called the first time
+// the notebook on the ledge is opened for a unit; the link is then kept
+// on that unit's board content (notebookDocs), so this runs once per
+// unit per template.
+export async function createNotebookDoc({ template, unitLabel }) {
+  const res = await fetch(template.file);
+  if (!res.ok) throw new Error(`Couldn't load the ${template.label} template (${res.status}).`);
+  const pdfBlob = await res.blob();
+  return createKamiBellRingerDoc({
+    title: notebookDocTitle(template, unitLabel),
+    pdfBlob,
+    folderName: NOTEBOOK_FOLDER_NAME,
+    docLabel: template.label,
+  });
 }

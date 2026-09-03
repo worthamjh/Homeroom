@@ -84,6 +84,22 @@ function Preview({ preview }) {
     );
   }
 
+  if (preview.kind === "notebook") {
+    // A closed notebook: spiral down the left, the template's header band
+    // across the top, and three faint boxes for the sections on the page.
+    return (
+      <div style={{ ...box, background: "#fff", display: "flex", justifyContent: "center", alignItems: "center" }}>
+        <div style={{ width: "58%", height: "84%", position: "relative", background: "#fff", borderRadius: "2px 3px 3px 2px", boxShadow: "0 1px 4px rgba(0,0,0,0.35)", overflow: "hidden" }}>
+          <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 7, background: "repeating-linear-gradient(180deg, #6b7280 0 2px, transparent 2px 6px)", opacity: 0.7 }} />
+          <div style={{ position: "absolute", left: 7, right: 0, top: 0, height: 9, background: "#1f3a5f" }} />
+          {[0, 1, 2].map(i => (
+            <div key={i} style={{ position: "absolute", left: 11, right: 4, top: 14 + i * 19, height: 15, border: "1px solid #c7ccd3", borderRadius: 2, borderTopWidth: 3, borderTopColor: ["#1f3a5f", "#2e7d6e", "#c87f0a"][i] }} />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   if (preview.kind === "layout") {
     return (
       <div style={{ ...box, background: "#2d5a2d", display: "grid", gridTemplateColumns: preview.columns, gap: 6, padding: 8 }}>

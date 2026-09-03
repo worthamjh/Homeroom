@@ -18,6 +18,7 @@ export { getActiveClassroomId, setActiveClassroomId, classroomQuery, DEFAULT_CLA
 // which is declared further down this module (const, not hoisted).
 const OWNED_DESIGN_OPTIONS_KEY_NAME = "ownedDesignOptions";
 import { BUILT_IN_PAPERS } from "./lib/paperTemplates";
+import { NOTEBOOK_TEMPLATES, isNotebookTemplateId } from "./lib/notebooks";
 
 // Real identity now exists (Clerk — see main.jsx's <ClerkProvider> and
 // useSyncAuthIdentity below), but the placeholder scheme this replaces
@@ -1100,7 +1101,18 @@ export const DESIGN_AREAS = {
   // more types over time. That way teachers can select what type of paper
   // they want for bell ringers."
   PAPER: "paper",
+  // Notebooks: a many-page PDF of one blank template, kept per unit, that
+  // rests on the chalk ledge. See src/lib/notebooks.js.
+  NOTEBOOK: "notebook",
 };
+
+// Which notebook sits on the chalk ledge for this classroom: a template id
+// from NOTEBOOK_TEMPLATES, or "" for none. Per classroom, like the rest of
+// the board's look; the notebooks a teacher OWNS are teacher-level, in the
+// store (see DESIGN_AREAS.NOTEBOOK).
+export const LEDGE_NOTEBOOK_KEY = "ledgeNotebook";
+export const DEFAULT_LEDGE_NOTEBOOK = "";
+export const isLedgeNotebookValue = v => v === "" || isNotebookTemplateId(v);
 
 export const designOptionKey = (area, optionId) => `${area}:${optionId}`;
 
@@ -1143,6 +1155,9 @@ const STORE_GATED_OPTIONS = {
   // the dropdown menu on the bell ringer right away"). College Ruled and
   // whatever comes later are store items.
   [DESIGN_AREAS.PAPER]: BUILT_IN_PAPERS.map(p => p.id).filter(id => !INCLUDED_PAPERS.includes(id)),
+  // Every notebook is a store item: nothing sits on the ledge until a
+  // teacher adds one.
+  [DESIGN_AREAS.NOTEBOOK]: NOTEBOOK_TEMPLATES.map(t => t.id),
 };
 
 // Ships with every board, no purchase, no ownership record.
@@ -1165,7 +1180,8 @@ export const DESIGN_AREA_LABELS = {
   [DESIGN_AREAS.BOARD_SURFACE]: "Board Surfaces",
   [DESIGN_AREAS.BOARD_LAYOUT]: "Board Layouts",
   [DESIGN_AREAS.BOARD_ACCENT]: "Header & Accent Colors",
-  [DESIGN_AREAS.PAPER]: "Bell Ringer Papers",
+  [DESIGN_AREAS.PAPER]: "Bell Ringer & Exit Slip Papers",
+  [DESIGN_AREAS.NOTEBOOK]: "Notebooks",
 };
 
 // What each area's setting currently is, and what it falls back to. The
@@ -1188,6 +1204,8 @@ export const DESIGN_AREA_DEFAULT_OPTION = {
   // read by the store page's remove flow, which finds no selection to
   // move and simply removes.
   [DESIGN_AREAS.PAPER]: "builtin:plain",
+  // Removing the notebook that is on the ledge takes it off the ledge.
+  [DESIGN_AREAS.NOTEBOOK]: DEFAULT_LEDGE_NOTEBOOK,
 };
 
 export function useDesignAreaSelections() {
@@ -1198,9 +1216,14 @@ export function useDesignAreaSelections() {
     [DESIGN_AREAS.BOARD_SURFACE]: useScopedSetting(BOARD_SURFACE_STORAGE_KEY, DEFAULT_BOARD_SURFACE, k => !!BOARD_SURFACES[k]),
     [DESIGN_AREAS.BOARD_LAYOUT]: useScopedSetting(ARRANGEMENT_STORAGE_KEY, DEFAULT_ARRANGEMENT, k => !!BOARD_ARRANGEMENTS[k]),
     [DESIGN_AREAS.BOARD_ACCENT]: useScopedSetting(BOARD_ACCENT_STORAGE_KEY, DEFAULT_BOARD_ACCENT, isBoardAccentKey),
+    [DESIGN_AREAS.NOTEBOOK]: useScopedSetting(LEDGE_NOTEBOOK_KEY, DEFAULT_LEDGE_NOTEBOOK, isLedgeNotebookValue),
   };
 }
 
+// Only the areas that can GROW are in the store. Wall types, board
+// surfaces, accent colours and layouts are all included and will stay
+// that way (Jay: "i dont think we will add any additional options for
+// those categories"), so they are Build settings only, not store shelves.
 export function designCatalog(primaryColor, secondaryColor) {
   const bulletins = bulletinStyles(primaryColor, secondaryColor);
   return [
@@ -1220,41 +1243,16 @@ export function designCatalog(primaryColor, secondaryColor) {
       options: WALL_COLORS.map(c => ({ id: c.id, label: c.label, preview: { kind: "swatch", color: c.base } })),
     },
     {
-      area: DESIGN_AREAS.WALL_TYPE,
-      label: DESIGN_AREA_LABELS[DESIGN_AREAS.WALL_TYPE],
-      blurb: "Cinderblock or smooth drywall — texture only; the colour is separate.",
-      options: Object.values(WALL_TYPES).map(t => ({ id: t.id, label: t.label, preview: { kind: "wall", wallType: t.id } })),
-    },
-    {
-      area: DESIGN_AREAS.BOARD_SURFACE,
-      label: DESIGN_AREA_LABELS[DESIGN_AREAS.BOARD_SURFACE],
-      blurb: "What the writing surface itself is made of.",
-      options: Object.values(BOARD_SURFACES).map(b => ({
-        id: b.id, label: b.label, preview: { kind: "swatch", color: surfaceColors(b.id).face },
-      })),
-    },
-    {
-      area: DESIGN_AREAS.BOARD_ACCENT,
-      label: DESIGN_AREA_LABELS[DESIGN_AREAS.BOARD_ACCENT],
-      blurb: "Section headers and goal numbers. Always contrast-corrected to stay readable on the board.",
-      options: BOARD_ACCENT_PRESETS.map(a => ({
-        id: a.id, label: a.label,
-        preview: { kind: "onBoard", color: boardAccentBaseColor(a.id, primaryColor, secondaryColor) },
-      })),
-    },
-    {
-      area: DESIGN_AREAS.BOARD_LAYOUT,
-      label: DESIGN_AREA_LABELS[DESIGN_AREAS.BOARD_LAYOUT],
-      blurb: "Which side the slides sit on.",
-      options: Object.values(BOARD_ARRANGEMENTS).map(a => ({
-        id: a.id, label: a.label, preview: { kind: "layout", columns: a.gridTemplateColumns },
-      })),
-    },
-    {
       area: DESIGN_AREAS.PAPER,
       label: DESIGN_AREA_LABELS[DESIGN_AREAS.PAPER],
-      blurb: "The sheet a Bell Ringer doc starts from. Papers you add show up under “Create Bell Ringer doc” on the board.",
+      blurb: "The sheet a Bell Ringer or Exit Slip doc starts from. Papers you add show up under “Create Bell Ringer doc” and “Create Exit Slip doc” on the board.",
       options: BUILT_IN_PAPERS.map(p => ({ id: p.id, label: p.label, preview: { kind: "paper", paper: p.id } })),
+    },
+    {
+      area: DESIGN_AREAS.NOTEBOOK,
+      label: DESIGN_AREA_LABELS[DESIGN_AREAS.NOTEBOOK],
+      blurb: "A notebook of blank templates that rests on the chalk ledge. Every unit gets its own copy. Choose which one is out under Bulletin Board in Build.",
+      options: NOTEBOOK_TEMPLATES.map(t => ({ id: t.id, label: `${t.label} · ${t.pages} pages`, preview: { kind: "notebook", template: t } })),
     },
   ];
 }

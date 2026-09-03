@@ -3,7 +3,9 @@ import ChalkboardBoardRow, { toGoalPanels } from "./ChalkboardBoardRow";
 import { useFullAgendaFields, ObjectivesChecklist, EditableField, ResetBoardButton } from "./FullAgendaBoard";
 import { fetchExtraAssignments, createExtraAssignment, deleteExtraAssignment, updateExtraAssignment, reorderExtraAssignments } from "./lib/extraAssignments";
 import { uploadAssignmentPdf, uploadSlidesFile } from "./lib/cloudinary";
-import { googleDriveConfigured, ensureGoogleScriptsLoaded, pickGoogleSlidesEmbed, pickGoogleDriveAssignmentFiles, pickGoogleCalendar, driveErrorMessage } from "./lib/googleDrive";
+import { googleDriveConfigured, ensureGoogleScriptsLoaded, pickGoogleSlidesEmbed, pickGoogleDriveAssignmentFiles, pickGoogleCalendar, driveErrorMessage, createNotebookDoc } from "./lib/googleDrive";
+import LedgeNotebook from "./LedgeNotebook";
+import { notebookTemplate } from "./lib/notebooks";
 import { fetchProfile } from "./lib/profileApi";
 import { fetchCurriculum, saveCurriculum } from "./lib/curriculumApi";
 import CurriculumHistory from "./CurriculumHistory";
@@ -30,6 +32,7 @@ import {
   getActiveClassroomId, classroomQuery,
   BELL_RINGER_PLACEMENT_KEY, DEFAULT_BELL_RINGER_PLACEMENT, isBellRingerPlacement,
   EXIT_SLIP_PLACEMENT_KEY, DEFAULT_EXIT_SLIP_PLACEMENT,
+  LEDGE_NOTEBOOK_KEY, DEFAULT_LEDGE_NOTEBOOK, isLedgeNotebookValue,
   buildSlidingPanels,
   CURRENT_VIEW_STORAGE_KEY, readCurrentView, writeCurrentView,
   useBoardContentOrder,
@@ -2729,6 +2732,7 @@ export default function App({ viewer = false } = {}) {
   const [agendaOn] = useScopedSetting(BOARD_COMPONENTS.agenda.storageKey, BOARD_COMPONENTS.agenda.default, isOnOff);
   const [bellRingerOn] = useScopedSetting(BOARD_COMPONENTS.bellRinger.storageKey, BOARD_COMPONENTS.bellRinger.default, isOnOff);
   const [bellRingerPlacement] = useScopedSetting(BELL_RINGER_PLACEMENT_KEY, DEFAULT_BELL_RINGER_PLACEMENT, isBellRingerPlacement);
+  const [ledgeNotebookId] = useScopedSetting(LEDGE_NOTEBOOK_KEY, DEFAULT_LEDGE_NOTEBOOK, isLedgeNotebookValue);
   const [exitSlipOn] = useScopedSetting(BOARD_COMPONENTS.exitSlip.storageKey, BOARD_COMPONENTS.exitSlip.default, isOnOff);
   const [exitSlipPlacement] = useScopedSetting(EXIT_SLIP_PLACEMENT_KEY, DEFAULT_EXIT_SLIP_PLACEMENT, isBellRingerPlacement);
   const learningGoalsIsOn = learningGoalsOn === "true";
@@ -3788,10 +3792,45 @@ export default function App({ viewer = false } = {}) {
   // onKamiOpen, below) this reads that panel's link instead of always
   // falling back to the flat layout's fullAgendaFields.
   const kamiUrlKey = `${kamiSourceField}KamiUrl`;
-  const kamiOverlayUrl = (kamiSourcePanelIdx != null
-    ? mergePanelWithUnit(panelFieldsAt(kamiSourcePanelIdx)).content[kamiUrlKey]
-    : fullAgendaFields.content[kamiUrlKey]) || "";
-  const kamiOverlayLabel = kamiSourceField === "exitSlip" ? "Exit Slip" : "Bell Ringer";
+
+  // The notebook on the chalk ledge. Which template is out is a classroom
+  // setting; the unit's own copy of it is a Kami link on the unit's board
+  // content, made the first time it is opened. See src/lib/notebooks.js.
+  const ledgeNotebook = notebookTemplate(ledgeNotebookId);
+  const notebookDocs = (unitFields.content.notebookDocs && typeof unitFields.content.notebookDocs === "object") ? unitFields.content.notebookDocs : {};
+  const ledgeNotebookUrl = ledgeNotebook ? (notebookDocs[ledgeNotebook.id] || "") : "";
+  const [notebookCreating, setNotebookCreating] = useState(false);
+  const [notebookError, setNotebookError] = useState(null);
+  const openNotebook = () => {
+    setKamiSourcePanelIdx(null);
+    setKamiSourceField("notebook");
+    setKamiState(prev => (prev && kamiSourceField === "notebook") ? null : "overlay");
+  };
+  const createNotebook = async () => {
+    if (!ledgeNotebook || notebookCreating) return;
+    setNotebookCreating(true);
+    setNotebookError(null);
+    try {
+      const { kamiUrl } = await createNotebookDoc({ template: ledgeNotebook, unitLabel: activeUnit?.unit });
+      unitFields.save("notebookDocs", { ...notebookDocs, [ledgeNotebook.id]: kamiUrl });
+      setKamiSourcePanelIdx(null);
+      setKamiSourceField("notebook");
+      setKamiState("overlay");
+    } catch (err) {
+      setNotebookError(driveErrorMessage(err));
+    } finally {
+      setNotebookCreating(false);
+    }
+  };
+
+  const kamiOverlayUrl = kamiSourceField === "notebook"
+    ? ledgeNotebookUrl
+    : ((kamiSourcePanelIdx != null
+      ? mergePanelWithUnit(panelFieldsAt(kamiSourcePanelIdx)).content[kamiUrlKey]
+      : fullAgendaFields.content[kamiUrlKey]) || "");
+  const kamiOverlayLabel = kamiSourceField === "notebook"
+    ? `${ledgeNotebook?.label || "Notebook"} · ${activeUnit?.unit || ""}`
+    : kamiSourceField === "exitSlip" ? "Exit Slip" : "Bell Ringer";
 
   // The props a doc field (Bell Ringer, Exit Slip) needs, and the pinned
   // docs the Agenda carries when either is set to live inside it. One
@@ -4219,11 +4258,26 @@ export default function App({ viewer = false } = {}) {
               })()}
             </div>
 
-            {/* Chalk ledge / marker tray — styled per the Board Surface preset. */}
-            <div style={{ height: 8, background: surface.ledgeBg, borderTop: `2px solid ${surface.ledgeBorder}`, display: "flex", alignItems: "center", padding: `0 ${SPACE.sm}px`, gap: SPACE.xs }}>
+            {/* Chalk ledge / marker tray — styled per the Board Surface preset.
+                With a notebook out it grows just enough to hold it; the
+                chalk stays at the left, the notebook rests at the right. */}
+            <div style={{ height: ledgeNotebook && activeUnit ? "auto" : 8, minHeight: 8, background: surface.ledgeBg, borderTop: `2px solid ${surface.ledgeBorder}`, display: "flex", alignItems: "center", padding: ledgeNotebook && activeUnit ? `3px ${SPACE.sm}px` : `0 ${SPACE.sm}px`, gap: SPACE.xs }}>
               {[["#f0f0f0", 18], ["var(--board-secondary)", 18], ["#f0f0f0", 12]].map(([c, w], i) => (
                 <div key={i} style={{ width: w, height: 4, borderRadius: 1, background: c }} />
               ))}
+              {ledgeNotebook && activeUnit && (
+                <LedgeNotebook
+                  template={ledgeNotebook}
+                  unitLabel={activeUnit.unit}
+                  kamiUrl={ledgeNotebookUrl}
+                  interactive={isBuildMode}
+                  creating={notebookCreating}
+                  error={notebookError}
+                  open={!!kamiState && kamiSourceField === "notebook"}
+                  onOpen={openNotebook}
+                  onCreate={createNotebook}
+                />
+              )}
             </div>
           </div>
         </div>

@@ -161,6 +161,16 @@ export default async function handler(req, res) {
       if (checkedLearningGoalsLines && typeof checkedLearningGoalsLines === "object") {
         set.checkedLearningGoalsLines = checkedLearningGoalsLines;
       }
+      // notebookDocs: { [templateId]: kamiUrl } on a unit's "__unit__"
+      // document -- one notebook per unit per template (see
+      // src/lib/notebooks.js). Whole-map replace, like the checked maps.
+      if (rest.notebookDocs && typeof rest.notebookDocs === "object" && !Array.isArray(rest.notebookDocs)) {
+        const docs = {};
+        for (const [id, url] of Object.entries(rest.notebookDocs)) {
+          if (id.length <= 40 && typeof url === "string") docs[id] = capString(url, LIMITS.TEXT_FIELD);
+        }
+        set.notebookDocs = docs;
+      }
       if (Object.keys(set).length === 0) {
         res.status(400).json({ error: "at least one recognized field is required" });
         return;
@@ -229,5 +239,6 @@ function toClientShape(doc) {
   for (const field of TEXT_FIELDS) {
     if (typeof doc[field] === "string") shape[field] = doc[field];
   }
+  if (doc.notebookDocs && typeof doc.notebookDocs === "object") shape.notebookDocs = doc.notebookDocs;
   return shape;
 }

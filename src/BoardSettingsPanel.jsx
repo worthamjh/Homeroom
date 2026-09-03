@@ -1,5 +1,6 @@
 import { useState } from "react";
 import BulletinPreview from "./BulletinPreview";
+import { NOTEBOOK_TEMPLATES } from "./lib/notebooks";
 
 import {
   useScopedSetting,
@@ -15,6 +16,7 @@ import {
   SLIDING_BOARDS_ENABLED_KEY, DEFAULT_SLIDING_BOARDS_ENABLED,
   SLIDING_BOARDS_COUNT_KEY, DEFAULT_SLIDING_BOARDS_COUNT, SLIDING_BOARDS_COUNT_OPTIONS,
   DESIGN_AREAS, useOwnedDesignOptions,
+  LEDGE_NOTEBOOK_KEY, DEFAULT_LEDGE_NOTEBOOK, isLedgeNotebookValue,
   useLessonBoardCount,
   BELL_RINGER_PLACEMENT_KEY, DEFAULT_BELL_RINGER_PLACEMENT, isBellRingerPlacement,
   EXIT_SLIP_PLACEMENT_KEY, DEFAULT_EXIT_SLIP_PLACEMENT,
@@ -202,6 +204,7 @@ export default function BoardSettingsPanel({ selected, onSelect, panelCountInfo,
   const [arrangementKey, setArrangementKey] = useScopedSetting(ARRANGEMENT_STORAGE_KEY, DEFAULT_ARRANGEMENT, k => !!BOARD_ARRANGEMENTS[k]);
   const [bulletinStyleKey, setBulletinStyleKey] = useScopedSetting(BULLETIN_STORAGE_KEY, DEFAULT_BULLETIN, isBulletinStyleId, migrateBulletinStyleId);
   const bulletinOptions = bulletinStyles(primaryColor, secondaryColor);
+  const [ledgeNotebookId, setLedgeNotebookId] = useScopedSetting(LEDGE_NOTEBOOK_KEY, DEFAULT_LEDGE_NOTEBOOK, isLedgeNotebookValue);
   // Board Content: five independent on/off toggles, one storage key per
   // component (see BOARD_COMPONENTS in boardConfig.js).
   const isOnOff = k => k === "true" || k === "false";
@@ -359,6 +362,22 @@ export default function BoardSettingsPanel({ selected, onSelect, panelCountInfo,
                       }
                     />
                   ))}
+
+                  {/* Notebooks live in this menu because that is where Jay
+                      asked for them ("select it from the bulletin board
+                      menu"); the notebook itself rests on the chalk ledge
+                      at the bottom right of the board, where it is always
+                      in view and covers nothing. */}
+                  <SectionHeading help="The notebook rests on the chalk ledge at the bottom right of the board. Each unit gets its own copy the first time you open it there, saved to a Notebooks folder in your Drive. Tap it on the board to write in it. Add notebooks in the Store.">Notebook</SectionHeading>
+                  <RadioRow selected={!ledgeNotebookId} onClick={() => setLedgeNotebookId("")} label="None" />
+                  {NOTEBOOK_TEMPLATES.filter(t => shows(DESIGN_AREAS.NOTEBOOK, t.id, ledgeNotebookId)).map(t => (
+                    <RadioRow key={t.id} selected={ledgeNotebookId === t.id} onClick={() => setLedgeNotebookId(t.id)} label={`${t.label} · ${t.pages} pages`} />
+                  ))}
+                  {!NOTEBOOK_TEMPLATES.some(t => design.isAvailable(DESIGN_AREAS.NOTEBOOK, t.id)) && (
+                    <div style={{ padding: "2px 14px 10px", fontSize: 12, color: "rgba(255,255,255,0.45)", fontFamily: "Lato, sans-serif" }}>
+                      Notebooks you add in the Store show up here.
+                    </div>
+                  )}
                 </>
               )}
 
