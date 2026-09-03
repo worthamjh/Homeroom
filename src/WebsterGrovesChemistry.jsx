@@ -3798,7 +3798,14 @@ export default function App({ viewer = false } = {}) {
   const mergePanelWithUnit = (pf) => ({
     ...pf,
     content: { ...pf.content, essentialQuestion: unitFields.content.essentialQuestion },
-    save: (key, value) => key === "essentialQuestion" ? unitFields.save(key, value) : pf.save(key, value),
+    // Saving the question goes to the unit hook, but the panel hook is the
+    // one whose editingKey opened the box (setEditingKey below sets both),
+    // so it has to be closed here too -- or the box stays open after a
+    // save and Enter looks like it "does nothing" (Jay).
+    save: (key, value) => {
+      if (key === "essentialQuestion") { unitFields.save(key, value); pf.setEditingKey(null); }
+      else pf.save(key, value);
+    },
     setEditingKey: (k) => { pf.setEditingKey(k); unitFields.setEditingKey(k); },
     editingKey: pf.editingKey || unitFields.editingKey,
   });
