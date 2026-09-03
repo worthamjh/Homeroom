@@ -904,6 +904,10 @@ function Section({ label, value, placeholder, editing, onStartEdit, onSave, rows
           onBlur={() => onSave(draft)}
           onKeyDown={e => {
             if (e.key === "Escape") { setDraft(value); onSave(value); }
+            // Enter saves, like every other box on the board; Shift+Enter
+            // is the way to a second line. Jay: "for everything else,
+            // hitting enter confirms the change and exits."
+            if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onSave(draft); }
           }}
           style={{
             // Always a fixed dark color, NOT var(--board-primary) — this
