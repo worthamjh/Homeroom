@@ -1118,12 +1118,12 @@ export async function createKamiBellRingerDoc({ title, templateId, folderName, p
 // the notebook on the ledge is opened for a unit; the link is then kept
 // on that unit's board content (notebookDocs), so this runs once per
 // unit per template.
-export async function createNotebookDoc({ template, unitLabel }) {
+export async function createNotebookDoc({ template, unitLabel, courseLabel }) {
   const res = await fetch(template.file);
   if (!res.ok) throw new Error(`Couldn't load the ${template.label} template (${res.status}).`);
   const pdfBlob = await res.blob();
   return createKamiBellRingerDoc({
-    title: notebookDocTitle(template, unitLabel),
+    title: notebookDocTitle(template, unitLabel, courseLabel),
     pdfBlob,
     folderName: NOTEBOOK_FOLDER_NAME,
     docLabel: template.label,

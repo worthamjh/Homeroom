@@ -74,7 +74,15 @@ export function isNotebookTemplateId(id) {
   return typeof id === "string" && NOTEBOOK_TEMPLATES.some(t => t.id === id);
 }
 
-// The Drive file name for one unit's notebook.
-export function notebookDocTitle(template, unitLabel) {
-  return `${template.label} — ${unitLabel || "Unit"}`;
+// The Drive file name for one unit's notebook: "Chemistry CER Flow
+// Notebook — Unit 3". The course comes first because a teacher with two
+// classrooms gets two Unit 1 notebooks in the same Drive folder (Jay,
+// looking at a folder of "CER Notebook — Unit 1" files: "the CER
+// Notebook title should have the course name like Chemistry CER Notebook
+// or something plus the unit number"). "Notebook" is added unless the
+// template's label already ends with it.
+export function notebookDocTitle(template, unitLabel, courseLabel) {
+  const course = (courseLabel || "").trim();
+  const kind = /notebook$/i.test(template.label) ? template.label : `${template.label} Notebook`;
+  return `${course ? `${course} ` : ""}${kind} — ${unitLabel || "Unit"}`;
 }
