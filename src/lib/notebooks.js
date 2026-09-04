@@ -7,21 +7,60 @@
 // smartboard through Kami, or students come up and write.
 //
 // The PDF for each template is a static file under public/notebooks --
-// built once (public/notebooks/README) with every page pointing at the
-// same drawing, so 25 pages cost about as much as one. On first open for
-// a unit the file is fetched, uploaded to the teacher's Drive under
-// "Notebooks", and the Kami link is kept on that unit's board content.
+// built once (public/notebooks/README) from the one-page sheet under
+// public/papers, every page sharing the same drawing, so 25 pages cost
+// about as much as one. On first open for a unit the file is fetched,
+// uploaded to the teacher's Drive under "Notebooks", and the Kami link is
+// kept on that unit's board content.
 //
 // Page count is fixed per template (Jay: "I guess its fixed per
 // template?"). The id is what gets stored, so it never changes.
+//
+// Four CER editions, all Jay's sheets (2026-09-04; the earlier single
+// "cer" template is gone, and a board that still names it shows no
+// notebook until another is chosen). `cover` is the short word on the
+// drawn notebook's cover, `edition` the line under it -- the four covers
+// would otherwise look the same on the bulletin board.
 export const NOTEBOOK_TEMPLATES = [
   {
-    id: "cer",
-    label: "CER Notebook",
+    id: "cer-flow",
+    label: "CER Flow",
+    cover: "CER",
+    edition: "Flow",
     pages: 25,
-    file: "/notebooks/cer-25.pdf",
-    thumb: "/papers/thumbs/cer.png",
-    blurb: "Claim, Evidence, Reasoning. 25 pages, one response per page.",
+    file: "/notebooks/cer-flow-25.pdf",
+    thumb: "/notebooks/thumbs/cer-flow.png",
+    blurb: "Claim → Evidence → Reasoning, each box leading to the next, with sentence starters. 25 pages, one response per page.",
+  },
+  {
+    id: "cer-rubric",
+    label: "CER Teacher Rubric",
+    cover: "CER",
+    edition: "Rubric",
+    pages: 25,
+    file: "/notebooks/cer-rubric-25.pdf",
+    thumb: "/notebooks/thumbs/cer-rubric.png",
+    blurb: "A 0–3 scoring rubric for Claim, Evidence and Reasoning at the top of every page, marked as it is read. 25 pages.",
+  },
+  {
+    id: "cer-notebook",
+    label: "CER Notebook",
+    cover: "CER",
+    edition: "Notebook",
+    pages: 25,
+    file: "/notebooks/cer-notebook-25.pdf",
+    thumb: "/notebooks/thumbs/cer-notebook.png",
+    blurb: "Ruled lines and a red margin, like a composition book, with sentence starters. 25 pages.",
+  },
+  {
+    id: "cer-chalkboard",
+    label: "CER Chalkboard",
+    cover: "CER",
+    edition: "Chalkboard",
+    pages: 25,
+    file: "/notebooks/cer-chalkboard-25.pdf",
+    thumb: "/notebooks/thumbs/cer-chalkboard.png",
+    blurb: "Chalk on green, framed in wood, like the board itself. Best for writing in a light colour. 25 pages.",
   },
 ];
 

@@ -1,11 +1,16 @@
 # Notebook PDFs
 
-Each file here is one notebook template repeated for every page. They are
-built from a single-page template PDF by pointing every page object at the
-same content stream, so the file stays tiny whatever the page count.
+Each file here is one notebook template repeated for every page, with every
+page sharing the same drawing and fonts, so the file stays close to the
+size of the single sheet whatever the page count. `thumbs/` holds the store
+picture for each, 480px wide like the paper thumbnails.
 
-To rebuild `cer-25.pdf` from `CER_Template.pdf` (a one-page ReportLab PDF
-with the drawing in object 9 and fonts in objects 1-4), run the script in
-`scripts/build-notebook-pdf.py`:
+The four CER editions (flow, rubric, notebook, chalkboard) are Jay's sheets
+from 2026-09-04; the one-page sources are kept in `scripts/notebooks/`. To
+add or rebuild one, run the script in `scripts/build-notebook-pdf.py`
+(needs PyMuPDF: `py -m pip install pymupdf`):
 
-    python scripts/build-notebook-pdf.py CER_Template.pdf public/notebooks/cer-25.pdf 25
+    py scripts/build-notebook-pdf.py scripts/notebooks/cer-flow.pdf cer-flow 25
+
+That writes `cer-flow-25.pdf` and `thumbs/cer-flow.png` here. Then list the
+template in `src/lib/notebooks.js`.

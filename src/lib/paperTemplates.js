@@ -86,12 +86,12 @@ export const BUILT_IN_PAPERS = [
   { id: "builtin:wide", label: "Wide Ruled", thumb: "/papers/thumbs/wide.png", build: () => buildPdf(ruledContent(WIDE_RULE)) },
   { id: "builtin:college", label: "College Ruled", thumb: "/papers/thumbs/college.png", build: () => buildPdf(ruledContent(COLLEGE_RULE)) },
   { id: "builtin:graph", label: "Graph Paper", thumb: "/papers/thumbs/graph.png", build: () => buildPdf(gridContent()) },
-  // A designed page rather than a drawn one: shipped as a static PDF under
-  // public/papers and fetched at create time. The same page the CER
-  // Notebook repeats (public/notebooks/cer-25.pdf); one page here, for a
-  // single Bell Ringer or Exit Slip. Jay: "the cer template i suppose
-  // could be added to the bellringer/exitslip section".
-  { id: "builtin:cer", label: "CER", thumb: "/papers/thumbs/cer.png", file: "/papers/cer.pdf" },
+  // A paper may also be a designed page shipped as a static PDF (`file`
+  // instead of `build`), fetched at create time. The CER sheet was one for
+  // two days; as of 2026-09-04 CER is a notebook only (Jay: "lets actually
+  // remove the cer template from the bellringer and exit slip section"),
+  // so nothing uses `file` today. The path stays for the next designed
+  // sheet.
 ];
 
 export function isBuiltInPaper(id) {

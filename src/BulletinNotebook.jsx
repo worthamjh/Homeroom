@@ -22,11 +22,13 @@ const H = 80;
 export default function BulletinNotebook({ template, unitLabel, kamiUrl, interactive, creating, error, open, onOpen, onCreate }) {
   const hasDoc = !!kamiUrl;
   const canTap = hasDoc || interactive;
-  // Short cover text: the template's short name ("CER" from "CER
-  // Notebook") over the unit.
-  const shortName = template.label.replace(/\s*Notebook$/i, "");
+  // Short cover text: the template's cover word ("CER") over its edition
+  // and the unit, so the four CER notebooks can be told apart on the
+  // board. A template without a cover word falls back to its label.
+  const shortName = template.cover || template.label.replace(/\s*Notebook$/i, "");
+  const editionUnit = template.edition ? `${template.edition} · ${unitLabel}` : unitLabel;
   const topLine = creating ? "Making…" : (!hasDoc && interactive) ? "Make" : shortName;
-  const bottomLine = creating ? "" : (!hasDoc && interactive) ? `${shortName} · ${unitLabel}` : unitLabel;
+  const bottomLine = creating ? "" : (!hasDoc && interactive) ? `${shortName} ${editionUnit}` : editionUnit;
   const title = hasDoc ? `Open the ${unitLabel} ${template.label}`
     : interactive ? `Make this unit's ${template.label} in your Drive, then open it`
     : `This unit's ${template.label} has not been made yet. Make it in Build.`;

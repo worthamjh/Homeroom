@@ -1,50 +1,53 @@
-"""Repeat a one-page PDF into an N-page notebook, sharing the page drawing.
+"""Turn a one-page template PDF into an N-page notebook and its store thumbnail.
 
-    python scripts/build-notebook-pdf.py <one-page.pdf> <out.pdf> <pages>
+    py scripts/build-notebook-pdf.py <one-page.pdf> <name> [pages]
 
-Expects the layout ReportLab writes for a single page: fonts in objects
-1-4, one page whose /Contents is a single stream object. Every output page
-points at that same stream and resource dictionary, so 25 pages is ~10KB.
+Writes, relative to the project root:
+
+    public/notebooks/<name>-<pages>.pdf   the sheet repeated <pages> times (default 25)
+    public/notebooks/thumbs/<name>.png    the store picture, 480 wide like the paper thumbnails
+
+The notebook is the page inserted <pages> times and saved with garbage
+collection, so every page shares one copy of the drawing and the fonts:
+25 pages come out a few KB over the single sheet. Needs PyMuPDF
+(`py -m pip install pymupdf`). Any one-page PDF will do; the earlier
+version of this script only understood ReportLab's object layout.
+
+The one-page sources live in scripts/notebooks/ so a template can be
+rebuilt (say, at 50 pages) without hunting for the original.
 """
-import re, sys
+import os
+import sys
 
-src_path, out_path, pages = sys.argv[1], sys.argv[2], int(sys.argv[3])
-src = open(src_path, "rb").read()
+try:
+    import pymupdf
+except ImportError:
+    raise SystemExit("PyMuPDF is needed: py -m pip install pymupdf")
 
-def obj(n):
-    m = re.search(rb"(?<![0-9])%d 0 obj\s*(.*?)\s*endobj" % n, src, re.S)
-    if not m: raise SystemExit(f"object {n} not found")
-    return m.group(1)
+if len(sys.argv) < 3:
+    raise SystemExit(__doc__)
+src_path, name = sys.argv[1], sys.argv[2]
+pages = int(sys.argv[3]) if len(sys.argv) > 3 else 25
+root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-page = re.search(rb"/Contents (\d+) 0 R", src)
-if not page: raise SystemExit("no page /Contents found")
-content_num = int(page.group(1))
-# ReportLab's single-page layout: the font dictionary is object 1.
-resources = b"<< /Font 1 0 R /ProcSet [ /PDF /Text /ImageB /ImageC /ImageI ] >>"
+src = pymupdf.open(src_path)
+if len(src) != 1:
+    raise SystemExit(f"{src_path} has {len(src)} pages; expected one")
 
-objs = {n: obj(n) for n in (1, 2, 3, 4)}
-objs[content_num] = obj(content_num)
-first_page = max(objs) + 1 if max(objs) >= 9 else 10
-page_nums = list(range(first_page, first_page + pages))
-pages_num, catalog_num, info_num = first_page + pages, first_page + pages + 1, first_page + pages + 2
-kids = b" ".join(b"%d 0 R" % n for n in page_nums)
-objs[pages_num] = b"<< /Count %d /Kids [ %s ] /Type /Pages >>" % (pages, kids)
-for n in page_nums:
-    objs[n] = (b"<< /Contents %d 0 R /MediaBox [ 0 0 612 792 ] /Parent %d 0 R /Resources %s /Type /Page >>"
-               % (content_num, pages_num, resources))
-objs[catalog_num] = b"<< /PageMode /UseNone /Pages %d 0 R /Type /Catalog >>" % pages_num
-objs[info_num] = b"<< /Title (Notebook) /Producer (Gil-Bilt Classroom) >>"
+out_dir = os.path.join(root, "public", "notebooks")
+os.makedirs(os.path.join(out_dir, "thumbs"), exist_ok=True)
+thumb_path = os.path.join(out_dir, "thumbs", f"{name}.png")
+notebook_path = os.path.join(out_dir, f"{name}-{pages}.pdf")
 
-out = bytearray(b"%PDF-1.4\n%\xe2\xe3\xcf\xd3\n")
-offsets = {}
-for n in sorted(objs):
-    offsets[n] = len(out)
-    out += b"%d 0 obj\n" % n + objs[n] + b"\nendobj\n"
-xref = len(out)
-maxn = max(objs)
-out += b"xref\n0 %d\n0000000000 65535 f \n" % (maxn + 1)
-for n in range(1, maxn + 1):
-    out += (b"%010d 00000 n \n" % offsets[n]) if n in offsets else b"0000000000 65535 f \n"
-out += b"trailer\n<< /Size %d /Root %d 0 R /Info %d 0 R >>\nstartxref\n%d\n%%%%EOF\n" % (maxn + 1, catalog_num, info_num, xref)
-open(out_path, "wb").write(out)
-print(f"wrote {out_path}: {pages} pages, {len(out)} bytes")
+# 612pt wide letter page -> 480px, the size the paper thumbnails use.
+scale = 480 / src[0].rect.width
+src[0].get_pixmap(matrix=pymupdf.Matrix(scale, scale)).save(thumb_path)
+
+notebook = pymupdf.open()
+for _ in range(pages):
+    notebook.insert_pdf(src, from_page=0, to_page=0)
+notebook.set_metadata({"title": "Notebook", "producer": "Gil-Bilt Classroom"})
+notebook.save(notebook_path, garbage=4, deflate=True)
+
+for p in (thumb_path, notebook_path):
+    print(f"wrote {os.path.relpath(p, root)} ({os.path.getsize(p)} bytes)")
