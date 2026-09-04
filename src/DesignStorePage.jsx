@@ -5,7 +5,8 @@ import {
   getActiveTeacherId, DEFAULT_TEACHER_ID,
   boardThemeVars, wallBackgroundStyle,
   designCatalog, useOwnedDesignOptions, isDesignOptionIncluded,
-  useDesignAreaSelections, DESIGN_AREA_DEFAULT_OPTION,
+  useDesignAreaSelections, DESIGN_AREA_DEFAULT_OPTION, DESIGN_AREAS,
+  parseLedgeNotebooks, serializeLedgeNotebooks,
 } from "./boardConfig";
 import { fetchProfile } from "./lib/profileApi";
 import BulletinPreview from "./BulletinPreview";
@@ -161,9 +162,14 @@ export default function DesignStorePage() {
   // also lets it SHOW the two designs rather than just name them.
   const [pendingRemoval, setPendingRemoval] = useState(null);
 
+  // Notebooks are the one area whose setting is a LIST (any number can hang
+  // on the strip), so "in use" means "in the list" and removing one takes
+  // it out of the list rather than switching to a default.
+  const inUse = (area, current, id) => area === DESIGN_AREAS.NOTEBOOK ? parseLedgeNotebooks(current).includes(id) : current === id;
+
   const removeOption = (area, opt, options) => {
     const [current] = selections[area] || [];
-    if (current === opt.id) {
+    if (inUse(area, current, opt.id)) {
       const fallbackId = DESIGN_AREA_DEFAULT_OPTION[area];
       setPendingRemoval({
         area, opt, fallbackId,
@@ -177,8 +183,9 @@ export default function DesignStorePage() {
   const confirmRemoval = () => {
     if (!pendingRemoval) return;
     const { area, opt, fallbackId } = pendingRemoval;
-    const [, setCurrent] = selections[area] || [];
-    setCurrent?.(fallbackId);
+    const [current, setCurrent] = selections[area] || [];
+    if (area === DESIGN_AREAS.NOTEBOOK) setCurrent?.(serializeLedgeNotebooks(parseLedgeNotebooks(current).filter(id => id !== opt.id)));
+    else setCurrent?.(fallbackId);
     design.remove(area, opt.id);
     setPendingRemoval(null);
   };
@@ -291,8 +298,14 @@ export default function DesignStorePage() {
               Remove &ldquo;{pendingRemoval.opt.label}&rdquo;?
             </h2>
             <p style={{ fontSize: 13, lineHeight: 1.55, color: "rgba(255,255,255,0.65)", margin: "0 0 16px" }}>
-              Your board is using it right now. Remove it and the board switches to{" "}
-              <strong style={{ color: "#fff", fontWeight: 600 }}>{pendingRemoval.fallback?.label || "the default"}</strong>.
+              {pendingRemoval.area === DESIGN_AREAS.NOTEBOOK ? (
+                <>It is hanging on your bulletin board right now. Remove it and it comes down; any other notebooks stay up.</>
+              ) : (
+                <>
+                  Your board is using it right now. Remove it and the board switches to{" "}
+                  <strong style={{ color: "#fff", fontWeight: 600 }}>{pendingRemoval.fallback?.label || "the default"}</strong>.
+                </>
+              )}
               You can add it back any time.
             </p>
 

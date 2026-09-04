@@ -16,7 +16,7 @@ import {
   SLIDING_BOARDS_ENABLED_KEY, DEFAULT_SLIDING_BOARDS_ENABLED,
   SLIDING_BOARDS_COUNT_KEY, DEFAULT_SLIDING_BOARDS_COUNT, SLIDING_BOARDS_COUNT_OPTIONS,
   DESIGN_AREAS, useOwnedDesignOptions,
-  LEDGE_NOTEBOOK_KEY, DEFAULT_LEDGE_NOTEBOOK, isLedgeNotebookValue,
+  LEDGE_NOTEBOOK_KEY, DEFAULT_LEDGE_NOTEBOOK, isLedgeNotebookValue, parseLedgeNotebooks, serializeLedgeNotebooks,
   useLessonBoardCount,
   BELL_RINGER_PLACEMENT_KEY, DEFAULT_BELL_RINGER_PLACEMENT, isBellRingerPlacement,
   EXIT_SLIP_PLACEMENT_KEY, DEFAULT_EXIT_SLIP_PLACEMENT,
@@ -108,6 +108,10 @@ function ToggleRow({ checked, onClick, label, draggable, onDragStart, onDragOver
         style={{
           width: 20, height: 28, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
           cursor: "grab", color: "rgba(255,255,255,0.35)", fontSize: 14, letterSpacing: 1,
+          // A row that cannot be dragged (a notebook not on the strip)
+          // keeps the handle's space so the labels line up, but not the
+          // handle.
+          visibility: draggable === false ? "hidden" : "visible",
         }}
         onMouseEnter={e => { e.currentTarget.style.color = "var(--board-secondary-accent)"; }}
         onMouseLeave={e => { e.currentTarget.style.color = "rgba(255,255,255,0.35)"; }}
@@ -204,7 +208,21 @@ export default function BoardSettingsPanel({ selected, onSelect, panelCountInfo,
   const [arrangementKey, setArrangementKey] = useScopedSetting(ARRANGEMENT_STORAGE_KEY, DEFAULT_ARRANGEMENT, k => !!BOARD_ARRANGEMENTS[k]);
   const [bulletinStyleKey, setBulletinStyleKey] = useScopedSetting(BULLETIN_STORAGE_KEY, DEFAULT_BULLETIN, isBulletinStyleId, migrateBulletinStyleId);
   const bulletinOptions = bulletinStyles(primaryColor, secondaryColor);
-  const [ledgeNotebookId, setLedgeNotebookId] = useScopedSetting(LEDGE_NOTEBOOK_KEY, DEFAULT_LEDGE_NOTEBOOK, isLedgeNotebookValue);
+  // Any number of notebooks can be out at once; the setting is a list
+  // (see parseLedgeNotebooks). A ticked notebook the teacher no longer
+  // owns stays listed, ticked, for the same reason `shows` above exists.
+  const [ledgeNotebookValue, setLedgeNotebookValue] = useScopedSetting(LEDGE_NOTEBOOK_KEY, DEFAULT_LEDGE_NOTEBOOK, isLedgeNotebookValue);
+  const ledgeNotebookIds = parseLedgeNotebooks(ledgeNotebookValue);
+  const toggleLedgeNotebook = id => setLedgeNotebookValue(serializeLedgeNotebooks(
+    ledgeNotebookIds.includes(id) ? ledgeNotebookIds.filter(x => x !== id) : [...ledgeNotebookIds, id]
+  ));
+  // The list's order is the order on the strip, so the ticked ones come
+  // first in that order, then the rest of what the teacher owns.
+  const notebookRows = [
+    ...ledgeNotebookIds.map(id => NOTEBOOK_TEMPLATES.find(t => t.id === id)).filter(Boolean),
+    ...NOTEBOOK_TEMPLATES.filter(t => !ledgeNotebookIds.includes(t.id) && design.isAvailable(DESIGN_AREAS.NOTEBOOK, t.id)),
+  ];
+  const [dragNotebookId, setDragNotebookId] = useState(null);
   // Board Content: five independent on/off toggles, one storage key per
   // component (see BOARD_COMPONENTS in boardConfig.js).
   const isOnOff = k => k === "true" || k === "false";
@@ -378,10 +396,22 @@ export default function BoardSettingsPanel({ selected, onSelect, panelCountInfo,
                       asked for them ("select it from the bulletin board
                       menu") and because that is where it hangs: pinned at
                       the right end of the strip. */}
-                  <SectionHeading help="The notebook hangs at the right end of the bulletin board. Each unit gets its own copy the first time you open it, saved to a Notebooks folder in your Drive. Tap it on the board to write in it. Add notebooks in the Store.">Notebook</SectionHeading>
-                  <RadioRow selected={!ledgeNotebookId} onClick={() => setLedgeNotebookId("")} label="None" />
-                  {NOTEBOOK_TEMPLATES.filter(t => shows(DESIGN_AREAS.NOTEBOOK, t.id, ledgeNotebookId)).map(t => (
-                    <RadioRow key={t.id} selected={ledgeNotebookId === t.id} onClick={() => setLedgeNotebookId(t.id)} label={`${t.label} · ${t.pages} pages`} />
+                  <SectionHeading help="Notebooks hang at the right end of the bulletin board; tick as many as you want out. Each unit gets its own copy of each the first time you open it, saved to a Notebooks folder in your Drive. Tap one on the board to write in it. Add notebooks in the Store.">Notebooks</SectionHeading>
+                  {/* Ticked notebooks first, in the order they hang on the
+                      strip (drag the ☰ handle to change it, as with Board
+                      Content), then the rest of what the teacher owns. */}
+                  {notebookRows.map(t => (
+                    <ToggleRow
+                      key={t.id}
+                      checked={ledgeNotebookIds.includes(t.id)}
+                      onClick={() => toggleLedgeNotebook(t.id)}
+                      label={`${t.label} · ${t.pages} pages`}
+                      draggable={ledgeNotebookIds.includes(t.id)}
+                      isDragging={dragNotebookId === t.id}
+                      onDragStart={e => { if (!ledgeNotebookIds.includes(t.id)) { e.preventDefault(); return; } setDragNotebookId(t.id); e.dataTransfer.effectAllowed = "move"; }}
+                      onDragOver={e => { e.preventDefault(); if (dragNotebookId && dragNotebookId !== t.id && ledgeNotebookIds.includes(t.id)) setLedgeNotebookValue(serializeLedgeNotebooks(reorder(ledgeNotebookIds, dragNotebookId, t.id))); }}
+                      onDragEnd={() => { setDragNotebookId(null); }}
+                    />
                   ))}
                   {!NOTEBOOK_TEMPLATES.some(t => design.isAvailable(DESIGN_AREAS.NOTEBOOK, t.id)) && (
                     <div style={{ padding: "2px 14px 10px", fontSize: 12, color: "rgba(255,255,255,0.45)", fontFamily: "Lato, sans-serif" }}>

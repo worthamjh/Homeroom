@@ -35,7 +35,7 @@ import {
   getActiveClassroomId, classroomQuery, DEFAULT_CLASSROOM_ID,
   BELL_RINGER_PLACEMENT_KEY, DEFAULT_BELL_RINGER_PLACEMENT, isBellRingerPlacement,
   EXIT_SLIP_PLACEMENT_KEY, DEFAULT_EXIT_SLIP_PLACEMENT,
-  LEDGE_NOTEBOOK_KEY, DEFAULT_LEDGE_NOTEBOOK, isLedgeNotebookValue,
+  LEDGE_NOTEBOOK_KEY, DEFAULT_LEDGE_NOTEBOOK, isLedgeNotebookValue, parseLedgeNotebooks,
   buildSlidingPanels,
   CURRENT_VIEW_STORAGE_KEY, readCurrentView, writeCurrentView,
   useBoardContentOrder,
@@ -2836,7 +2836,7 @@ export default function App({ viewer = false } = {}) {
   const [agendaOn] = useScopedSetting(BOARD_COMPONENTS.agenda.storageKey, BOARD_COMPONENTS.agenda.default, isOnOff);
   const [bellRingerOn] = useScopedSetting(BOARD_COMPONENTS.bellRinger.storageKey, BOARD_COMPONENTS.bellRinger.default, isOnOff);
   const [bellRingerPlacement] = useScopedSetting(BELL_RINGER_PLACEMENT_KEY, DEFAULT_BELL_RINGER_PLACEMENT, isBellRingerPlacement);
-  const [ledgeNotebookId] = useScopedSetting(LEDGE_NOTEBOOK_KEY, DEFAULT_LEDGE_NOTEBOOK, isLedgeNotebookValue);
+  const [ledgeNotebookValue] = useScopedSetting(LEDGE_NOTEBOOK_KEY, DEFAULT_LEDGE_NOTEBOOK, isLedgeNotebookValue);
   const [exitSlipOn] = useScopedSetting(BOARD_COMPONENTS.exitSlip.storageKey, BOARD_COMPONENTS.exitSlip.default, isOnOff);
   const [exitSlipPlacement] = useScopedSetting(EXIT_SLIP_PLACEMENT_KEY, DEFAULT_EXIT_SLIP_PLACEMENT, isBellRingerPlacement);
   const learningGoalsIsOn = learningGoalsOn === "true";
@@ -3941,46 +3941,53 @@ export default function App({ viewer = false } = {}) {
   // falling back to the flat layout's fullAgendaFields.
   const kamiUrlKey = `${kamiSourceField}KamiUrl`;
 
-  // The notebook pinned to the bulletin board. Which template is out is a
-  // classroom setting (the key still says "ledge", where it first lived);
-  // the unit's own copy of it is a Kami link on the unit's board content,
-  // made the first time it is opened -- in Build, or by the signed-in
-  // owner on the live board (Jay tapped it there first and "clicking the
-  // notebook does nothing" was the result). See src/lib/notebooks.js.
-  const ledgeNotebook = notebookTemplate(ledgeNotebookId);
+  // The notebooks pinned to the bulletin board. Which templates are out is
+  // a classroom setting, any number of them (the key still says "ledge",
+  // where the first one lived); each unit's own copy of each is a Kami
+  // link on the unit's board content, made the first time it is opened --
+  // in Build, or by the signed-in owner on the live board (Jay tapped it
+  // there first and "clicking the notebook does nothing" was the result).
+  // See src/lib/notebooks.js. Hung in the order the list is kept in,
+  // which the teacher sets by dragging the rows under Bulletin Board.
+  const ledgeNotebookIds = parseLedgeNotebooks(ledgeNotebookValue);
+  const ledgeNotebooks = ledgeNotebookIds.map(notebookTemplate).filter(Boolean);
   const notebookDocs = (unitFields.content.notebookDocs && typeof unitFields.content.notebookDocs === "object") ? unitFields.content.notebookDocs : {};
-  const ledgeNotebookUrl = ledgeNotebook ? (notebookDocs[ledgeNotebook.id] || "") : "";
-  const [notebookCreating, setNotebookCreating] = useState(false);
-  const [notebookError, setNotebookError] = useState(null);
-  const openNotebook = () => {
+  // The Kami overlay names its source: a doc field ("bellRinger",
+  // "exitSlip") or a notebook, as "notebook:<template id>", so two open
+  // notebooks on the same strip cannot be confused.
+  const NOTEBOOK_SOURCE = "notebook:";
+  const openNotebookId = kamiSourceField.startsWith(NOTEBOOK_SOURCE) ? kamiSourceField.slice(NOTEBOOK_SOURCE.length) : null;
+  const [notebookCreating, setNotebookCreating] = useState(null);   // the template id being made, or null
+  const [notebookErrors, setNotebookErrors] = useState({});          // template id -> message
+  const openNotebook = (template) => {
     setKamiSourcePanelIdx(null);
-    setKamiSourceField("notebook");
-    setKamiState(prev => (prev && kamiSourceField === "notebook") ? null : "overlay");
+    setKamiSourceField(NOTEBOOK_SOURCE + template.id);
+    setKamiState(prev => (prev && openNotebookId === template.id) ? null : "overlay");
   };
-  const createNotebook = async () => {
-    if (!ledgeNotebook || notebookCreating) return;
-    setNotebookCreating(true);
-    setNotebookError(null);
+  const createNotebook = async (template) => {
+    if (!template || notebookCreating) return;
+    setNotebookCreating(template.id);
+    setNotebookErrors(prev => ({ ...prev, [template.id]: null }));
     try {
-      const { kamiUrl } = await createNotebookDoc({ template: ledgeNotebook, unitLabel: activeUnit?.unit });
-      unitFields.save("notebookDocs", { ...notebookDocs, [ledgeNotebook.id]: kamiUrl });
+      const { kamiUrl } = await createNotebookDoc({ template, unitLabel: activeUnit?.unit });
+      unitFields.save("notebookDocs", { ...notebookDocs, [template.id]: kamiUrl });
       setKamiSourcePanelIdx(null);
-      setKamiSourceField("notebook");
+      setKamiSourceField(NOTEBOOK_SOURCE + template.id);
       setKamiState("overlay");
     } catch (err) {
-      setNotebookError(driveErrorMessage(err));
+      setNotebookErrors(prev => ({ ...prev, [template.id]: driveErrorMessage(err) }));
     } finally {
-      setNotebookCreating(false);
+      setNotebookCreating(null);
     }
   };
 
-  const kamiOverlayUrl = kamiSourceField === "notebook"
-    ? ledgeNotebookUrl
+  const kamiOverlayUrl = openNotebookId
+    ? (notebookDocs[openNotebookId] || "")
     : ((kamiSourcePanelIdx != null
       ? mergePanelWithUnit(panelFieldsAt(kamiSourcePanelIdx)).content[kamiUrlKey]
       : fullAgendaFields.content[kamiUrlKey]) || "");
-  const kamiOverlayLabel = kamiSourceField === "notebook"
-    ? `${ledgeNotebook?.label || "Notebook"} · ${activeUnit?.unit || ""}`
+  const kamiOverlayLabel = openNotebookId
+    ? `${notebookTemplate(openNotebookId)?.label || "Notebook"} · ${activeUnit?.unit || ""}`
     : kamiSourceField === "exitSlip" ? "Exit Slip" : "Bell Ringer";
 
   // The props a doc field (Bell Ringer, Exit Slip) needs, and the pinned
@@ -4128,20 +4135,21 @@ export default function App({ viewer = false } = {}) {
                   "put them on the actual bulletin board"). Inset past the
                   widest scallop band so it never sits on the border. Which
                   notebook is a Bulletin Board setting; see BulletinNotebook. */}
-              <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "flex-end", padding: `4px ${SPACE.lg}px`, minHeight: 0 }}>
-                {ledgeNotebook && activeUnit && (
+              <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 14, padding: `4px ${SPACE.lg}px`, minHeight: 0 }}>
+                {activeUnit && ledgeNotebooks.map(t => (
                   <BulletinNotebook
-                    template={ledgeNotebook}
+                    key={t.id}
+                    template={t}
                     unitLabel={activeUnit.unit}
-                    kamiUrl={ledgeNotebookUrl}
+                    kamiUrl={notebookDocs[t.id] || ""}
                     interactive={isBuildMode || !viewer}
-                    creating={notebookCreating}
-                    error={notebookError}
-                    open={!!kamiState && kamiSourceField === "notebook"}
-                    onOpen={openNotebook}
-                    onCreate={createNotebook}
+                    creating={notebookCreating === t.id}
+                    error={notebookErrors[t.id] || null}
+                    open={!!kamiState && openNotebookId === t.id}
+                    onOpen={() => openNotebook(t)}
+                    onCreate={() => createNotebook(t)}
                   />
-                )}
+                ))}
               </div>
               {bulletinStyle.trim && (
                 <div style={{ height: 10, flexShrink: 0, backgroundImage: bulletinStyle.trim, backgroundRepeat: "repeat-x", backgroundSize: "24px 10px" }} />

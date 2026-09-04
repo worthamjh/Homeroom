@@ -1169,14 +1169,39 @@ export const DESIGN_AREAS = {
   NOTEBOOK: "notebook",
 };
 
-// Which notebook is pinned to the bulletin board for this classroom: a
-// template id from NOTEBOOK_TEMPLATES, or "" for none. (Named for the
-// chalk ledge, where it lived for an hour; the stored key stays.) Per classroom, like the rest of
-// the board's look; the notebooks a teacher OWNS are teacher-level, in the
-// store (see DESIGN_AREAS.NOTEBOOK).
+// Which notebooks are pinned to the bulletin board for this classroom.
+// (Named for the chalk ledge, where the first one lived for an hour; the
+// stored key stays.) Per classroom, like the rest of the board's look;
+// the notebooks a teacher OWNS are teacher-level, in the store (see
+// DESIGN_AREAS.NOTEBOOK).
+//
+// Any number since 2026-09-04 (Jay: "we need to make it so a teacher can
+// select multiple notebooks"). The stored value is "" for none, a JSON
+// array of template ids, or -- from before that day -- a single id, which
+// still reads as a list of one. Ids that no longer name a template are
+// dropped on read rather than failing the whole value, so removing a
+// template from the catalogue never blanks a board's other notebooks.
 export const LEDGE_NOTEBOOK_KEY = "ledgeNotebook";
 export const DEFAULT_LEDGE_NOTEBOOK = "";
-export const isLedgeNotebookValue = v => v === "" || isNotebookTemplateId(v);
+function ledgeNotebookList(v) {
+  if (typeof v !== "string" || !v) return [];
+  if (!v.startsWith("[")) return [v];
+  try {
+    const arr = JSON.parse(v);
+    return Array.isArray(arr) ? arr : null;
+  } catch {
+    return null;
+  }
+}
+export const isLedgeNotebookValue = v => Array.isArray(ledgeNotebookList(v));
+export function parseLedgeNotebooks(v) {
+  const seen = new Set();
+  return (ledgeNotebookList(v) || []).filter(id => isNotebookTemplateId(id) && !seen.has(id) && seen.add(id));
+}
+export function serializeLedgeNotebooks(ids) {
+  const clean = [...new Set((ids || []).filter(isNotebookTemplateId))];
+  return clean.length ? JSON.stringify(clean) : DEFAULT_LEDGE_NOTEBOOK;
+}
 
 export const designOptionKey = (area, optionId) => `${area}:${optionId}`;
 
