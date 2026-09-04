@@ -4,7 +4,7 @@
 
 Writes, relative to the project root:
 
-    public/notebooks/<name>-<pages>.pdf   the sheet repeated <pages> times (default 25)
+    public/notebooks/<name>-<pages>.pdf   the sheet repeated <pages> times (default 50)
     public/notebooks/thumbs/<name>.png    the store picture, 480 wide like the paper thumbnails
 
 The notebook is the page inserted <pages> times and saved with garbage
@@ -27,7 +27,7 @@ except ImportError:
 if len(sys.argv) < 3:
     raise SystemExit(__doc__)
 src_path, name = sys.argv[1], sys.argv[2]
-pages = int(sys.argv[3]) if len(sys.argv) > 3 else 25
+pages = int(sys.argv[3]) if len(sys.argv) > 3 else 50
 root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 src = pymupdf.open(src_path)

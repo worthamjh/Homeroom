@@ -10,7 +10,7 @@ from 2026-09-04; the one-page sources are kept in `scripts/notebooks/`. To
 add or rebuild one, run the script in `scripts/build-notebook-pdf.py`
 (needs PyMuPDF: `py -m pip install pymupdf`):
 
-    py scripts/build-notebook-pdf.py scripts/notebooks/cer-flow.pdf cer-flow 25
+    py scripts/build-notebook-pdf.py scripts/notebooks/cer-flow.pdf cer-flow 50
 
-That writes `cer-flow-25.pdf` and `thumbs/cer-flow.png` here. Then list the
+That writes `cer-flow-50.pdf` and `thumbs/cer-flow.png` here. Then list the
 template in `src/lib/notebooks.js`.

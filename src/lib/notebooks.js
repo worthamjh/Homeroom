@@ -8,7 +8,7 @@
 //
 // The PDF for each template is a static file under public/notebooks --
 // built once (public/notebooks/README) from the one-page sheet under
-// public/papers, every page sharing the same drawing, so 25 pages cost
+// public/papers, every page sharing the same drawing, so 50 pages cost
 // about as much as one. On first open for a unit the file is fetched,
 // uploaded to the teacher's Drive under "Notebooks", and the Kami link is
 // kept on that unit's board content.
@@ -27,40 +27,40 @@ export const NOTEBOOK_TEMPLATES = [
     label: "CER Flow",
     cover: "CER",
     edition: "Flow",
-    pages: 25,
-    file: "/notebooks/cer-flow-25.pdf",
+    pages: 50,
+    file: "/notebooks/cer-flow-50.pdf",
     thumb: "/notebooks/thumbs/cer-flow.png",
-    blurb: "Claim → Evidence → Reasoning, each box leading to the next, with sentence starters. 25 pages, one response per page.",
+    blurb: "Claim → Evidence → Reasoning, each box leading to the next, with sentence starters. 50 pages, one response per page.",
   },
   {
     id: "cer-rubric",
     label: "CER Teacher Rubric",
     cover: "CER",
     edition: "Rubric",
-    pages: 25,
-    file: "/notebooks/cer-rubric-25.pdf",
+    pages: 50,
+    file: "/notebooks/cer-rubric-50.pdf",
     thumb: "/notebooks/thumbs/cer-rubric.png",
-    blurb: "A 0–3 scoring rubric for Claim, Evidence and Reasoning at the top of every page, marked as it is read. 25 pages.",
+    blurb: "A 0–3 scoring rubric for Claim, Evidence and Reasoning at the top of every page, marked as it is read. 50 pages.",
   },
   {
     id: "cer-notebook",
     label: "CER Notebook",
     cover: "CER",
     edition: "Notebook",
-    pages: 25,
-    file: "/notebooks/cer-notebook-25.pdf",
+    pages: 50,
+    file: "/notebooks/cer-notebook-50.pdf",
     thumb: "/notebooks/thumbs/cer-notebook.png",
-    blurb: "Ruled lines and a red margin, like a composition book, with sentence starters. 25 pages.",
+    blurb: "Ruled lines and a red margin, like a composition book, with sentence starters. 50 pages.",
   },
   {
     id: "cer-chalkboard",
     label: "CER Chalkboard",
     cover: "CER",
     edition: "Chalkboard",
-    pages: 25,
-    file: "/notebooks/cer-chalkboard-25.pdf",
+    pages: 50,
+    file: "/notebooks/cer-chalkboard-50.pdf",
     thumb: "/notebooks/thumbs/cer-chalkboard.png",
-    blurb: "Chalk on green, framed in wood, like the board itself. Best for writing in a light colour. 25 pages.",
+    blurb: "Chalk on green, framed in wood, like the board itself. Best for writing in a light colour. 50 pages.",
   },
 ];
 
