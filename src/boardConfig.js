@@ -462,6 +462,50 @@ export function writeLessonSlidesUrl(unitTitle, lessonTitle, url) {
   } catch { /* ignore */ }
 }
 
+// A slides save that may not have reached the server yet. Picking a deck
+// from the Drive picker reloads the page straight after saving (see
+// handleBrowseDrive in WebsterGrovesChemistry.jsx -- it dodges a Picker
+// SDK crash), and a reload cuts off the request to the server. So the
+// save is noted here first, in sessionStorage (it survives the reload and
+// stays in this tab), sent again by the reloaded page, and forgotten once
+// the server has answered. Without this, the server's older deck would
+// win over the one just picked, since the server's answer is otherwise
+// what the board trusts.
+const PENDING_SLIDES_SAVE_KEY = "homeroom:pendingSlidesSave";
+// A note the server has refused for an hour is stale, not pending: a
+// save that never lands must not keep this tab from asking the server.
+const PENDING_SLIDES_SAVE_MAX_AGE = 60 * 60 * 1000;
+export function readPendingSlidesSave() {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.sessionStorage.getItem(PENDING_SLIDES_SAVE_KEY);
+    const p = raw ? JSON.parse(raw) : null;
+    if (!(p && typeof p === "object" && typeof p.url === "string")) return null;
+    if (typeof p.at !== "number" || Date.now() - p.at > PENDING_SLIDES_SAVE_MAX_AGE) {
+      window.sessionStorage.removeItem(PENDING_SLIDES_SAVE_KEY);
+      return null;
+    }
+    return p;
+  } catch {
+    return null;
+  }
+}
+export function writePendingSlidesSave(save) {
+  if (typeof window === "undefined") return;
+  try { window.sessionStorage.setItem(PENDING_SLIDES_SAVE_KEY, JSON.stringify({ ...save, at: Date.now() })); } catch { /* ignore */ }
+}
+// Forgets the note only if it is still the same save -- a later pick may
+// have replaced it while the earlier request was in flight.
+export function clearPendingSlidesSave(save) {
+  if (typeof window === "undefined") return;
+  try {
+    const cur = readPendingSlidesSave();
+    if (!save || (cur && cur.url === save.url && cur.lessonTitle === save.lessonTitle && cur.unitIdx === save.unitIdx)) {
+      window.sessionStorage.removeItem(PENDING_SLIDES_SAVE_KEY);
+    }
+  } catch { /* ignore */ }
+}
+
 // ── Board arrangement presets ───────────────────────────────────────────
 // `order` controls which side (slides vs goals) renders first;
 // `gridTemplateColumns` should list widths in that same order.

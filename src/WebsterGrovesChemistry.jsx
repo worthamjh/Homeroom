@@ -19,6 +19,7 @@ import {
   boardThemeVars,
   readCalendarUrl, writeCalendarUrl,
   readLessonSlidesUrl, writeLessonSlidesUrl,
+  readPendingSlidesSave, writePendingSlidesSave, clearPendingSlidesSave,
   BOARD_ARRANGEMENTS, DEFAULT_ARRANGEMENT, ARRANGEMENT_STORAGE_KEY,
   bulletinStyles, isBulletinStyleId, migrateBulletinStyleId, DEFAULT_BULLETIN, BULLETIN_STORAGE_KEY,
   BOARD_COMPONENTS,
@@ -995,32 +996,41 @@ function SmartBoard({ src }) {
   // hedged because "deleted" and "no longer shared" look identical from
   // outside. Silence on any error: a notice must never be a guess.
   const fileId = driveFileIdFromSlidesUrl(src);
-  const [unavailable, setUnavailable] = useState(false);
+  // null while the deck looks fine; otherwise why not: "trashed" (Drive
+  // says the deck is in the trash, which the owner can undo), "missing"
+  // (Drive says it is gone), or "" when all that is known is that it
+  // cannot be shown (deleted, or its sharing changed).
+  const [unavailable, setUnavailable] = useState(null);
   useEffect(() => {
-    setUnavailable(false);
+    setUnavailable(null);
     if (!fileId) return;
     let cancelled = false;
     fetch(`/api/profile?slidesProbe=${encodeURIComponent(fileId)}`)
       .then(r => (r.ok ? r.json() : null))
-      .then(j => { if (!cancelled && j && j.available === false) setUnavailable(true); })
+      .then(j => { if (!cancelled && j && j.available === false) setUnavailable(typeof j.reason === "string" ? j.reason : ""); })
       .catch(() => {});
     return () => { cancelled = true; };
   }, [fileId]);
+  const trashed = unavailable === "trashed";
   return (
     <div style={{ width: "100%", maxWidth: "100%", minWidth: 0, height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", boxSizing: "border-box" }}>
       <div style={{ width: "100%", maxWidth: "100%", boxSizing: "border-box", background: "#111", borderRadius: "8px 8px 0 0", padding: "8px 8px 0", border: "2px solid #2a2a2a", borderBottom: "none", pointerEvents: "auto" }}>
         <div style={{ width: "100%", background: "#0a0a0a", borderRadius: "4px 4px 0 0", aspectRatio: "16/9", overflow: "hidden", border: "1px solid var(--board-primary)", position: "relative" }}>
           <iframe src={src} style={{ width: "100%", height: "100%", border: "none", display: "block" }} allowFullScreen title="slides" />
-          {unavailable && (
+          {unavailable != null && (
             <div style={{ position: "absolute", inset: 0, background: "rgba(10,10,10,0.94)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", padding: 24, gap: 10 }}>
               <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 20, letterSpacing: 1, textTransform: "uppercase", color: "var(--board-secondary-accent, #E87722)" }}>
-                These slides can't be shown
+                {trashed ? "This deck is in the Drive trash" : "These slides can't be shown"}
               </div>
               <div style={{ fontFamily: "Lato, sans-serif", fontSize: 14, lineHeight: 1.5, color: "rgba(255,255,255,0.75)", maxWidth: 440 }}>
-                The deck may have been deleted from Google Drive, or its sharing may have changed.
+                {trashed
+                  ? "The deck was moved to the trash in Google Drive."
+                  : unavailable === "missing"
+                    ? "The deck has been deleted from Google Drive."
+                    : "The deck may have been deleted from Google Drive, or its sharing may have changed."}
                 {isBuildMode
-                  ? " Use Change, above the board, to pick another deck or restore this one in Drive."
-                  : " The teacher can pick the slides again in Build."}
+                  ? (trashed ? " Restore it in Drive, or use Change, above the board, to pick another deck." : " Use Change, above the board, to pick another deck or restore this one in Drive.")
+                  : (trashed ? " The teacher can restore it in Drive or pick the slides again in Build." : " The teacher can pick the slides again in Build.")}
               </div>
             </div>
           )}
@@ -3165,21 +3175,57 @@ export default function App({ viewer = false } = {}) {
   const [lessonSlidesUrl, setLessonSlidesUrl] = useState(() => readLessonSlidesUrl(activeCurriculum[initialView.unitIdx]?.unit, initialView.lesson?.title));
   const [slidesEditing, setSlidesEditing] = useState(false);
 
+  // Sends a slides save to the server, noting it first so a reload that
+  // cuts the request off (the Drive picker's, see handleBrowseDrive) can
+  // send it again. `url` is "" when the deck is removed.
+  const pushSlidesSave = (unitIdx, lessonTitle, url) => {
+    const save = { teacherId: activeTeacherId, classroomId: getActiveClassroomId(), unitIdx, lessonTitle, url };
+    writePendingSlidesSave(save);
+    saveBoardContent(activeTeacherId, unitIdx, lessonTitle, { customSlidesUrl: url })
+      .then(() => clearPendingSlidesSave(save))
+      .catch(() => {});
+  };
+
   useEffect(() => {
+    // This browser's copy is only a starting point. The server's answer
+    // wins whenever it has one, including "none" -- a deck removed or
+    // changed on another machine used to stay on this one for good,
+    // because the local copy was trusted over the server's. A local deck
+    // the server has never heard of (saved before slides were mirrored to
+    // Mongo) is pushed up once instead of thrown away.
     const local = readLessonSlidesUrl(activeUnit?.unit, activeLesson?.title);
     setLessonSlidesUrl(local);
     setSlidesEditing(false);
-    // Also fetch from MongoDB so the URL survives clearing site data
-    if (activeTeacherId && activeUnitIdx != null && activeLesson?.title) {
-      fetchBoardContent(activeTeacherId, activeUnitIdx, activeLesson.title)
-        .then(doc => {
-          if (doc?.customSlidesUrl && !local) {
-            writeLessonSlidesUrl(activeUnit?.unit, activeLesson.title, doc.customSlidesUrl);
-            setLessonSlidesUrl(doc.customSlidesUrl);
-          }
-        })
-        .catch(() => {}); // best-effort
+    if (!(activeTeacherId && activeUnitIdx != null && activeLesson?.title)) return;
+    const unitTitle = activeUnit?.unit;
+    const lessonTitle = activeLesson.title;
+    const pending = readPendingSlidesSave();
+    if (pending && pending.teacherId === activeTeacherId && pending.classroomId === getActiveClassroomId()
+        && pending.unitIdx === activeUnitIdx && pending.lessonTitle === lessonTitle) {
+      // The deck just picked, whose save the reload may have cut off: show
+      // it and send the save again rather than ask the server, which may
+      // still hold the deck it replaced.
+      writeLessonSlidesUrl(unitTitle, lessonTitle, pending.url);
+      setLessonSlidesUrl(pending.url);
+      pushSlidesSave(activeUnitIdx, lessonTitle, pending.url);
+      return;
     }
+    let cancelled = false;
+    fetchBoardContent(activeTeacherId, activeUnitIdx, lessonTitle)
+      .then(doc => {
+        if (cancelled) return;
+        const remote = doc?.customSlidesUrl;
+        if (typeof remote === "string") {
+          if (remote !== local) {
+            writeLessonSlidesUrl(unitTitle, lessonTitle, remote);
+            setLessonSlidesUrl(remote);
+          }
+        } else if (local) {
+          pushSlidesSave(activeUnitIdx, lessonTitle, local);
+        }
+      })
+      .catch(() => {}); // best-effort
+    return () => { cancelled = true; };
   }, [activeUnitIdx, activeLesson]);
 
   const handleSaveSlides = (url) => {
@@ -3189,14 +3235,14 @@ export default function App({ viewer = false } = {}) {
     setLessonSlidesUrl(url);
     setSlidesEditing(false);
     if (activeTeacherId && activeUnitIdx != null && activeLesson?.title) {
-      saveBoardContent(activeTeacherId, activeUnitIdx, activeLesson.title, { customSlidesUrl: url }).catch(() => {});
+      pushSlidesSave(activeUnitIdx, activeLesson.title, url);
     }
   };
   const handleRemoveSlides = () => {
     writeLessonSlidesUrl(activeUnit?.unit, activeLesson?.title, "");
     setLessonSlidesUrl("");
     if (activeTeacherId && activeUnitIdx != null && activeLesson?.title) {
-      saveBoardContent(activeTeacherId, activeUnitIdx, activeLesson.title, { customSlidesUrl: "" }).catch(() => {});
+      pushSlidesSave(activeUnitIdx, activeLesson.title, "");
     }
   };
 

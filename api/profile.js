@@ -138,31 +138,76 @@ export async function ensureClassroomSlugs(col, teacherId, { school, teacherName
   return changed;
 }
 
-const slidesProbeCache = new Map();   // fileId -> { at, available }
+// Fetch with a deadline; null on any failure, so a caller can fall through.
+async function fetchWithin(url, ms, init = {}) {
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), ms);
+  try {
+    return await fetch(url, { redirect: "follow", ...init, signal: ctl.signal });
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// The site's own Google API key, the one the Drive picker uses in the
+// browser. Vercel hands every project variable to the functions too; the
+// VITE_ prefix only says Vite may bundle it. With "Google Drive API"
+// among the key's allowed APIs, Drive's files.get answers for any file
+// shared with anyone-with-the-link (which is what picking a deck sets),
+// and it says at once what the thumbnail cannot: trashed, or gone.
+const DRIVE_API_KEY = process.env.GOOGLE_API_KEY || process.env.VITE_GOOGLE_PICKER_API_KEY || "";
+// The key is restricted to the site's own pages; a server request has
+// no page, so it names the site.
+const DRIVE_API_REFERER = "https://gil-bilt.com/";
+
+// Answers { available, reason? }: reason "trashed" when Drive says the
+// deck is in the trash (the owner can restore it), "missing" when Drive
+// says it is gone, and none when all that is known is that it cannot be
+// shown. Any doubt (network trouble, an odd answer) reads as available,
+// so the board is never covered on a guess.
+const slidesProbeCache = new Map();   // fileId -> { at, result }
 async function driveFileLooksAvailable(fileId) {
   const hit = slidesProbeCache.get(fileId);
-  if (hit && Date.now() - hit.at < 10 * 60 * 1000) return hit.available;
-  let available = true;   // any doubt (network trouble, odd answer) leaves the board alone
-  try {
-    const ctl = new AbortController();
-    const timer = setTimeout(() => ctl.abort(), 6000);
-    // A deck published to the web has a "2PACX-..." id and no Drive
-    // thumbnail; its embed page answers 200 while it exists (even from the
-    // trash) and 404 once it is gone or unpublished. A deck picked from
-    // Drive has a file id, and Drive's thumbnail is the tell.
-    const published = fileId.startsWith("2PACX-");
-    const url = published
-      ? `https://docs.google.com/presentation/d/e/${encodeURIComponent(fileId)}/embed?start=false`
-      : `https://drive.google.com/thumbnail?id=${encodeURIComponent(fileId)}&sz=w64`;
-    const r = await fetch(url, { redirect: "follow", signal: ctl.signal });
-    clearTimeout(timer);
-    const type = r.headers.get("content-type") || "";
-    if (published) available = r.status !== 404;
-    else if (r.status === 404 || r.status === 500 || (r.ok && !type.startsWith("image/"))) available = false;
-    else if (r.ok && type.startsWith("image/")) available = true;
-  } catch { available = true; }
-  slidesProbeCache.set(fileId, { at: Date.now(), available });
-  return available;
+  if (hit && Date.now() - hit.at < 10 * 60 * 1000) return hit.result;
+  const result = await probeDriveFile(fileId);
+  slidesProbeCache.set(fileId, { at: Date.now(), result });
+  return result;
+}
+async function probeDriveFile(fileId) {
+  // A deck published to the web has a "2PACX-..." id, which is not a
+  // Drive file id, so Drive cannot be asked about it; its embed page
+  // answers 200 while it exists (even from the trash, for as long as
+  // Google keeps serving it) and 404 once it is gone or unpublished.
+  if (fileId.startsWith("2PACX-")) {
+    const r = await fetchWithin(`https://docs.google.com/presentation/d/e/${encodeURIComponent(fileId)}/embed?start=false`, 6000);
+    return { available: !(r && r.status === 404) };
+  }
+  // A deck picked from Drive: ask Drive itself first. 404 means the file
+  // is gone for good; 200 carries `trashed`. Anything else (the key not
+  // allowed to call Drive, a private file, a hiccup) falls through to the
+  // thumbnail, which Google goes on serving for a while after a deletion
+  // but which does tell a deleted-or-private deck from a shared one.
+  if (DRIVE_API_KEY) {
+    const r = await fetchWithin(
+      `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?fields=id,trashed&key=${encodeURIComponent(DRIVE_API_KEY)}`,
+      6000,
+      { headers: { Referer: DRIVE_API_REFERER } },
+    );
+    if (r && r.status === 404) return { available: false, reason: "missing" };
+    if (r && r.ok) {
+      try {
+        const meta = await r.json();
+        if (meta && meta.id === fileId) return meta.trashed === true ? { available: false, reason: "trashed" } : { available: true };
+      } catch { /* fall through */ }
+    }
+  }
+  const r = await fetchWithin(`https://drive.google.com/thumbnail?id=${encodeURIComponent(fileId)}&sz=w64`, 6000);
+  if (!r) return { available: true };
+  const type = r.headers.get("content-type") || "";
+  if (r.status === 404 || r.status === 500 || (r.ok && !type.startsWith("image/"))) return { available: false };
+  return { available: true };
 }
 
 export default async function handler(req, res) {
@@ -186,7 +231,7 @@ export default async function handler(req, res) {
     const id = req.query.slidesProbe;
     if (!/^[A-Za-z0-9_-]{20,}$/.test(id)) { res.status(400).json({ error: "bad file id" }); return; }
     res.setHeader("Cache-Control", "public, max-age=600");
-    res.status(200).json({ available: await driveFileLooksAvailable(id) });
+    res.status(200).json(await driveFileLooksAvailable(id));
     return;
   }
 
