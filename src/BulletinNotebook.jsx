@@ -19,7 +19,10 @@ const COVER_EDGE = "#162a45";
 const W = 62;
 const H = 80;
 
-export default function BulletinNotebook({ template, unitLabel, kamiUrl, interactive, creating, error, open, onOpen, onCreate }) {
+// `dragHandle` (Build only) draws a ☰ grip beside the notebook, the same
+// one the Build panel's rows have; `onDragHandlePointerDown` gets the
+// pointer event so the board can slide the notebook along the strip.
+export default function BulletinNotebook({ template, unitLabel, kamiUrl, interactive, creating, error, open, onOpen, onCreate, dragHandle, onDragHandlePointerDown }) {
   const hasDoc = !!kamiUrl;
   const canTap = hasDoc || interactive;
   // Short cover text: the template's cover word ("CER") over the unit.
@@ -44,6 +47,23 @@ export default function BulletinNotebook({ template, unitLabel, kamiUrl, interac
       {error && (
         <span style={{ fontSize: 11, color: "#ffb4b4", fontFamily: "Lato, sans-serif", maxWidth: 320, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textShadow: "0 1px 2px rgba(0,0,0,0.6)" }} title={error}>
           {error}
+        </span>
+      )}
+      {dragHandle && (
+        <span
+          role="button"
+          aria-label={`Move the ${template.label} along the bulletin board`}
+          title="Drag to move along the bulletin board"
+          onPointerDown={onDragHandlePointerDown}
+          style={{
+            width: 16, height: 30, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+            cursor: "grab", color: "rgba(255,255,255,0.7)", fontSize: 14, letterSpacing: 1, userSelect: "none", touchAction: "none",
+            background: "rgba(0,0,0,0.35)", borderRadius: 4, textShadow: "0 1px 1px rgba(0,0,0,0.6)",
+          }}
+          onMouseEnter={e => { e.currentTarget.style.color = "var(--board-secondary-accent)"; }}
+          onMouseLeave={e => { e.currentTarget.style.color = "rgba(255,255,255,0.7)"; }}
+        >
+          ☰
         </span>
       )}
       <button

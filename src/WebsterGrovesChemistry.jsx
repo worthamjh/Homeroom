@@ -36,6 +36,7 @@ import {
   BELL_RINGER_PLACEMENT_KEY, DEFAULT_BELL_RINGER_PLACEMENT, isBellRingerPlacement,
   EXIT_SLIP_PLACEMENT_KEY, DEFAULT_EXIT_SLIP_PLACEMENT,
   LEDGE_NOTEBOOK_KEY, DEFAULT_LEDGE_NOTEBOOK, isLedgeNotebookValue, parseLedgeNotebooks,
+  NOTEBOOK_POSITIONS_KEY, DEFAULT_NOTEBOOK_POSITIONS, isNotebookPositionsValue, parseNotebookPositions, serializeNotebookPositions,
   buildSlidingPanels,
   CURRENT_VIEW_STORAGE_KEY, readCurrentView, writeCurrentView,
   useBoardContentOrder,
@@ -2837,6 +2838,7 @@ export default function App({ viewer = false } = {}) {
   const [bellRingerOn] = useScopedSetting(BOARD_COMPONENTS.bellRinger.storageKey, BOARD_COMPONENTS.bellRinger.default, isOnOff);
   const [bellRingerPlacement] = useScopedSetting(BELL_RINGER_PLACEMENT_KEY, DEFAULT_BELL_RINGER_PLACEMENT, isBellRingerPlacement);
   const [ledgeNotebookValue] = useScopedSetting(LEDGE_NOTEBOOK_KEY, DEFAULT_LEDGE_NOTEBOOK, isLedgeNotebookValue);
+  const [notebookPositionsValue, setNotebookPositionsValue] = useScopedSetting(NOTEBOOK_POSITIONS_KEY, DEFAULT_NOTEBOOK_POSITIONS, isNotebookPositionsValue);
   const [exitSlipOn] = useScopedSetting(BOARD_COMPONENTS.exitSlip.storageKey, BOARD_COMPONENTS.exitSlip.default, isOnOff);
   const [exitSlipPlacement] = useScopedSetting(EXIT_SLIP_PLACEMENT_KEY, DEFAULT_EXIT_SLIP_PLACEMENT, isBellRingerPlacement);
   const learningGoalsIsOn = learningGoalsOn === "true";
@@ -3951,6 +3953,40 @@ export default function App({ viewer = false } = {}) {
   // which the teacher sets by dragging the rows under Bulletin Board.
   const ledgeNotebookIds = parseLedgeNotebooks(ledgeNotebookValue);
   const ledgeNotebooks = ledgeNotebookIds.map(notebookTemplate).filter(Boolean);
+  // Where each hangs along the strip (0 = left end, 1 = right end); one
+  // with no spot hangs at the right end with the others. In Build the ☰
+  // beside a notebook drags it: the spot follows the pointer while the
+  // button is down and is saved on release. Measured against the strip's
+  // inner track (see notebookTrackRef) so 0 and 1 are the ends of the
+  // usable strip, not of its border.
+  const notebookPositions = parseNotebookPositions(notebookPositionsValue);
+  const [draggingNotebook, setDraggingNotebook] = useState(null);   // { id, frac } while a drag is on
+  const notebookTrackRef = useRef(null);
+  const notebookPositionOf = id => (draggingNotebook?.id === id ? draggingNotebook.frac : notebookPositions[id]);
+  const startNotebookDrag = (template, e) => {
+    if (!isBuildMode) return;
+    const track = notebookTrackRef.current;
+    const item = e.currentTarget.closest("[data-notebook]");
+    if (!track || !item || (e.button != null && e.button !== 0)) return;
+    e.preventDefault();
+    const trackRect = track.getBoundingClientRect();
+    const itemRect = item.getBoundingClientRect();
+    const grab = e.clientX - itemRect.left;
+    const span = Math.max(1, trackRect.width - itemRect.width);
+    const at = clientX => Math.min(1, Math.max(0, (clientX - grab - trackRect.left) / span));
+    setDraggingNotebook({ id: template.id, frac: at(e.clientX) });
+    const move = ev => setDraggingNotebook({ id: template.id, frac: at(ev.clientX) });
+    const up = ev => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", up);
+      setDraggingNotebook(null);
+      setNotebookPositionsValue(serializeNotebookPositions({ ...notebookPositions, [template.id]: at(ev.clientX) }));
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", up);
+  };
   const notebookDocs = (unitFields.content.notebookDocs && typeof unitFields.content.notebookDocs === "object") ? unitFields.content.notebookDocs : {};
   // The Kami overlay names its source: a doc field ("bellRinger",
   // "exitSlip") or a notebook, as "notebook:<template id>", so two open
@@ -4137,21 +4173,50 @@ export default function App({ viewer = false } = {}) {
                   "put them on the actual bulletin board"). Inset past the
                   widest scallop band so it never sits on the border. Which
                   notebook is a Bulletin Board setting; see BulletinNotebook. */}
-              <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 14, padding: `4px ${SPACE.lg}px`, minHeight: 0 }}>
-                {activeUnit && ledgeNotebooks.map(t => (
-                  <BulletinNotebook
-                    key={t.id}
-                    template={t}
-                    unitLabel={activeUnit.unit}
-                    kamiUrl={notebookDocs[t.id] || ""}
-                    interactive={isBuildMode || !viewer}
-                    creating={notebookCreating === t.id}
-                    error={notebookErrors[t.id] || null}
-                    open={!!kamiState && openNotebookId === t.id}
-                    onOpen={() => openNotebook(t)}
-                    onCreate={() => createNotebook(t)}
-                  />
+              <div style={{ flex: 1, position: "relative", display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 14, padding: `4px ${SPACE.lg}px`, minHeight: 0 }}>
+                {/* Notebooks with no spot of their own gather at the right
+                    end; one that has been dragged hangs where it was put,
+                    on the track below, which covers the strip inside its
+                    padding so a fraction means the same thing everywhere. */}
+                {activeUnit && ledgeNotebooks.filter(t => notebookPositionOf(t.id) == null).map(t => (
+                  <div key={t.id} data-notebook style={{ flexShrink: 0 }}>
+                    <BulletinNotebook
+                      template={t}
+                      unitLabel={activeUnit.unit}
+                      kamiUrl={notebookDocs[t.id] || ""}
+                      interactive={isBuildMode || !viewer}
+                      creating={notebookCreating === t.id}
+                      error={notebookErrors[t.id] || null}
+                      open={!!kamiState && openNotebookId === t.id}
+                      onOpen={() => openNotebook(t)}
+                      onCreate={() => createNotebook(t)}
+                      dragHandle={isBuildMode}
+                      onDragHandlePointerDown={e => startNotebookDrag(t, e)}
+                    />
+                  </div>
                 ))}
+                <div ref={notebookTrackRef} style={{ position: "absolute", top: 4, bottom: 4, left: SPACE.lg, right: SPACE.lg, pointerEvents: "none" }}>
+                  {activeUnit && ledgeNotebooks.filter(t => notebookPositionOf(t.id) != null).map(t => {
+                    const f = notebookPositionOf(t.id);
+                    return (
+                      <div key={t.id} data-notebook style={{ position: "absolute", top: "50%", left: `${f * 100}%`, transform: `translate(-${f * 100}%, -50%)`, pointerEvents: "auto", zIndex: draggingNotebook?.id === t.id ? 2 : 1 }}>
+                        <BulletinNotebook
+                          template={t}
+                          unitLabel={activeUnit.unit}
+                          kamiUrl={notebookDocs[t.id] || ""}
+                          interactive={isBuildMode || !viewer}
+                          creating={notebookCreating === t.id}
+                          error={notebookErrors[t.id] || null}
+                          open={!!kamiState && openNotebookId === t.id}
+                          onOpen={() => openNotebook(t)}
+                          onCreate={() => createNotebook(t)}
+                          dragHandle={isBuildMode}
+                          onDragHandlePointerDown={e => startNotebookDrag(t, e)}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
               {bulletinStyle.trim && (
                 <div style={{ height: 10, flexShrink: 0, backgroundImage: bulletinStyle.trim, backgroundRepeat: "repeat-x", backgroundSize: "24px 10px" }} />

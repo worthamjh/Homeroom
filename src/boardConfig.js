@@ -1203,6 +1203,40 @@ export function serializeLedgeNotebooks(ids) {
   return clean.length ? JSON.stringify(clean) : DEFAULT_LEDGE_NOTEBOOK;
 }
 
+// Where along the bulletin strip each notebook hangs, per classroom: a
+// JSON map of template id -> 0..1, where 0 is the strip's left end and 1
+// its right. A notebook with no entry hangs at the right end with the
+// others, as it always has; dragging its ☰ handle in Build gives it one
+// (Jay: "give the actual notebook image on the bulletin board the three
+// horizontal line drag button as well, so users can move notebooks along
+// the bulletin board"). A fraction rather than pixels, so the same spot
+// holds on the projected board, in Build's scaled frame, and on a phone.
+export const NOTEBOOK_POSITIONS_KEY = "notebookPositions";
+export const DEFAULT_NOTEBOOK_POSITIONS = "";
+export const isNotebookPositionsValue = v => v === "" || (typeof v === "string" && v.startsWith("{"));
+export function parseNotebookPositions(v) {
+  if (typeof v !== "string" || !v) return {};
+  try {
+    const obj = JSON.parse(v);
+    const out = {};
+    if (obj && typeof obj === "object") {
+      for (const [id, f] of Object.entries(obj)) {
+        if (isNotebookTemplateId(id) && typeof f === "number" && Number.isFinite(f)) out[id] = Math.min(1, Math.max(0, f));
+      }
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+export function serializeNotebookPositions(map) {
+  const clean = {};
+  for (const [id, f] of Object.entries(map || {})) {
+    if (isNotebookTemplateId(id) && typeof f === "number" && Number.isFinite(f)) clean[id] = Math.round(Math.min(1, Math.max(0, f)) * 1000) / 1000;
+  }
+  return Object.keys(clean).length ? JSON.stringify(clean) : DEFAULT_NOTEBOOK_POSITIONS;
+}
+
 export const designOptionKey = (area, optionId) => `${area}:${optionId}`;
 
 // Options a teacher must ADD before the picker offers them. Anything not
