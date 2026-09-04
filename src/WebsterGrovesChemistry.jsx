@@ -3988,45 +3988,48 @@ export default function App({ viewer = false } = {}) {
     window.addEventListener("pointercancel", up);
   };
   const notebookDocs = (unitFields.content.notebookDocs && typeof unitFields.content.notebookDocs === "object") ? unitFields.content.notebookDocs : {};
-  // The Kami overlay names its source: a doc field ("bellRinger",
-  // "exitSlip") or a notebook, as "notebook:<template id>", so two open
-  // notebooks on the same strip cannot be confused.
-  const NOTEBOOK_SOURCE = "notebook:";
-  const openNotebookId = kamiSourceField.startsWith(NOTEBOOK_SOURCE) ? kamiSourceField.slice(NOTEBOOK_SOURCE.length) : null;
+  // A notebook opens in its own tab, not over the slides like a Bell
+  // Ringer (Jay: "have notebooks open into a new tab in case a teacher
+  // wants to flip back and forth between notebook and something on the
+  // regular page"). The tab is named for the notebook and the unit, so
+  // tapping again brings that tab forward rather than opening another.
+  const notebookTabName = template => `homeroom-notebook-${template.id}-${activeUnitIdx ?? "unit"}`;
   const [notebookCreating, setNotebookCreating] = useState(null);   // the template id being made, or null
   const [notebookErrors, setNotebookErrors] = useState({});          // template id -> message
   const openNotebook = (template) => {
-    setKamiSourcePanelIdx(null);
-    setKamiSourceField(NOTEBOOK_SOURCE + template.id);
-    setKamiState(prev => (prev && openNotebookId === template.id) ? null : "overlay");
+    const url = notebookDocs[template.id];
+    if (url) window.open(url, notebookTabName(template));
   };
   const createNotebook = async (template) => {
     if (!template || notebookCreating) return;
     setNotebookCreating(template.id);
     setNotebookErrors(prev => ({ ...prev, [template.id]: null }));
+    // The tab is opened NOW, while this is still the teacher's click, and
+    // pointed at the notebook once Drive has it: a window.open after the
+    // upload would be a popup the browser blocks.
+    const tab = window.open("", notebookTabName(template));
+    try {
+      if (tab) tab.document.title = `Making ${template.label} — ${activeUnit?.unit || "Unit"}…`;
+    } catch { /* another origin's tab under that name; leave it */ }
     try {
       // Named for the course too ("Chemistry CER Chalkboard Notebook — Unit 3"):
       // the board's title word, which is the classroom's subject or name.
       const { kamiUrl } = await createNotebookDoc({ template, unitLabel: activeUnit?.unit, courseLabel: boardTitleAccent || "" });
       unitFields.save("notebookDocs", { ...notebookDocs, [template.id]: kamiUrl });
-      setKamiSourcePanelIdx(null);
-      setKamiSourceField(NOTEBOOK_SOURCE + template.id);
-      setKamiState("overlay");
+      if (tab && !tab.closed) tab.location.href = kamiUrl;
+      else window.open(kamiUrl, notebookTabName(template));
     } catch (err) {
+      try { if (tab && !tab.closed) tab.close(); } catch { /* ignore */ }
       setNotebookErrors(prev => ({ ...prev, [template.id]: driveErrorMessage(err) }));
     } finally {
       setNotebookCreating(null);
     }
   };
 
-  const kamiOverlayUrl = openNotebookId
-    ? (notebookDocs[openNotebookId] || "")
-    : ((kamiSourcePanelIdx != null
-      ? mergePanelWithUnit(panelFieldsAt(kamiSourcePanelIdx)).content[kamiUrlKey]
-      : fullAgendaFields.content[kamiUrlKey]) || "");
-  const kamiOverlayLabel = openNotebookId
-    ? `${notebookTemplate(openNotebookId)?.label || "Notebook"} · ${activeUnit?.unit || ""}`
-    : kamiSourceField === "exitSlip" ? "Exit Slip" : "Bell Ringer";
+  const kamiOverlayUrl = (kamiSourcePanelIdx != null
+    ? mergePanelWithUnit(panelFieldsAt(kamiSourcePanelIdx)).content[kamiUrlKey]
+    : fullAgendaFields.content[kamiUrlKey]) || "";
+  const kamiOverlayLabel = kamiSourceField === "exitSlip" ? "Exit Slip" : "Bell Ringer";
 
   // The props a doc field (Bell Ringer, Exit Slip) needs, and the pinned
   // docs the Agenda carries when either is set to live inside it. One
@@ -4187,7 +4190,7 @@ export default function App({ viewer = false } = {}) {
                       interactive={isBuildMode || !viewer}
                       creating={notebookCreating === t.id}
                       error={notebookErrors[t.id] || null}
-                      open={!!kamiState && openNotebookId === t.id}
+                      open={false}
                       onOpen={() => openNotebook(t)}
                       onCreate={() => createNotebook(t)}
                       dragHandle={isBuildMode}
@@ -4207,7 +4210,7 @@ export default function App({ viewer = false } = {}) {
                           interactive={isBuildMode || !viewer}
                           creating={notebookCreating === t.id}
                           error={notebookErrors[t.id] || null}
-                          open={!!kamiState && openNotebookId === t.id}
+                          open={false}
                           onOpen={() => openNotebook(t)}
                           onCreate={() => createNotebook(t)}
                           dragHandle={isBuildMode}
