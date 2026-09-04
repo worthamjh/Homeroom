@@ -4,11 +4,12 @@ import {
   CLERK_CONFIGURED,
   getActiveTeacherId, DEFAULT_TEACHER_ID,
   boardThemeVars, wallBackgroundStyle,
-  designCatalog, useOwnedDesignOptions, isDesignOptionIncluded,
+  designCatalog, useOwnedDesignOptions, isDesignOptionIncluded, designOptionKey,
   useDesignAreaSelections, DESIGN_AREA_DEFAULT_OPTION, DESIGN_AREAS,
   parseLedgeNotebooks, serializeLedgeNotebooks,
 } from "./boardConfig";
 import { fetchProfile } from "./lib/profileApi";
+import { notebookTemplate } from "./lib/notebooks";
 import BulletinPreview from "./BulletinPreview";
 
 /**
@@ -36,6 +37,46 @@ import BulletinPreview from "./BulletinPreview";
 // Previews are area-shaped on purpose — a bulletin style previews as a
 // strip, a wall colour as a swatch, a layout as two columns. Collapsing
 // those into one universal preview blob would cost more than this switch.
+// The bulletin strip with its notebooks hanging at the right end, for the
+// Remove dialog: "Now" with the notebook that is about to come down
+// picked out, "After" without it. A notebook lives on the strip, so the
+// before-and-after has to show the strip -- a page thumbnail next to an
+// empty box said nothing about where it was going (Jay: "the after
+// doesn't have much context that it is referring to the bulletin board").
+function NotebookStripPreview({ style, notebooks, leaving }) {
+  const box = { width: "100%", height: 74, borderRadius: 4, overflow: "hidden", position: "relative", flexShrink: 0, border: "3px solid #8B6914", boxSizing: "border-box" };
+  return (
+    <div style={box}>
+      {style ? <BulletinPreview style={style} radius={0} /> : <div style={{ width: "100%", height: "100%", background: "#2a2a2a" }} />}
+      <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 6, padding: "0 14px" }}>
+        {notebooks.map(t => {
+          const isLeaving = t.id === leaving;
+          return (
+            <span
+              key={t.id}
+              title={t.label}
+              style={{
+                width: 24, height: 31, borderRadius: "1px 2px 2px 1px", boxSizing: "border-box",
+                background: "linear-gradient(90deg, #162a45 0 4px, #1f3a5f 4px)",
+                boxShadow: "1px 1px 2px rgba(0,0,0,0.5)",
+                outline: isLeaving ? "2px solid var(--board-secondary-accent)" : "none", outlineOffset: 2,
+                display: "flex", alignItems: "center", justifyContent: "center", paddingLeft: 4,
+              }}
+            >
+              <span style={{ width: 14, height: 12, background: "#fbfaf5", borderRadius: 1, fontSize: 6, fontWeight: 700, color: "#1f3a5f", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Oswald, sans-serif", overflow: "hidden" }}>
+                {t.cover || t.label.slice(0, 3)}
+              </span>
+            </span>
+          );
+        })}
+        {notebooks.length === 0 && (
+          <span style={{ fontSize: 10, color: "rgba(255,255,255,0.7)", textShadow: "0 1px 2px rgba(0,0,0,0.6)", fontFamily: "Lato, sans-serif" }}>no notebooks</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function Preview({ preview }) {
   const box = { width: "100%", height: 74, borderRadius: 4, overflow: "hidden", position: "relative", flexShrink: 0 };
   if (!preview) return <div style={{ ...box, background: "#2a2a2a" }} />;
@@ -143,7 +184,13 @@ export default function DesignStorePage() {
     isBlankTeacher ? profile?.secondaryColor : undefined,
   );
 
-  const addedCount = design.owned.length;
+  // Only what is still in the store counts. The owned list keeps whatever
+  // was ever added, and a design withdrawn since (the first CER paper, the
+  // CER Flow notebook) stays in it harmlessly -- but it must not be
+  // counted (Jay: "the store page says four added but i only have 2
+  // things added").
+  const inStore = new Set(catalog.flatMap(section => section.options.map(opt => designOptionKey(section.area, opt.id))));
+  const addedCount = design.owned.filter(key => inStore.has(key)).length;
   const selections = useDesignAreaSelections();
 
   // Removing something the board is actually USING would otherwise leave
@@ -306,20 +353,42 @@ export default function DesignStorePage() {
                   <strong style={{ color: "#fff", fontWeight: 600 }}>{pendingRemoval.fallback?.label || "the default"}</strong>.
                 </>
               )}
-              You can add it back any time.
+              {" "}You can add it back any time.
             </p>
 
-            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: 0.6, color: "rgba(255,255,255,0.4)", marginBottom: 5 }}>Now</div>
-                <Preview preview={pendingRemoval.opt.preview} />
+            {pendingRemoval.area === DESIGN_AREAS.NOTEBOOK ? (() => {
+              // The strip as it is on this board, with what hangs on it.
+              const [bulletinId] = selections[DESIGN_AREAS.BULLETIN] || [];
+              const stripStyle = catalog.find(s => s.area === DESIGN_AREAS.BULLETIN)?.options.find(o => o.id === bulletinId)?.preview?.style || null;
+              const [notebookValue] = selections[DESIGN_AREAS.NOTEBOOK] || [];
+              const now = parseLedgeNotebooks(notebookValue).map(notebookTemplate).filter(Boolean);
+              const after = now.filter(t => t.id !== pendingRemoval.opt.id);
+              return (
+                <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: 0.6, color: "rgba(255,255,255,0.4)", marginBottom: 5 }}>Bulletin board now</div>
+                    <NotebookStripPreview style={stripStyle} notebooks={now} leaving={pendingRemoval.opt.id} />
+                  </div>
+                  <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 18, flexShrink: 0, alignSelf: "flex-end", paddingBottom: 24 }}>→</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: 0.6, color: "rgba(255,255,255,0.4)", marginBottom: 5 }}>After</div>
+                    <NotebookStripPreview style={stripStyle} notebooks={after} />
+                  </div>
+                </div>
+              );
+            })() : (
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: 0.6, color: "rgba(255,255,255,0.4)", marginBottom: 5 }}>Now</div>
+                  <Preview preview={pendingRemoval.opt.preview} />
+                </div>
+                <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 18, flexShrink: 0, alignSelf: "flex-end", paddingBottom: 24 }}>→</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: 0.6, color: "rgba(255,255,255,0.4)", marginBottom: 5 }}>After</div>
+                  <Preview preview={pendingRemoval.fallback?.preview} />
+                </div>
               </div>
-              <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 18, flexShrink: 0, alignSelf: "flex-end", paddingBottom: 24 }}>→</div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: 0.6, color: "rgba(255,255,255,0.4)", marginBottom: 5 }}>After</div>
-                <Preview preview={pendingRemoval.fallback?.preview} />
-              </div>
-            </div>
+            )}
 
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
               <button
@@ -333,7 +402,7 @@ export default function DesignStorePage() {
                 onClick={confirmRemoval}
                 style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.28)", color: "rgba(255,255,255,0.75)", borderRadius: 4, fontSize: 13, padding: "8px 16px", cursor: "pointer", fontFamily: "Lato, sans-serif" }}
               >
-                Remove and switch
+                {pendingRemoval.area === DESIGN_AREAS.NOTEBOOK ? "Take it down" : "Remove and switch"}
               </button>
             </div>
           </div>
