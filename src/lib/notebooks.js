@@ -16,22 +16,12 @@
 // Page count is fixed per template (Jay: "I guess its fixed per
 // template?"). The id is what gets stored, so it never changes.
 //
-// Four CER editions, all Jay's sheets (2026-09-04; the earlier single
-// "cer" template is gone, and a board that still names it shows no
+// Three CER editions, all Jay's sheets (2026-09-04; the earlier single
+// "cer" template and the Flow edition are gone, and a board that still names it shows no
 // notebook until another is chosen). `cover` is the short word on the
-// drawn notebook's cover, `edition` the line under it -- the four covers
+// drawn notebook's cover, `edition` the line under it -- the covers
 // would otherwise look the same on the bulletin board.
 export const NOTEBOOK_TEMPLATES = [
-  {
-    id: "cer-flow",
-    label: "CER Flow",
-    cover: "CER",
-    edition: "Flow",
-    pages: 50,
-    file: "/notebooks/cer-flow-50.pdf",
-    thumb: "/notebooks/thumbs/cer-flow.png",
-    blurb: "Claim → Evidence → Reasoning, each box leading to the next, with sentence starters. 50 pages, one response per page.",
-  },
   {
     id: "cer-rubric",
     label: "CER Teacher Rubric",
