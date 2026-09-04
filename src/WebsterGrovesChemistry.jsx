@@ -3988,6 +3988,40 @@ export default function App({ viewer = false } = {}) {
     window.addEventListener("pointercancel", up);
   };
   const notebookDocs = (unitFields.content.notebookDocs && typeof unitFields.content.notebookDocs === "object") ? unitFields.content.notebookDocs : {};
+  // A saved notebook link is only as good as the Drive file behind it.
+  // Jay deleted his old CER notebooks from Drive and the board went on
+  // saying the Unit 1 notebook was made, since it opens by the saved link
+  // and never looked. Each link's Drive file id (inside the Kami link's
+  // state) is checked once per page through the same server probe the
+  // slides use; a file that is gone or in the trash reads as "not made",
+  // so the notebook says Make again and making it writes a fresh link.
+  const notebookFileId = url => {
+    try {
+      const state = new URL(url).searchParams.get("state");
+      const id = state ? JSON.parse(state)?.id : null;
+      return typeof id === "string" && /^[A-Za-z0-9_-]{20,}$/.test(id) ? id : null;
+    } catch {
+      return null;
+    }
+  };
+  const [goneNotebookFiles, setGoneNotebookFiles] = useState({});   // fileId -> true once Drive says it is gone
+  const probedNotebookFiles = useRef(new Set());
+  useEffect(() => {
+    for (const t of ledgeNotebooks) {
+      const fileId = notebookFileId(notebookDocs[t.id]);
+      if (!fileId || probedNotebookFiles.current.has(fileId)) continue;
+      probedNotebookFiles.current.add(fileId);
+      fetch(`/api/profile?slidesProbe=${encodeURIComponent(fileId)}`)
+        .then(r => (r.ok ? r.json() : null))
+        .then(j => { if (j && j.available === false) setGoneNotebookFiles(prev => ({ ...prev, [fileId]: true })); })
+        .catch(() => {});
+    }
+  }, [notebookDocs, ledgeNotebookValue]);
+  const liveNotebookUrl = template => {
+    const url = notebookDocs[template.id] || "";
+    const fileId = url ? notebookFileId(url) : null;
+    return fileId && goneNotebookFiles[fileId] ? "" : url;
+  };
   // A notebook opens in its own tab, not over the slides like a Bell
   // Ringer (Jay: "have notebooks open into a new tab in case a teacher
   // wants to flip back and forth between notebook and something on the
@@ -3997,7 +4031,7 @@ export default function App({ viewer = false } = {}) {
   const [notebookCreating, setNotebookCreating] = useState(null);   // the template id being made, or null
   const [notebookErrors, setNotebookErrors] = useState({});          // template id -> message
   const openNotebook = (template) => {
-    const url = notebookDocs[template.id];
+    const url = liveNotebookUrl(template);
     if (url) window.open(url, notebookTabName(template));
   };
   const createNotebook = async (template) => {
@@ -4186,7 +4220,7 @@ export default function App({ viewer = false } = {}) {
                     <BulletinNotebook
                       template={t}
                       unitLabel={activeUnit.unit}
-                      kamiUrl={notebookDocs[t.id] || ""}
+                      kamiUrl={liveNotebookUrl(t)}
                       interactive={isBuildMode || !viewer}
                       creating={notebookCreating === t.id}
                       error={notebookErrors[t.id] || null}
@@ -4206,7 +4240,7 @@ export default function App({ viewer = false } = {}) {
                         <BulletinNotebook
                           template={t}
                           unitLabel={activeUnit.unit}
-                          kamiUrl={notebookDocs[t.id] || ""}
+                          kamiUrl={liveNotebookUrl(t)}
                           interactive={isBuildMode || !viewer}
                           creating={notebookCreating === t.id}
                           error={notebookErrors[t.id] || null}
