@@ -14,3 +14,10 @@ add or rebuild one, run the script in `scripts/build-notebook-pdf.py`
 
 That writes `cer-notebook-50.pdf` and `thumbs/cer-notebook.png` here. Then list the
 template in `src/lib/notebooks.js`.
+
+A ready-made notebook of several pages is copied as it is, and the fourth
+argument picks the page the store shows. The Chemistry Lab Notebook (Jay's
+Chemistry_Lab_Notebook.pdf: cover, contents, guidelines, 36 entries) was
+added that way, with Entry 1 as its picture:
+
+    py scripts/build-notebook-pdf.py Chemistry_Lab_Notebook.pdf chemistry-lab 0 4

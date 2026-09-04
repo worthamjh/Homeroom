@@ -52,6 +52,18 @@ export const NOTEBOOK_TEMPLATES = [
     thumb: "/notebooks/thumbs/cer-chalkboard.png",
     blurb: "Chalk on green, framed in wood, like the board itself. Best for writing in a light colour. 50 pages.",
   },
+  // A ready-made notebook rather than one sheet repeated: Jay's Chemistry
+  // Lab Notebook, with a cover, a table of contents, notebook guidelines
+  // and 36 numbered entries. The store shows Entry 1, not the cover.
+  {
+    id: "chemistry-lab",
+    label: "Chemistry Lab Notebook",
+    cover: "LAB",
+    pages: 39,
+    file: "/notebooks/chemistry-lab-39.pdf",
+    thumb: "/notebooks/thumbs/chemistry-lab.png",
+    blurb: "A cover, table of contents and notebook guidelines, then 36 numbered lab entries: purpose, safety, materials, procedure, data table, calculations with % error, and a conclusion. 39 pages.",
+  },
 ];
 
 export const NOTEBOOK_FOLDER_NAME = "Notebooks";
@@ -74,5 +86,8 @@ export function isNotebookTemplateId(id) {
 export function notebookDocTitle(template, unitLabel, courseLabel) {
   const course = (courseLabel || "").trim();
   const kind = /notebook$/i.test(template.label) ? template.label : `${template.label} Notebook`;
-  return `${course ? `${course} ` : ""}${kind} — ${unitLabel || "Unit"}`;
+  // "Chemistry Lab Notebook" already names the course; no "Chemistry
+  // Chemistry Lab Notebook".
+  const prefix = course && !kind.toLowerCase().startsWith(course.toLowerCase()) ? `${course} ` : "";
+  return `${prefix}${kind} — ${unitLabel || "Unit"}`;
 }
