@@ -64,7 +64,7 @@ export function isNotebookTemplateId(id) {
   return typeof id === "string" && NOTEBOOK_TEMPLATES.some(t => t.id === id);
 }
 
-// The Drive file name for one unit's notebook: "Chemistry CER Flow
+// The Drive file name for one unit's notebook: "Chemistry CER Chalkboard
 // Notebook — Unit 3". The course comes first because a teacher with two
 // classrooms gets two Unit 1 notebooks in the same Drive folder (Jay,
 // looking at a folder of "CER Notebook — Unit 1" files: "the CER

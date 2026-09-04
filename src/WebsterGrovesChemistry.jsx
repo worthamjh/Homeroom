@@ -3969,7 +3969,7 @@ export default function App({ viewer = false } = {}) {
     setNotebookCreating(template.id);
     setNotebookErrors(prev => ({ ...prev, [template.id]: null }));
     try {
-      // Named for the course too ("Chemistry CER Flow Notebook — Unit 3"):
+      // Named for the course too ("Chemistry CER Chalkboard Notebook — Unit 3"):
       // the board's title word, which is the classroom's subject or name.
       const { kamiUrl } = await createNotebookDoc({ template, unitLabel: activeUnit?.unit, courseLabel: boardTitleAccent || "" });
       unitFields.save("notebookDocs", { ...notebookDocs, [template.id]: kamiUrl });
