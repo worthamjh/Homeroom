@@ -3988,40 +3988,17 @@ export default function App({ viewer = false } = {}) {
     window.addEventListener("pointercancel", up);
   };
   const notebookDocs = (unitFields.content.notebookDocs && typeof unitFields.content.notebookDocs === "object") ? unitFields.content.notebookDocs : {};
-  // A saved notebook link is only as good as the Drive file behind it.
-  // Jay deleted his old CER notebooks from Drive and the board went on
-  // saying the Unit 1 notebook was made, since it opens by the saved link
-  // and never looked. Each link's Drive file id (inside the Kami link's
-  // state) is checked once per page through the same server probe the
-  // slides use; a file that is gone or in the trash reads as "not made",
-  // so the notebook says Make again and making it writes a fresh link.
-  const notebookFileId = url => {
-    try {
-      const state = new URL(url).searchParams.get("state");
-      const id = state ? JSON.parse(state)?.id : null;
-      return typeof id === "string" && /^[A-Za-z0-9_-]{20,}$/.test(id) ? id : null;
-    } catch {
-      return null;
-    }
-  };
-  const [goneNotebookFiles, setGoneNotebookFiles] = useState({});   // fileId -> true once Drive says it is gone
-  const probedNotebookFiles = useRef(new Set());
-  useEffect(() => {
-    for (const t of ledgeNotebooks) {
-      const fileId = notebookFileId(notebookDocs[t.id]);
-      if (!fileId || probedNotebookFiles.current.has(fileId)) continue;
-      probedNotebookFiles.current.add(fileId);
-      fetch(`/api/profile?slidesProbe=${encodeURIComponent(fileId)}`)
-        .then(r => (r.ok ? r.json() : null))
-        .then(j => { if (j && j.available === false) setGoneNotebookFiles(prev => ({ ...prev, [fileId]: true })); })
-        .catch(() => {});
-    }
-  }, [notebookDocs, ledgeNotebookValue]);
-  const liveNotebookUrl = template => {
-    const url = notebookDocs[template.id] || "";
-    const fileId = url ? notebookFileId(url) : null;
-    return fileId && goneNotebookFiles[fileId] ? "" : url;
-  };
+  // A saved notebook link is trusted as it is. A check that asked Drive
+  // whether the file still existed (through the same public probe the
+  // slides use) was tried on 2026-09-05 and taken out the next day: a
+  // notebook is a PRIVATE file in the teacher's Drive, never shared, and
+  // Drive answers "not found" for any private file asked about with an
+  // API key -- so every notebook read as deleted, the board said Make, and
+  // Jay's Drive filled with seven copies of "Chemistry CER Notebook — Unit
+  // 1". The slides probe is fine because a picked deck IS shared. A
+  // notebook whose file the teacher deletes keeps showing as made until
+  // they remove it from the strip and tick it again; Kami says the file is
+  // gone when it is tapped.
   // A notebook opens in its own tab, not over the slides like a Bell
   // Ringer (Jay: "have notebooks open into a new tab in case a teacher
   // wants to flip back and forth between notebook and something on the
@@ -4031,7 +4008,7 @@ export default function App({ viewer = false } = {}) {
   const [notebookCreating, setNotebookCreating] = useState(null);   // the template id being made, or null
   const [notebookErrors, setNotebookErrors] = useState({});          // template id -> message
   const openNotebook = (template) => {
-    const url = liveNotebookUrl(template);
+    const url = notebookDocs[template.id];
     if (url) window.open(url, notebookTabName(template));
   };
   const createNotebook = async (template) => {
@@ -4232,7 +4209,7 @@ export default function App({ viewer = false } = {}) {
                     <BulletinNotebook
                       template={t}
                       unitLabel={activeUnit.unit}
-                      kamiUrl={liveNotebookUrl(t)}
+                      kamiUrl={notebookDocs[t.id] || ""}
                       interactive={isBuildMode || !viewer}
                       creating={notebookCreating === t.id}
                       error={notebookErrors[t.id] || null}
@@ -4252,7 +4229,7 @@ export default function App({ viewer = false } = {}) {
                         <BulletinNotebook
                           template={t}
                           unitLabel={activeUnit.unit}
-                          kamiUrl={liveNotebookUrl(t)}
+                          kamiUrl={notebookDocs[t.id] || ""}
                           interactive={isBuildMode || !viewer}
                           creating={notebookCreating === t.id}
                           error={notebookErrors[t.id] || null}
