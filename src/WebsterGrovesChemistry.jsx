@@ -4155,32 +4155,44 @@ export default function App({ viewer = false } = {}) {
                   />
                 );
               }
-              // Units are added in Build, not here, so the empty board says
-              // so and takes the owner there. A visitor just sees that
-              // nothing is posted yet.
-              if (activeCurriculum.length === 0 && !viewer && !isBuildMode) {
-                return (
-                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14, textAlign: "center" }}>
-                    <div style={{ color: "rgba(255,255,255,0.55)", fontFamily: "Oswald, sans-serif", fontSize: 14, letterSpacing: 1, textTransform: "uppercase" }}>
-                      Your board is empty
-                    </div>
-                    <div style={{ color: "rgba(255,255,255,0.45)", fontFamily: "Lato, sans-serif", fontSize: 13, lineHeight: 1.5, maxWidth: 420 }}>
-                      Units, lessons, slides and assignments are added in Build. It's also the 🛠 button at the top right, any time.
-                    </div>
-                    <a
-                      href={`/build${classroomQuery() ? "?" + classroomQuery().replace(/^&/, "") : ""}`}
-                      style={{ display: "inline-block", background: "var(--board-secondary)", color: "var(--board-secondary-fg)", textDecoration: "none", borderRadius: 6, padding: "10px 18px", fontFamily: "Oswald, sans-serif", fontSize: 14, letterSpacing: 0.8, textTransform: "uppercase", boxShadow: "0 2px 8px rgba(0,0,0,0.4)" }}
-                    >
-                      🛠 Open Build and add your first unit
-                    </a>
-                  </div>
-                );
-              }
+              // No photo picked: the Gil-Bilt chalkboard, the same lockup
+              // the front door shows, stands in (Jay: "make it so the
+              // gil-bilt classroom chalkboard logo art appears on the
+              // homepage by default if no image is selected"). Its wordmark
+              // is an embedded 327px raster, so it is kept near the size it
+              // stays sharp at rather than filling the screen.
+              //
+              // Units are added in Build, not here, so an empty board also
+              // says so under the logo and takes the owner there. A visitor
+              // just sees that nothing is posted yet.
+              const emptyOwner = activeCurriculum.length === 0 && !viewer && !isBuildMode;
               return (
-                <div style={{ color: "rgba(255,255,255,0.4)", fontFamily: "Oswald, sans-serif", fontSize: 14, letterSpacing: 1, textTransform: "uppercase" }}>
-                  {activeCurriculum.length === 0
-                    ? (viewer ? "Nothing posted here yet" : "No units yet — add your first one above to get started")
-                    : "No content yet — pick a unit above to start adding assignments"}
+                <div style={{ width: "100%", height: "100%", boxSizing: "border-box", padding: 24, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 22, textAlign: "center" }}>
+                  <img
+                    src="/logos/gil-bilt-classroom.svg"
+                    alt="Gil-Bilt Classroom"
+                    style={{ display: "block", width: "auto", height: "auto", maxWidth: "min(460px, 70%)", maxHeight: "100%", minHeight: 0, flex: "0 1 auto", borderRadius: 3, boxShadow: "0 10px 30px rgba(0,0,0,0.55)" }}
+                  />
+                  {emptyOwner ? (
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
+                      <div style={{ color: "rgba(255,255,255,0.55)", fontFamily: "Oswald, sans-serif", fontSize: 14, letterSpacing: 1, textTransform: "uppercase" }}>
+                        Your board is empty
+                      </div>
+                      <div style={{ color: "rgba(255,255,255,0.45)", fontFamily: "Lato, sans-serif", fontSize: 13, lineHeight: 1.5, maxWidth: 420 }}>
+                        Units, lessons, slides and assignments are added in Build. It's also the 🛠 button at the top right, any time.
+                      </div>
+                      <a
+                        href={`/build${classroomQuery() ? "?" + classroomQuery().replace(/^&/, "") : ""}`}
+                        style={{ display: "inline-block", background: "var(--board-secondary)", color: "var(--board-secondary-fg)", textDecoration: "none", borderRadius: 6, padding: "10px 18px", fontFamily: "Oswald, sans-serif", fontSize: 14, letterSpacing: 0.8, textTransform: "uppercase", boxShadow: "0 2px 8px rgba(0,0,0,0.4)" }}
+                      >
+                        🛠 Open Build and add your first unit
+                      </a>
+                    </div>
+                  ) : activeCurriculum.length === 0 && viewer ? (
+                    <div style={{ color: "rgba(255,255,255,0.4)", fontFamily: "Oswald, sans-serif", fontSize: 14, letterSpacing: 1, textTransform: "uppercase" }}>
+                      Nothing posted here yet
+                    </div>
+                  ) : null}
                 </div>
               );
             })()}
