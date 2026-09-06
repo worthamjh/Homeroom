@@ -981,6 +981,28 @@ function driveFileIdFromSlidesUrl(src) {
   return m ? m[1] : null;
 }
 
+// The smartboard's bezel with nothing on it: the same dark frame and black
+// screen SmartBoard draws, holding whatever is passed in. The empty slides
+// slot and the empty calendar slot sit in this so they read as "a
+// smartboard with nothing on it yet" on any board surface -- drawn as a
+// bare dashed box in chalk-white, they vanished on the whiteboard (Jay:
+// "the smartboard disappeared on the whiteboard?").
+function SmartBoardShell({ children, dataTour, screenStyle }) {
+  return (
+    <div style={{ width: "100%", maxWidth: "100%", minWidth: 0, display: "flex", flexDirection: "column", alignItems: "center", boxSizing: "border-box" }}>
+      <div style={{ width: "100%", maxWidth: "100%", boxSizing: "border-box", background: "#111", borderRadius: "8px 8px 0 0", padding: "8px 8px 0", border: "2px solid #2a2a2a", borderBottom: "none" }}>
+        <div data-tour={dataTour} style={{ width: "100%", boxSizing: "border-box", background: "#0a0a0a", borderRadius: "4px 4px 0 0", aspectRatio: "16/9", overflow: "auto", border: "1px solid #1c1c1c", position: "relative", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 16, color: "rgba(255,255,255,0.45)", ...screenStyle }}>
+          {children}
+        </div>
+      </div>
+      <div style={{ width: "100%", height: 18, flexShrink: 0, boxSizing: "border-box", background: "#111", border: "2px solid #2a2a2a", borderTop: "1px solid #333", borderRadius: "0 0 6px 6px", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 12px" }}>
+        <span style={{ fontSize: 8, color: "#444", fontFamily: "Oswald, sans-serif", letterSpacing: 2 }}>SMART</span>
+        <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#3a3a3a" }} />
+      </div>
+    </div>
+  );
+}
+
 function SmartBoard({ src }) {
   // Width-driven sizing on purpose: the frame is always exactly the width of
   // its column (100%) and height falls out of the 16:9 ratio. This makes it
@@ -1282,7 +1304,8 @@ function AddEmbedCard({ open, label, promptText, placeholder, initialUrl, onOpen
 
   if (!open) {
     return (
-      <div data-tour={dataTour} style={{ width: "100%", maxWidth: "100%", aspectRatio: "16/9", boxSizing: "border-box", border: "2px dashed rgba(255,255,255,0.25)", borderRadius: 8, color: "rgba(255,255,255,0.4)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, padding: 16 }}>
+      <SmartBoardShell dataTour={dataTour}>
+      <div style={{ width: "100%", height: "100%", boxSizing: "border-box", border: "2px dashed rgba(255,255,255,0.25)", borderRadius: 6, color: "rgba(255,255,255,0.45)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, padding: 16 }}>
         <button
           onClick={onOpen}
           style={{ background: "transparent", border: "none", color: "inherit", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 6, fontFamily: "Oswald, sans-serif", fontSize: 13, letterSpacing: 0.5, textTransform: "uppercase" }}
@@ -1302,6 +1325,7 @@ function AddEmbedCard({ open, label, promptText, placeholder, initialUrl, onOpen
           <div style={{ fontSize: 11, color: "#e8a722", textAlign: "center", maxWidth: 320, lineHeight: 1.4 }}>{driveError}</div>
         )}
       </div>
+      </SmartBoardShell>
     );
   }
 
@@ -1314,13 +1338,14 @@ function AddEmbedCard({ open, label, promptText, placeholder, initialUrl, onOpen
   );
 
   return (
+    // The tour keeps its ring on this slot once the teacher has opened the
+    // form, not just on the button that opened it -- see GuidedTour's
+    // "add-slides" step. The ring goes on the smartboard's screen, which
+    // holds the form.
+    <SmartBoardShell dataTour={dataTour} screenStyle={{ justifyContent: "flex-start" }}>
     <form
-      // The tour keeps its ring on this form once the teacher has opened
-      // it, not just on the button that opened it -- see GuidedTour's
-      // "add-slides" step.
-      data-tour={dataTour}
       onSubmit={e => { e.preventDefault(); const v = embedUrlFromPaste(url); if (v) onSave(v); }}
-      style={{ width: "100%", maxWidth: 480, boxSizing: "border-box", border: "2px solid var(--board-secondary)", borderRadius: 8, background: "#242424", padding: 16, display: "flex", flexDirection: "column", gap: 10 }}
+      style={{ width: "100%", maxWidth: 480, boxSizing: "border-box", border: "2px solid var(--board-secondary)", borderRadius: 8, background: "#242424", padding: 16, display: "flex", flexDirection: "column", gap: 10, margin: "auto" }}
     >
       {driveButton && (
         <>
@@ -1373,6 +1398,7 @@ function AddEmbedCard({ open, label, promptText, placeholder, initialUrl, onOpen
         </button>
       </div>
     </form>
+    </SmartBoardShell>
   );
 }
 
