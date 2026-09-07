@@ -114,6 +114,11 @@ const SPACE = { xs: 8, sm: 12, md: 16, lg: 24, xl: 32, xxl: 40 };
 // (SettingsPage.jsx), which opens in its own browser tab and needs the
 // same preset definitions and storage keys.
 
+// In Build, the unit tab under the pointer widens only when there are
+// more unit tabs than this. Six tabs still fit a name and three controls
+// each on an ordinary laptop; past that they smush.
+const UNIT_TAB_GROW_ABOVE = 6;
+
 // buildSlidingPanels now lives in ./boardConfig.js, shared with
 // FullAgendaBoard.jsx (its Objectives & Benchmarks checklist supports
 // Sliding Boards too, not just the Simple Goals content template).
@@ -2219,7 +2224,12 @@ function TopBar({ viewer = false, curriculum, activeUnitIdx, isOverview, activeL
           // Build only: it is the rename/hide/delete/reorder controls that
           // crowd a tab, and the live board has none of them (Jay: "only
           // really needs to be done in the build menu").
-          <div key={ui} style={{ position: "relative", flex: isBuildMode && openDropdown === ui ? "3 1 0" : "1 1 0", minWidth: 0, transition: "flex 0.2s ease" }}
+          // And only once the row is actually crowded: up to six units each
+          // tab already has room for its name and controls, and the grow
+          // just made the row lurch for no gain (Jay: "it's awkward if
+          // there actually is enough space for the unit pages"). Build
+          // shows hidden units too, so the whole curriculum is the count.
+          <div key={ui} style={{ position: "relative", flex: isBuildMode && openDropdown === ui && curriculum.length > UNIT_TAB_GROW_ABOVE ? "3 1 0" : "1 1 0", minWidth: 0, transition: "flex 0.2s ease" }}
             onMouseEnter={() => { (u.lessons.length > 0 || (isBuildMode && isBlankTeacher)) && setOpenDropdown(ui); }}
             // Don't close the lesson list out from under an open rename box:
             // closing unmounts the input, and React does not fire onBlur on
