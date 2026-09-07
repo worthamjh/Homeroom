@@ -3580,10 +3580,25 @@ export default function App({ viewer = false } = {}) {
     setOpenDropdown(null);
   };
 
+  // Every edit below is optimistic: the board shows the change at once and
+  // the save runs behind it. When the save fails the board and the server
+  // now disagree, and until this the teacher was never told -- the change
+  // looked saved right up to the next reload, when it was gone (this is
+  // how deleting the last unit "came back", before api/curriculum.js
+  // learned to accept an empty list). The Drive notice is the one
+  // page-level message the board already has, and it is mounted in Build's
+  // frame too, so it carries this as well.
+  const saveUnitsOrWarn = (next) => {
+    saveCurriculum(activeTeacherId, next).catch(err => {
+      console.error("Failed to save curriculum", err);
+      raiseDriveNotice("That change didn't save. The board still shows it, but it will be gone on the next reload. Check your connection and try the change again.", { willReload: false });
+    });
+  };
+
   const handleAddUnit = (title) => {
     const next = [...blankUnits, { unit: title, overview: [], lessons: [] }];
     setBlankUnits(next);
-    saveCurriculum(activeTeacherId, next).catch(() => {});
+    saveUnitsOrWarn(next);
   };
 
   const handleAddLesson = (unitIdx, title) => {
@@ -3595,7 +3610,7 @@ export default function App({ viewer = false } = {}) {
     seedLessonBoardCount(unitIdx, title);
     const next = blankUnits.map((u, i) => i === unitIdx ? { ...u, lessons: [...u.lessons, newLesson] } : u);
     setBlankUnits(next);
-    saveCurriculum(activeTeacherId, next).catch(() => {});
+    saveUnitsOrWarn(next);
   };
 
   // ── Rename / delete / reorder units ────────────────────────────────────
@@ -3603,7 +3618,7 @@ export default function App({ viewer = false } = {}) {
     if (!newTitle.trim()) return;
     const next = blankUnits.map((u, i) => i === unitIdx ? { ...u, unit: newTitle.trim() } : u);
     setBlankUnits(next);
-    saveCurriculum(activeTeacherId, next).catch(() => {});
+    saveUnitsOrWarn(next);
   };
   const handleDeleteUnit = (unitIdx) => {
     const next = blankUnits.filter((_, i) => i !== unitIdx);
@@ -3614,7 +3629,7 @@ export default function App({ viewer = false } = {}) {
     } else if (activeUnitIdx > unitIdx) {
       setActiveUnitIdx(activeUnitIdx - 1);
     }
-    saveCurriculum(activeTeacherId, next).catch(() => {});
+    saveUnitsOrWarn(next);
   };
   const handleMoveUnit = (unitIdx, direction) => {
     const next = [...blankUnits];
@@ -3624,7 +3639,7 @@ export default function App({ viewer = false } = {}) {
     setBlankUnits(next);
     if (activeUnitIdx === unitIdx) setActiveUnitIdx(swapIdx);
     else if (activeUnitIdx === swapIdx) setActiveUnitIdx(unitIdx);
-    saveCurriculum(activeTeacherId, next).catch(() => {});
+    saveUnitsOrWarn(next);
   };
 
   // ── Rename / delete / reorder lessons ──────────────────────────────────
@@ -3639,7 +3654,7 @@ export default function App({ viewer = false } = {}) {
     if (activeUnitIdx === unitIdx && activeLesson?.title === oldTitle) {
       setActiveLesson(prev => prev ? { ...prev, title: newTitle.trim() } : prev);
     }
-    saveCurriculum(activeTeacherId, next).catch(() => {});
+    saveUnitsOrWarn(next);
   };
   const handleDeleteLesson = (unitIdx, lessonIdx) => {
     const oldTitle = blankUnits[unitIdx]?.lessons[lessonIdx]?.title;
@@ -3651,7 +3666,7 @@ export default function App({ viewer = false } = {}) {
     if (activeUnitIdx === unitIdx && activeLesson?.title === oldTitle) {
       setActiveLesson(null);
     }
-    saveCurriculum(activeTeacherId, next).catch(() => {});
+    saveUnitsOrWarn(next);
   };
   const handleMoveLesson = (unitIdx, lessonIdx, direction) => {
     const next = blankUnits.map((u, i) => {
@@ -3663,12 +3678,12 @@ export default function App({ viewer = false } = {}) {
       return { ...u, lessons };
     });
     setBlankUnits(next);
-    saveCurriculum(activeTeacherId, next).catch(() => {});
+    saveUnitsOrWarn(next);
   };
   const handleSetLessonOrder = (unitIdx, orderedLessons) => {
     const next = blankUnits.map((u, i) => i === unitIdx ? { ...u, lessons: orderedLessons } : u);
     setBlankUnits(next);
-    saveCurriculum(activeTeacherId, next).catch(() => {});
+    saveUnitsOrWarn(next);
   };
   const handleReorderLesson = (unitIdx, fromIdx, toIdx) => {
     if (fromIdx === toIdx) return;
@@ -3680,7 +3695,7 @@ export default function App({ viewer = false } = {}) {
       return { ...u, lessons };
     });
     setBlankUnits(next);
-    saveCurriculum(activeTeacherId, next).catch(() => {});
+    saveUnitsOrWarn(next);
   };
 
   const handleToggleLessonVisibility = (unitIdx, lessonIdx) => {
@@ -3689,13 +3704,13 @@ export default function App({ viewer = false } = {}) {
       lessons: u.lessons.map((l, j) => j === lessonIdx ? { ...l, hidden: !l.hidden } : l),
     });
     setBlankUnits(next);
-    saveCurriculum(activeTeacherId, next).catch(() => {});
+    saveUnitsOrWarn(next);
   };
 
   const handleToggleUnitVisibility = (unitIdx) => {
     const next = blankUnits.map((u, i) => i === unitIdx ? { ...u, hidden: !u.hidden } : u);
     setBlankUnits(next);
-    saveCurriculum(activeTeacherId, next).catch(() => {});
+    saveUnitsOrWarn(next);
   };
 
   // All assignments across the unit in order
