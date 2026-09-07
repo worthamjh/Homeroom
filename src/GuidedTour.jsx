@@ -120,7 +120,7 @@ const STEPS = [
     selector: '[data-tour="tour-add-lesson"]',
     gate: "auto",
     title: "Add your first lesson",
-    body: "A lesson is one class period — slides, goals, assignments. Click “+ Add Lesson”, then keep the name or type your own and press Enter.",
+    body: "A lesson is a topic — slides, goals, assignments. It can take one class period or several. Click “+ Add Lesson”, then keep the name or type your own and press Enter.",
   },
   {
     id: "open-lesson",
@@ -252,7 +252,7 @@ const STEPS = [
     missingHint: "Open “Blackboard” in the side panel, with a lesson showing on the board — Number of Boards lives at the bottom of it.",
     gate: "auto",
     title: "Number of boards",
-    body: "1 is a single flat board. 2 to 5 stack up like a real sliding chalkboard, each with its own goals and content. Pick 2 or more to try it, or skip this step to keep a single board.",
+    body: "One board for each class period the lesson takes. A one-day lesson gets a single flat board; a three-day lesson gets 3, stacked like a real sliding chalkboard, each with that day’s goals and content. Pick 2 or more to try it, or skip this step to keep a single board.",
   },
   {
     id: "slide-board",
