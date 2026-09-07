@@ -252,7 +252,7 @@ const STEPS = [
     missingHint: "Open “Blackboard” in the side panel, with a lesson showing on the board — Number of Boards lives at the bottom of it.",
     gate: "auto",
     title: "Number of boards",
-    body: "One board for each class period the lesson takes. A one-day lesson gets a single flat board; a three-day lesson gets 3, stacked like a real sliding chalkboard, each with that day’s goals and content. Pick 2 or more to try it, or skip this step to keep a single board.",
+    body: "Each board is one class period of the lesson. A one-day lesson gets a single flat board; a longer lesson gets a board for each day, stacked like a real sliding chalkboard, each with that day’s goals and content. Pick 2 or more to try it, or skip this step to keep a single board.",
   },
   {
     id: "slide-board",
