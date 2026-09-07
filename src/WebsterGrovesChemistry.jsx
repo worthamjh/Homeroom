@@ -2676,8 +2676,10 @@ export default function App({ viewer = false } = {}) {
     if (!isBlankTeacher) return;
     let cancelled = false;
     fetchCurriculum(activeTeacherId)
-      .then(units => { if (!cancelled && units && units.length) setBlankUnits(units); })
-      .catch(() => {}); // no saved curriculum yet, or a transient error — the starter unit stays
+      // An empty array counts: it is the server saying the teacher removed
+      // every unit, and it must beat whatever this browser cached.
+      .then(units => { if (!cancelled && Array.isArray(units)) setBlankUnits(units); })
+      .catch(() => {}); // no saved curriculum yet, or a transient error — the empty board stays
     return () => { cancelled = true; };
   }, [isBlankTeacher, activeTeacherId]);
   const activeCurriculum = isBlankTeacher ? blankUnits : curriculum;

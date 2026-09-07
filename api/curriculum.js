@@ -10,9 +10,9 @@
 // WebsterGrovesChemistry.jsx) — the real Webster Groves curriculum stays
 // the hardcoded `curriculum` export in that same file and never reaches
 // this endpoint. A teacher with no saved document yet gets BLANK_CURRICULUM
-// (the one-starter-unit default) from the client instead — this endpoint
-// returns `null` in that case, same "200 + null means not onboarded yet"
-// convention api/profile.js uses.
+// (empty) from the client instead — this endpoint returns `null` in that
+// case, same "200 + null means not onboarded yet" convention api/profile.js
+// uses. A saved `[]` is different: that teacher had units and removed them.
 //
 // Same trust model as the other Mongo endpoints today: this stores
 // whatever teacherId the client sends, without independently verifying
@@ -65,7 +65,13 @@ function sanitizeUnits(units) {
           videos: Array.isArray(l.videos) ? l.videos : [],
         })),
     }));
-  return clean.length ? clean : null;
+  // An empty array is a real answer -- the teacher deleted their last
+  // unit -- and is stored as such. It used to be rejected as "non-empty
+  // required", so deleting the last unit failed silently in Build and
+  // the unit came back on the board (Jay: "when I delete unit 1 on the
+  // build menu, it still shows up on the main menu"). Only a non-array is
+  // refused.
+  return clean;
 }
 
 function getClientPromise() {
@@ -125,7 +131,7 @@ export default async function handler(req, res) {
       }
       const cleanUnits = sanitizeUnits(units);
       if (!cleanUnits) {
-        res.status(400).json({ error: "a non-empty units array is required" });
+        res.status(400).json({ error: "a units array is required" });
         return;
       }
       const col = await getCollection();
