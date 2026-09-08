@@ -10,6 +10,7 @@ import BuildPage from './BuildPage.jsx'
 import EditProfilePage from './EditProfilePage.jsx'
 import DesignStorePage from './DesignStorePage.jsx'
 import LegalPage from './LegalPage.jsx'
+import HelpPage from './HelpPage.jsx'
 import { useSyncAuthIdentity, CLERK_CONFIGURED } from './boardConfig.js'
 
 const CLERK_PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
@@ -72,6 +73,9 @@ const routedApp = (
           catch-all below, so these names are never taken for a board. */}
       <Route path="/privacy" element={<LegalPage />} />
       <Route path="/terms" element={<LegalPage />} />
+      {/* The nine how-to clips, embedded from YouTube. Linked from Build's
+          header and named by the tour's last step. See HelpPage.jsx. */}
+      <Route path="/help" element={<HelpPage />} />
       {/* gil-bilt.com/<address> with the "/board/" left out -- which is
           what people type from memory (Jay did). Last, so every real page
           above wins; an address nobody owns goes to the front door. */}

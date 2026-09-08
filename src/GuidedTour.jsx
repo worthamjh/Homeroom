@@ -277,7 +277,7 @@ const STEPS = [
     // invert the priority; but leaving them entirely unmentioned meant
     // they might never be found. One sentence at the end, when the
     // teacher is done rather than being led.
-    body: "The 🛠 icon on your board brings you back here. Two things we skipped: a unit can hold a class calendar, and the Store has more board styles. Have a great class!",
+    body: "The 🛠 icon on your board brings you back here. Two things we skipped: a unit can hold a class calendar, and the Store has more board styles. Short clips for all of it are under Help, at the top of this page. Have a great class!",
     ackLabel: "Finish",
   },
 ];
