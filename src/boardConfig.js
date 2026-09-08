@@ -1473,6 +1473,12 @@ export function useOwnedDesignOptions() {
 // THREE doors a value comes through, not just localStorage: the `storage`
 // event and the Mongo fetch would otherwise hand back a legacy id, fail
 // isValid, and silently drop the board to the default.
+// How long a setting sits before its Mongo write goes out -- see
+// pendingSave in useScopedSetting. Long enough to swallow a colour
+// picker's drag, short enough that nothing a person does in between
+// (clicking Back to board, switching tabs) can get ahead of it.
+const SAVE_DEBOUNCE_MS = 400;
+
 export function useScopedSetting(storageKeyName, defaultValue, isValid, migrate) {
   const key = scopedKey(storageKeyName);
   const teacherId = getActiveTeacherId();
@@ -1517,17 +1523,56 @@ export function useScopedSetting(storageKeyName, defaultValue, isValid, migrate)
   // re-reads storage for the new key and skips that one write.
   const boundKey = useRef(key);
 
+  // A value that is ALREADY on the server -- it arrived from another tab
+  // (which saved it) or from the remote fetch itself -- so writing it back
+  // would be a wasted request. Consumed by the write-through below.
+  const alreadyRemote = useRef(null);
+
+  // The one Mongo write this hook is waiting to send, if any. Writes are
+  // DEBOUNCED, because a colour picker fires a change on every mouse
+  // movement, and every one of those used to be its own POST. The API
+  // allows 120 writes a minute per teacher, so a few seconds of dragging
+  // through the picker spent the whole allowance -- and every save for the
+  // rest of that minute, including a board-surface pick made afterwards,
+  // came back 429 and was dropped without a word. The board then loaded
+  // whatever Mongo still had (Jay: "selected chalk on green, hit back to
+  // board, but whiteboard was still selected"). Only the LAST value in a
+  // burst matters, so only it is sent. localStorage and the cache are
+  // still updated on every change -- those are what the live preview and
+  // the other tab read, and they are free.
+  const pendingSave = useRef(null);
+  const latestValue = useRef(value);
+  const flushSave = useCallback((opts) => {
+    const p = pendingSave.current;
+    if (!p) return;
+    clearTimeout(p.timer);
+    pendingSave.current = null;
+    saveBoardSetting(p.teacherId, p.storageKeyName, p.value, opts).catch((err) => {
+      console.warn(`[boardSettings] "${p.storageKeyName}" did not save`, err);
+    });
+  }, []);
+  const queueSave = useCallback((next) => {
+    if (pendingSave.current) clearTimeout(pendingSave.current.timer);
+    pendingSave.current = { ...next, timer: setTimeout(flushSave, SAVE_DEBOUNCE_MS) };
+  }, [flushSave]);
+
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (boundKey.current !== key) {
+      // Whatever was queued belongs to the OLD key; send it before moving.
+      flushSave();
       boundKey.current = key;
       hasLocalEdit.current = false;
+      alreadyRemote.current = null;
       setValue(read());
       return;
     }
+    latestValue.current = value;
     try { window.localStorage.setItem(key, value); } catch { /* ignore */ }
+    const skipRemote = alreadyRemote.current === value;
+    alreadyRemote.current = null;
     if (hasLoadedRemote.current) {
-      saveBoardSetting(teacherId, storageKeyName, value).catch(() => {});
+      if (!skipRemote) queueSave({ teacherId, storageKeyName, value });
       // Keep the shared fetch cache in step with what we just wrote. Without
       // this the cache is a snapshot of page-load time that never ages, and
       // ANY component mounting later in the same page session -- which is
@@ -1541,11 +1586,27 @@ export function useScopedSetting(storageKeyName, defaultValue, isValid, migrate)
     }
   }, [key, value]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // A queued write must not die with the page or the component: "Back to
+  // board" unmounts Build a moment after the last change, and closing the
+  // tab is the other way out. keepalive lets the request outlive the page.
+  useEffect(() => {
+    const onPageHide = () => flushSave({ keepalive: true });
+    window.addEventListener("pagehide", onPageHide);
+    return () => {
+      window.removeEventListener("pagehide", onPageHide);
+      flushSave();
+    };
+  }, [flushSave]);
+
   useEffect(() => {
     const handler = (e) => {
       if (e.key !== key || e.newValue == null) return;
       const v = accept(e.newValue);
-      if (v !== null) setValue(v);
+      if (v === null) return;
+      // The tab that wrote it saved it. Without this an open board tab
+      // re-posted every change Build made, doubling the write count.
+      alreadyRemote.current = v;
+      setValue(v);
     };
     window.addEventListener("storage", handler);
     return () => window.removeEventListener("storage", handler);
@@ -1557,9 +1618,19 @@ export function useScopedSetting(storageKeyName, defaultValue, isValid, migrate)
       .then((remote) => {
         if (cancelled) return;
         const remoteValue = accept(remote ? remote[storageKeyName] : null);
-        if (remoteValue !== null && !hasLocalEdit.current) setValue(remoteValue);
+        if (remoteValue !== null && !hasLocalEdit.current) {
+          alreadyRemote.current = remoteValue;
+          setValue(remoteValue);
+        }
       })
-      .finally(() => { if (!cancelled) hasLoadedRemote.current = true; });
+      .finally(() => {
+        if (cancelled) return;
+        hasLoadedRemote.current = true;
+        // An edit made while the fetch was still out was kept over the
+        // remote value (hasLocalEdit) -- but the write-through above was
+        // gated off at the time, so it never reached Mongo. Send it now.
+        if (hasLocalEdit.current) queueSave({ teacherId, storageKeyName, value: latestValue.current });
+      });
     return () => { cancelled = true; };
   }, [teacherId, storageKeyName]); // eslint-disable-line react-hooks/exhaustive-deps
 

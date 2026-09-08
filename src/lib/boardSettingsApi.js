@@ -16,9 +16,13 @@ export async function fetchBoardSettings(teacherId, classroomId = getActiveClass
   return res.json(); // null when nothing's been saved yet
 }
 
-export async function saveBoardSetting(teacherId, key, value) {
+// `keepalive` lets a save started as the page is closing finish anyway;
+// a setting is at most 20KB (api/_validate.js), well inside the 64KB
+// that keepalive requests are allowed.
+export async function saveBoardSetting(teacherId, key, value, { keepalive = false } = {}) {
   const res = await apiFetch("/api/boardSettings", {
     method: "POST",
+    keepalive,
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ teacherId, classroomId: getActiveClassroomId(), key, value }),
   });
