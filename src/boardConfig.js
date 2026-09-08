@@ -1497,12 +1497,40 @@ export function useScopedSetting(storageKeyName, defaultValue, isValid, migrate)
     return accept(window.localStorage.getItem(key)) ?? defaultValue;
   }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const [value, setValue] = useState(read);
-  // Set the moment the teacher changes this setting themselves. The
-  // one-time remote fetch below must not overwrite an explicit change just
-  // because the fetch was started first -- clicking Add or Remove in the
-  // first second after a page or route change would otherwise be undone by
-  // a reply describing the world before the click.
+  // State carries WHERE its value came from, not just the value, because the
+  // write-through effect below has to treat the origins differently and a
+  // ref noting "the last value came from X" is not reliable: React can
+  // commit one value and, before that commit's effect runs, another origin
+  // can set a newer one and overwrite the note. The effect then reads the
+  // wrong origin for the value it is handling. Keeping the origin IN the
+  // state means the effect closes over exactly the origin of exactly the
+  // value it sees.
+  //   "init"    -- read from localStorage (or the default) at mount / on a
+  //                key change. Persisted locally, never posted.
+  //   "local"   -- this document's own setter. Persisted and posted.
+  //   "remote"  -- the one-time fetch. Persisted locally; not posted back
+  //                to the server it just came from.
+  //   "storage" -- another document wrote it to localStorage: a second
+  //                tab, or Build and the board iframe inside it, which are
+  //                separate documents on one origin. Persisted NOWHERE:
+  //                it is already in localStorage, and that document has
+  //                already posted it.
+  // The last case is not merely wasteful, it is what made the colour
+  // picker "spazz out". The picker writes localStorage on every mouse
+  // movement; the iframe receives those as storage events one task at a
+  // time and can commit an OLDER one after the parent has moved on. It
+  // then wrote that older value back to localStorage, which fired a
+  // storage event at the parent, which snapped the picker back to it,
+  // which wrote again... Measured: in one second of dragging, tens of
+  // thousands of stale writes, the parent's value going backwards tens of
+  // thousands of times, and the two documents ending on different colours.
+  const [state, setState] = useState(() => ({ value: read(), origin: "init" }));
+  const { value, origin } = state;
+  // Set the moment the teacher changes this setting themselves, or another
+  // document does. The one-time remote fetch below must not overwrite an
+  // explicit change just because the fetch was started first -- clicking
+  // Add or Remove in the first second after a page or route change would
+  // otherwise be undone by a reply describing the world before the click.
   const hasLocalEdit = useRef(false);
   // Gates the Mongo write-through below until the one-time remote fetch
   // has had a chance to run — otherwise a fresh mount's first render
@@ -1523,11 +1551,6 @@ export function useScopedSetting(storageKeyName, defaultValue, isValid, migrate)
   // re-reads storage for the new key and skips that one write.
   const boundKey = useRef(key);
 
-  // A value that is ALREADY on the server -- it arrived from another tab
-  // (which saved it) or from the remote fetch itself -- so writing it back
-  // would be a wasted request. Consumed by the write-through below.
-  const alreadyRemote = useRef(null);
-
   // The one Mongo write this hook is waiting to send, if any. Writes are
   // DEBOUNCED, because a colour picker fires a change on every mouse
   // movement, and every one of those used to be its own POST. The API
@@ -1541,7 +1564,7 @@ export function useScopedSetting(storageKeyName, defaultValue, isValid, migrate)
   // still updated on every change -- those are what the live preview and
   // the other tab read, and they are free.
   const pendingSave = useRef(null);
-  const latestValue = useRef(value);
+  const latest = useRef(state);
   const flushSave = useCallback((opts) => {
     const p = pendingSave.current;
     if (!p) return;
@@ -1563,16 +1586,15 @@ export function useScopedSetting(storageKeyName, defaultValue, isValid, migrate)
       flushSave();
       boundKey.current = key;
       hasLocalEdit.current = false;
-      alreadyRemote.current = null;
-      setValue(read());
+      setState({ value: read(), origin: "init" });
       return;
     }
-    latestValue.current = value;
-    try { window.localStorage.setItem(key, value); } catch { /* ignore */ }
-    const skipRemote = alreadyRemote.current === value;
-    alreadyRemote.current = null;
+    latest.current = state;
+    if (origin !== "storage") {
+      try { window.localStorage.setItem(key, value); } catch { /* ignore */ }
+    }
     if (hasLoadedRemote.current) {
-      if (!skipRemote) queueSave({ teacherId, storageKeyName, value });
+      if (origin === "local") queueSave({ teacherId, storageKeyName, value });
       // Keep the shared fetch cache in step with what we just wrote. Without
       // this the cache is a snapshot of page-load time that never ages, and
       // ANY component mounting later in the same page session -- which is
@@ -1584,7 +1606,7 @@ export function useScopedSetting(storageKeyName, defaultValue, isValid, migrate)
       // showing up in my bulliten board options").
       patchCachedBoardSetting(teacherId, storageKeyName, value);
     }
-  }, [key, value]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [key, state]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // A queued write must not die with the page or the component: "Back to
   // board" unmounts Build a moment after the last change, and closing the
@@ -1603,10 +1625,10 @@ export function useScopedSetting(storageKeyName, defaultValue, isValid, migrate)
       if (e.key !== key || e.newValue == null) return;
       const v = accept(e.newValue);
       if (v === null) return;
-      // The tab that wrote it saved it. Without this an open board tab
-      // re-posted every change Build made, doubling the write count.
-      alreadyRemote.current = v;
-      setValue(v);
+      // Newer than any page-load fetch still in flight, so it wins over
+      // the remote value the same way a local edit does.
+      hasLocalEdit.current = true;
+      setState({ value: v, origin: "storage" });
     };
     window.addEventListener("storage", handler);
     return () => window.removeEventListener("storage", handler);
@@ -1618,18 +1640,15 @@ export function useScopedSetting(storageKeyName, defaultValue, isValid, migrate)
       .then((remote) => {
         if (cancelled) return;
         const remoteValue = accept(remote ? remote[storageKeyName] : null);
-        if (remoteValue !== null && !hasLocalEdit.current) {
-          alreadyRemote.current = remoteValue;
-          setValue(remoteValue);
-        }
+        if (remoteValue !== null && !hasLocalEdit.current) setState({ value: remoteValue, origin: "remote" });
       })
       .finally(() => {
         if (cancelled) return;
         hasLoadedRemote.current = true;
-        // An edit made while the fetch was still out was kept over the
-        // remote value (hasLocalEdit) -- but the write-through above was
-        // gated off at the time, so it never reached Mongo. Send it now.
-        if (hasLocalEdit.current) queueSave({ teacherId, storageKeyName, value: latestValue.current });
+        // An edit made here while the fetch was still out was kept over
+        // the remote value (hasLocalEdit) -- but the write-through above
+        // was gated off at the time, so it never reached Mongo. Send it.
+        if (latest.current.origin === "local") queueSave({ teacherId, storageKeyName, value: latest.current.value });
       });
     return () => { cancelled = true; };
   }, [teacherId, storageKeyName]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -1639,7 +1658,7 @@ export function useScopedSetting(storageKeyName, defaultValue, isValid, migrate)
   // this shape keeps it that way.
   const setValueLocal = useCallback((next) => {
     hasLocalEdit.current = true;
-    setValue(next);
+    setState({ value: next, origin: "local" });
   }, []);
 
   return [value, setValueLocal];
