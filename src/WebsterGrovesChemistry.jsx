@@ -3,7 +3,7 @@ import ChalkboardBoardRow, { toGoalPanels } from "./ChalkboardBoardRow";
 import { useFullAgendaFields, ObjectivesChecklist, EditableField, ResetBoardButton } from "./FullAgendaBoard";
 import { fetchExtraAssignments, createExtraAssignment, deleteExtraAssignment, updateExtraAssignment, reorderExtraAssignments } from "./lib/extraAssignments";
 import { uploadAssignmentPdf, uploadSlidesFile } from "./lib/cloudinary";
-import { googleDriveConfigured, googleDriveSignedIn, ensureGoogleScriptsLoaded, pickGoogleSlidesEmbed, pickGoogleDriveAssignmentFiles, pickGoogleCalendar, driveErrorMessage, createNotebookDoc, driveFileIdFromKamiUrl, driveFileStatus, requestDriveAccessToken } from "./lib/googleDrive";
+import { googleDriveConfigured, googleDriveSignedIn, ensureGoogleScriptsLoaded, pickGoogleSlidesEmbed, pickGoogleDriveAssignmentFiles, pickGoogleCalendar, driveErrorMessage, createNotebookDoc, driveFileIdFromKamiUrl, driveFileStatus, requestDriveAccessToken, GOOGLE_TOKEN_STORAGE_KEY } from "./lib/googleDrive";
 import BulletinNotebook from "./BulletinNotebook";
 import { notebookTemplate } from "./lib/notebooks";
 import { LegalLinks } from "./LegalPage";
@@ -4052,29 +4052,45 @@ export default function App({ viewer = false } = {}) {
   // Notebook — Unit 1". The slides probe is fine because a picked deck IS
   // shared.
   //
-  // Asked with the teacher's own token, Drive does answer, so Build checks
-  // -- Build is where a notebook gets made, so the teacher is signed in to
-  // Google there. Two moments: in the background, for every linked
-  // notebook on the open unit, whenever a token is already cached (no
-  // popup outside a click); and on a tap, requesting the token if needed.
-  // A file that is deleted or in the trash reads as not made, so the
-  // notebook says Make and a tap makes a fresh copy -- which is what a
-  // teacher who deleted the Notebooks folder in Drive expects, instead of
-  // the board quietly opening the old copies out of the trash (Jay: "CER
-  // notebook didnt say make, it was just a normal CER notebook even though
-  // there was no notebook folder in drive"). Removing the notebook from the
-  // strip and ticking it again does NOT reset it: the link is on the
-  // unit's board content, not on the strip setting, and dropping it there
-  // would strand notebooks with a class's work in them.
+  // Asked with the teacher's own token, Drive does answer. So the board
+  // checks every linked notebook on the open unit whenever it holds a
+  // token: in Build always, and on the live board for the signed-in
+  // teacher (never for a visitor). A token is only ever REQUESTED inside
+  // a click -- the popup is blocked anywhere else -- so the background
+  // check uses a cached one, and asks again the moment one arrives
+  // (driveTokenTick). Ticking a notebook on in Build's panel requests one
+  // for exactly this reason (see BoardSettingsPanel), which is what makes
+  // "took them off and put them back on" reset a notebook whose file is
+  // gone. A tap in Build requests one too.
   //
-  // Keyed by unit as well as template so a stale answer for one unit
-  // cannot show Make on another while its own check is still out.
+  // A file that is deleted or in the trash reads as not made: its link is
+  // DROPPED from the unit's board content, so the live board and a shared
+  // board see it the same way, the notebook says Make, and a tap makes a
+  // fresh copy -- which is what a teacher who deleted the Notebooks folder
+  // in Drive expects, instead of the board quietly opening the old copies
+  // out of the trash (Jay: "CER notebook didnt say make, it was just a
+  // normal CER notebook even though there was no notebook folder in
+  // drive"). Removing the notebook from the strip alone does not drop the
+  // link: the link is on the unit's board content, not on the strip
+  // setting, and a teacher who hides a notebook for a while must not lose
+  // a class's work in it.
+  //
+  // notebookGone is keyed by unit as well as template so a stale answer
+  // for one unit cannot show Make on another while its own check is out;
+  // it covers the moment between Drive's answer and the dropped link
+  // arriving back through the board content.
   const [notebookGone, setNotebookGone] = useState({});
   const notebookGoneKey = templateId => `${activeUnitIdx ?? "unit"}:${templateId}`;
   const notebookIsGone = templateId => !!notebookGone[notebookGoneKey(templateId)];
   const notebookDocsKey = JSON.stringify(notebookDocs);
+  const [driveTokenTick, setDriveTokenTick] = useState(0);
   useEffect(() => {
-    if (!isBuildMode || !googleDriveSignedIn()) return;
+    const onStorage = (e) => { if (e.key === GOOGLE_TOKEN_STORAGE_KEY && e.newValue) setDriveTokenTick(t => t + 1); };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
+  useEffect(() => {
+    if (!(isBuildMode || !viewer) || !googleDriveSignedIn()) return;
     const linked = Object.entries(notebookDocs)
       .map(([id, url]) => [id, driveFileIdFromKamiUrl(url)])
       .filter(([, fileId]) => fileId);
@@ -4082,6 +4098,7 @@ export default function App({ viewer = false } = {}) {
     let cancelled = false;
     Promise.all(linked.map(async ([id, fileId]) => [id, await driveFileStatus(fileId)])).then(results => {
       if (cancelled) return;
+      const gone = results.filter(([, status]) => status === "gone").map(([id]) => id);
       setNotebookGone(prev => {
         const next = { ...prev };
         for (const [id, status] of results) {
@@ -4090,9 +4107,13 @@ export default function App({ viewer = false } = {}) {
         }
         return next;
       });
+      if (gone.length) {
+        const kept = Object.fromEntries(Object.entries(notebookDocs).filter(([id]) => !gone.includes(id)));
+        unitFields.save("notebookDocs", kept);
+      }
     });
     return () => { cancelled = true; };
-  }, [notebookDocsKey, activeUnitIdx]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [notebookDocsKey, activeUnitIdx, driveTokenTick]); // eslint-disable-line react-hooks/exhaustive-deps
   // A notebook opens in its own tab, not over the slides like a Bell
   // Ringer (Jay: "have notebooks open into a new tab in case a teacher
   // wants to flip back and forth between notebook and something on the
@@ -4134,10 +4155,13 @@ export default function App({ viewer = false } = {}) {
     const url = notebookDocs[template.id];
     if (!url) return;
     const name = notebookTabName(template);
-    // Only Build checks first (see notebookGone above). The live board
-    // opens the link as it is: a token popup has no place on a projector.
-    const fileId = isBuildMode ? driveFileIdFromKamiUrl(url) : null;
-    if (!fileId || notebookCreating) { window.open(url, name); return; }
+    // Checks first (see notebookGone above) when it can: Build requests a
+    // token if there is none; the live board only uses one it already
+    // holds -- a token popup has no place on a projector -- and otherwise
+    // opens the link as it is. A visitor never checks.
+    const fileId = driveFileIdFromKamiUrl(url);
+    const canCheck = fileId && !notebookCreating && (isBuildMode || (!viewer && googleDriveSignedIn()));
+    if (!canCheck) { window.open(url, name); return; }
     // Same reason createNotebook opens its tab first: everything after
     // the token request is past the click, and a window.open there would
     // be blocked as a popup.

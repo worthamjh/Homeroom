@@ -127,6 +127,10 @@ export function ensureGoogleScriptsLoaded() {
 // Google Drive across page reloads and new tabs. GIS tokens are short-lived
 // (~1hr) and we record an explicit expiresAt so we never hand a stale token.
 const TOKEN_STORAGE_KEY = "homeroom_google_access_token";
+// Exported so a document that could not ask Drive for want of a token
+// (Build's board iframe) can hear one arrive, through the storage event,
+// and ask then.
+export const GOOGLE_TOKEN_STORAGE_KEY = TOKEN_STORAGE_KEY;
 function readCachedToken() {
   try {
     const raw = localStorage.getItem(TOKEN_STORAGE_KEY);

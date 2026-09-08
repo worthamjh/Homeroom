@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { googleDriveConfigured, requestDriveAccessToken } from "./lib/googleDrive";
 import BulletinPreview from "./BulletinPreview";
 import { NOTEBOOK_TEMPLATES } from "./lib/notebooks";
 
@@ -213,9 +214,18 @@ export default function BoardSettingsPanel({ selected, onSelect, panelCountInfo,
   // owns stays listed, ticked, for the same reason `shows` above exists.
   const [ledgeNotebookValue, setLedgeNotebookValue] = useScopedSetting(LEDGE_NOTEBOOK_KEY, DEFAULT_LEDGE_NOTEBOOK, isLedgeNotebookValue);
   const ledgeNotebookIds = parseLedgeNotebooks(ledgeNotebookValue);
-  const toggleLedgeNotebook = id => setLedgeNotebookValue(serializeLedgeNotebooks(
-    ledgeNotebookIds.includes(id) ? ledgeNotebookIds.filter(x => x !== id) : [...ledgeNotebookIds, id]
-  ));
+  const toggleLedgeNotebook = id => {
+    const on = !ledgeNotebookIds.includes(id);
+    setLedgeNotebookValue(serializeLedgeNotebooks(on ? [...ledgeNotebookIds, id] : ledgeNotebookIds.filter(x => x !== id)));
+    // Ticking one ON asks Google for a Drive token, here, inside the
+    // click, where the consent popup is allowed. With a token in hand the
+    // board above checks whether this unit's copy still exists in Drive
+    // and says Make if not (see notebookGone in WebsterGrovesChemistry.jsx)
+    // -- so taking a notebook off and putting it back on resets one whose
+    // file the teacher deleted. Making a notebook needs this sign-in
+    // anyway; a dismissed popup just leaves things as they were.
+    if (on && googleDriveConfigured()) requestDriveAccessToken().catch(() => {});
+  };
   // The list's order is the order on the strip, so the ticked ones come
   // first in that order, then the rest of what the teacher owns.
   const notebookRows = [
