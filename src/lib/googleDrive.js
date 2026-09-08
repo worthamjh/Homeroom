@@ -1112,6 +1112,57 @@ export async function createKamiBellRingerDoc({ title, templateId, folderName, p
   return { kamiUrl, fileId: file.id, name: file.name, templateError };
 }
 
+// The Drive file a Kami link opens -- the `state` JSON that
+// createKamiBellRingerDoc builds the link from. null for anything else.
+export function driveFileIdFromKamiUrl(kamiUrl) {
+  try {
+    const state = new URL(kamiUrl).searchParams.get("state");
+    const id = state ? JSON.parse(state).id : null;
+    return typeof id === "string" && id ? id : null;
+  } catch {
+    return null;
+  }
+}
+
+// Whether a file this app made is still somewhere the teacher can use it.
+// Asked with the teacher's OWN token, because a notebook is a private file
+// and the API-key probe the slides use (api/profile.js) answers "not
+// found" for every private file -- which is what once made every notebook
+// read as deleted (see the notebookDocs comment in
+// WebsterGrovesChemistry.jsx). Answers:
+//   "ok"   -- there, not in the trash
+//   "gone" -- deleted, or in the trash. A file in the trash still opens in
+//             Kami, which is exactly how a teacher who deleted the
+//             Notebooks folder in Drive found their board still opening
+//             the old copies out of the trash instead of saying Make. It
+//             is on its way out either way, so it counts as gone.
+//   null   -- could not ask: no token (pass one, or have one cached), or
+//             Drive did not answer. Callers keep trusting the link.
+export async function driveFileStatus(fileId, { accessToken } = {}) {
+  const token = accessToken || readCachedToken();
+  if (!token || !fileId) return null;
+  try {
+    const res = await fetch(
+      `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?fields=id,trashed`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    if (res.status === 404) return "gone";
+    if (!res.ok) return null;
+    const meta = await res.json();
+    return meta.trashed === true ? "gone" : "ok";
+  } catch {
+    return null;
+  }
+}
+
+// A Drive token for a caller that wants to ask Drive something itself.
+// Same rule as everything above: call it from inside a click, before any
+// await, or the consent popup is blocked when there is no cached token.
+export async function requestDriveAccessToken() {
+  await ensureGoogleScriptsLoaded();
+  return requestAccessToken();
+}
+
 // One unit's copy of a notebook template: the static PDF under
 // public/notebooks, uploaded to a "Notebooks" folder in the teacher's
 // Drive and opened through Kami like a Bell Ringer. Called the first time

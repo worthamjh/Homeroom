@@ -3,7 +3,7 @@ import ChalkboardBoardRow, { toGoalPanels } from "./ChalkboardBoardRow";
 import { useFullAgendaFields, ObjectivesChecklist, EditableField, ResetBoardButton } from "./FullAgendaBoard";
 import { fetchExtraAssignments, createExtraAssignment, deleteExtraAssignment, updateExtraAssignment, reorderExtraAssignments } from "./lib/extraAssignments";
 import { uploadAssignmentPdf, uploadSlidesFile } from "./lib/cloudinary";
-import { googleDriveConfigured, ensureGoogleScriptsLoaded, pickGoogleSlidesEmbed, pickGoogleDriveAssignmentFiles, pickGoogleCalendar, driveErrorMessage, createNotebookDoc } from "./lib/googleDrive";
+import { googleDriveConfigured, googleDriveSignedIn, ensureGoogleScriptsLoaded, pickGoogleSlidesEmbed, pickGoogleDriveAssignmentFiles, pickGoogleCalendar, driveErrorMessage, createNotebookDoc, driveFileIdFromKamiUrl, driveFileStatus, requestDriveAccessToken } from "./lib/googleDrive";
 import BulletinNotebook from "./BulletinNotebook";
 import { notebookTemplate } from "./lib/notebooks";
 import { LegalLinks } from "./LegalPage";
@@ -4041,17 +4041,58 @@ export default function App({ viewer = false } = {}) {
     window.addEventListener("pointercancel", up);
   };
   const notebookDocs = (unitFields.content.notebookDocs && typeof unitFields.content.notebookDocs === "object") ? unitFields.content.notebookDocs : {};
-  // A saved notebook link is trusted as it is. A check that asked Drive
-  // whether the file still existed (through the same public probe the
-  // slides use) was tried on 2026-09-05 and taken out the next day: a
-  // notebook is a PRIVATE file in the teacher's Drive, never shared, and
-  // Drive answers "not found" for any private file asked about with an
-  // API key -- so every notebook read as deleted, the board said Make, and
-  // Jay's Drive filled with seven copies of "Chemistry CER Notebook — Unit
-  // 1". The slides probe is fine because a picked deck IS shared. A
-  // notebook whose file the teacher deletes keeps showing as made until
-  // they remove it from the strip and tick it again; Kami says the file is
-  // gone when it is tapped.
+  // Whether a saved notebook link still points at a usable file.
+  //
+  // The live board trusts the link as it is. A check through the same
+  // public probe the slides use was tried on 2026-09-05 and taken out the
+  // next day: a notebook is a PRIVATE file in the teacher's Drive, never
+  // shared, and Drive answers "not found" for any private file asked about
+  // with an API key -- so every notebook read as deleted, the board said
+  // Make, and Jay's Drive filled with seven copies of "Chemistry CER
+  // Notebook — Unit 1". The slides probe is fine because a picked deck IS
+  // shared.
+  //
+  // Asked with the teacher's own token, Drive does answer, so Build checks
+  // -- Build is where a notebook gets made, so the teacher is signed in to
+  // Google there. Two moments: in the background, for every linked
+  // notebook on the open unit, whenever a token is already cached (no
+  // popup outside a click); and on a tap, requesting the token if needed.
+  // A file that is deleted or in the trash reads as not made, so the
+  // notebook says Make and a tap makes a fresh copy -- which is what a
+  // teacher who deleted the Notebooks folder in Drive expects, instead of
+  // the board quietly opening the old copies out of the trash (Jay: "CER
+  // notebook didnt say make, it was just a normal CER notebook even though
+  // there was no notebook folder in drive"). Removing the notebook from the
+  // strip and ticking it again does NOT reset it: the link is on the
+  // unit's board content, not on the strip setting, and dropping it there
+  // would strand notebooks with a class's work in them.
+  //
+  // Keyed by unit as well as template so a stale answer for one unit
+  // cannot show Make on another while its own check is still out.
+  const [notebookGone, setNotebookGone] = useState({});
+  const notebookGoneKey = templateId => `${activeUnitIdx ?? "unit"}:${templateId}`;
+  const notebookIsGone = templateId => !!notebookGone[notebookGoneKey(templateId)];
+  const notebookDocsKey = JSON.stringify(notebookDocs);
+  useEffect(() => {
+    if (!isBuildMode || !googleDriveSignedIn()) return;
+    const linked = Object.entries(notebookDocs)
+      .map(([id, url]) => [id, driveFileIdFromKamiUrl(url)])
+      .filter(([, fileId]) => fileId);
+    if (!linked.length) return;
+    let cancelled = false;
+    Promise.all(linked.map(async ([id, fileId]) => [id, await driveFileStatus(fileId)])).then(results => {
+      if (cancelled) return;
+      setNotebookGone(prev => {
+        const next = { ...prev };
+        for (const [id, status] of results) {
+          if (status === "gone") next[notebookGoneKey(id)] = true;
+          else if (status === "ok") delete next[notebookGoneKey(id)];
+        }
+        return next;
+      });
+    });
+    return () => { cancelled = true; };
+  }, [notebookDocsKey, activeUnitIdx]); // eslint-disable-line react-hooks/exhaustive-deps
   // A notebook opens in its own tab, not over the slides like a Bell
   // Ringer (Jay: "have notebooks open into a new tab in case a teacher
   // wants to flip back and forth between notebook and something on the
@@ -4060,18 +4101,17 @@ export default function App({ viewer = false } = {}) {
   const notebookTabName = template => `homeroom-notebook-${template.id}-${activeUnitIdx ?? "unit"}`;
   const [notebookCreating, setNotebookCreating] = useState(null);   // the template id being made, or null
   const [notebookErrors, setNotebookErrors] = useState({});          // template id -> message
-  const openNotebook = (template) => {
-    const url = notebookDocs[template.id];
-    if (url) window.open(url, notebookTabName(template));
-  };
-  const createNotebook = async (template) => {
+  // `existingTab`: a tab the caller already opened for this notebook
+  // during the teacher's click, so a make that starts after an await
+  // (openNotebook's Drive check) still has one to point at.
+  const createNotebook = async (template, existingTab = null) => {
     if (!template || notebookCreating) return;
     setNotebookCreating(template.id);
     setNotebookErrors(prev => ({ ...prev, [template.id]: null }));
     // The tab is opened NOW, while this is still the teacher's click, and
     // pointed at the notebook once Drive has it: a window.open after the
     // upload would be a popup the browser blocks.
-    const tab = window.open("", notebookTabName(template));
+    const tab = existingTab || window.open("", notebookTabName(template));
     try {
       if (tab) tab.document.title = `Making ${template.label} — ${activeUnit?.unit || "Unit"}…`;
     } catch { /* another origin's tab under that name; leave it */ }
@@ -4080,6 +4120,7 @@ export default function App({ viewer = false } = {}) {
       // the board's title word, which is the classroom's subject or name.
       const { kamiUrl } = await createNotebookDoc({ template, unitLabel: activeUnit?.unit, courseLabel: boardTitleAccent || "" });
       unitFields.save("notebookDocs", { ...notebookDocs, [template.id]: kamiUrl });
+      setNotebookGone(prev => { const next = { ...prev }; delete next[notebookGoneKey(template.id)]; return next; });
       if (tab && !tab.closed) tab.location.href = kamiUrl;
       else window.open(kamiUrl, notebookTabName(template));
     } catch (err) {
@@ -4088,6 +4129,29 @@ export default function App({ viewer = false } = {}) {
     } finally {
       setNotebookCreating(null);
     }
+  };
+  const openNotebook = (template) => {
+    const url = notebookDocs[template.id];
+    if (!url) return;
+    const name = notebookTabName(template);
+    // Only Build checks first (see notebookGone above). The live board
+    // opens the link as it is: a token popup has no place on a projector.
+    const fileId = isBuildMode ? driveFileIdFromKamiUrl(url) : null;
+    if (!fileId || notebookCreating) { window.open(url, name); return; }
+    // Same reason createNotebook opens its tab first: everything after
+    // the token request is past the click, and a window.open there would
+    // be blocked as a popup.
+    const tab = window.open("", name);
+    const tokenPromise = requestDriveAccessToken();
+    (async () => {
+      let status = null;
+      try {
+        status = await driveFileStatus(fileId, { accessToken: await tokenPromise });
+      } catch { /* no token (consent dismissed): trust the link */ }
+      if (status === "gone") { await createNotebook(template, tab); return; }
+      if (tab && !tab.closed) tab.location.href = url;
+      else window.open(url, name);
+    })();
   };
 
   const kamiOverlayUrl = (kamiSourcePanelIdx != null
@@ -4262,7 +4326,7 @@ export default function App({ viewer = false } = {}) {
                     <BulletinNotebook
                       template={t}
                       unitLabel={activeUnit.unit}
-                      kamiUrl={notebookDocs[t.id] || ""}
+                      kamiUrl={notebookIsGone(t.id) ? "" : (notebookDocs[t.id] || "")}
                       interactive={isBuildMode || !viewer}
                       creating={notebookCreating === t.id}
                       error={notebookErrors[t.id] || null}
@@ -4282,7 +4346,7 @@ export default function App({ viewer = false } = {}) {
                         <BulletinNotebook
                           template={t}
                           unitLabel={activeUnit.unit}
-                          kamiUrl={notebookDocs[t.id] || ""}
+                          kamiUrl={notebookIsGone(t.id) ? "" : (notebookDocs[t.id] || "")}
                           interactive={isBuildMode || !viewer}
                           creating={notebookCreating === t.id}
                           error={notebookErrors[t.id] || null}
