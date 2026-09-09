@@ -1008,7 +1008,28 @@ function SmartBoardShell({ children, dataTour, screenStyle }) {
   );
 }
 
-function SmartBoard({ src }) {
+// `fullscreenable` (live-board calendar only, per Jay: "The slides are fine
+// the way they are, i am currently just talking about the calendar") adds a
+// Full Screen control in the bezel's bottom bar. Full screen lifts the same
+// frame to fill the viewport with a Minimize bar, the way the Kami overlay
+// does for bell ringers and exit slips -- position:fixed, not the browser's
+// own Fullscreen API, so one click (or Escape) brings the board back. The
+// iframe is the same React node in both states, so the calendar does not
+// reload on the way up or down. The button lives in the bezel rather than
+// over the frame because Google's calendar embed keeps its own controls in
+// every corner (Today, Month, the timezone line, its logo).
+function SmartBoard({ src, fullscreenable = false, fullscreenLabel = "Calendar" }) {
+  const [full, setFull] = useState(false);
+  useEffect(() => {
+    if (!full) return;
+    const onKey = (e) => { if (e.key === "Escape") setFull(false); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [full]);
+  // Leaving the calendar (src changes, or the control goes away) drops out
+  // of full screen so a fixed panel is never left behind.
+  useEffect(() => { setFull(false); }, [src, fullscreenable]);
+  const fsBtnStyle = { fontFamily: "Oswald, sans-serif", fontSize: 10, letterSpacing: 1, textTransform: "uppercase", background: "transparent", border: "1px solid rgba(255,255,255,0.25)", borderRadius: 3, color: "#aaa", padding: "1px 8px", cursor: "pointer", lineHeight: "14px" };
   // Width-driven sizing on purpose: the frame is always exactly the width of
   // its column (100%) and height falls out of the 16:9 ratio. This makes it
   // structurally impossible for the board to grow wider than its column,
@@ -1041,9 +1062,33 @@ function SmartBoard({ src }) {
   }, [fileId]);
   const trashed = unavailable === "trashed";
   return (
-    <div style={{ width: "100%", maxWidth: "100%", minWidth: 0, height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", boxSizing: "border-box" }}>
-      <div style={{ width: "100%", maxWidth: "100%", boxSizing: "border-box", background: "#111", borderRadius: "8px 8px 0 0", padding: "8px 8px 0", border: "2px solid #2a2a2a", borderBottom: "none", pointerEvents: "auto" }}>
-        <div style={{ width: "100%", background: "#0a0a0a", borderRadius: "4px 4px 0 0", aspectRatio: "16/9", overflow: "hidden", border: "1px solid var(--board-primary)", position: "relative" }}>
+    <div style={full
+      ? { position: "fixed", inset: 0, zIndex: 8000, display: "flex", flexDirection: "column", background: "#111", boxSizing: "border-box" }
+      : { width: "100%", maxWidth: "100%", minWidth: 0, height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", boxSizing: "border-box" }}>
+      {/* Always occupies the first child slot (false when minimized) so the
+          bezel and iframe below keep their positions and are never remounted. */}
+      {full && (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 12px", background: "rgba(0,0,0,0.55)", flexShrink: 0 }}>
+          <span style={{ flex: 1, fontFamily: "Oswald, sans-serif", fontSize: 13, letterSpacing: 1.5, textTransform: "uppercase", color: "rgba(255,255,255,0.6)" }}>
+            {fullscreenLabel}
+          </span>
+          <button
+            onClick={() => setFull(false)}
+            title="Minimize back to the board (Esc)"
+            style={{ fontFamily: "Lato, sans-serif", fontSize: 12, padding: "5px 14px", background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.25)", borderRadius: 5, color: "#fff", cursor: "pointer" }}
+            onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.2)"; }}
+            onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.1)"; }}
+          >
+            ⊡ Minimize
+          </button>
+        </div>
+      )}
+      <div style={full
+        ? { flex: 1, minHeight: 0, width: "100%", boxSizing: "border-box", background: "#111", padding: "0 8px 8px", pointerEvents: "auto", display: "flex", flexDirection: "column" }
+        : { width: "100%", maxWidth: "100%", boxSizing: "border-box", background: "#111", borderRadius: "8px 8px 0 0", padding: "8px 8px 0", border: "2px solid #2a2a2a", borderBottom: "none", pointerEvents: "auto" }}>
+        <div style={full
+          ? { flex: 1, minHeight: 0, width: "100%", background: "#0a0a0a", overflow: "hidden", border: "1px solid var(--board-primary)", position: "relative" }
+          : { width: "100%", background: "#0a0a0a", borderRadius: "4px 4px 0 0", aspectRatio: "16/9", overflow: "hidden", border: "1px solid var(--board-primary)", position: "relative" }}>
           <iframe src={src} style={{ width: "100%", height: "100%", border: "none", display: "block" }} allowFullScreen title="slides" />
           {unavailable != null && (
             <div style={{ position: "absolute", inset: 0, background: "rgba(10,10,10,0.94)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", padding: 24, gap: 10 }}>
@@ -1064,15 +1109,32 @@ function SmartBoard({ src }) {
           )}
         </div>
       </div>
-      <div style={{ width: "100%", height: 18, flexShrink: 0, boxSizing: "border-box", background: "#111", border: "2px solid #2a2a2a", borderTop: "1px solid #333", borderRadius: "0 0 6px 6px", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 12px", pointerEvents: "auto" }}>
-        <span style={{ fontSize: 8, color: "#444", fontFamily: "Oswald, sans-serif", letterSpacing: 2 }}>SMART</span>
-        <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#1a6c1a", boxShadow: "0 0 4px #1a6c1a" }} />
-      </div>
-      <div style={{ width: "70%", height: 10, flexShrink: 0, boxSizing: "border-box", background: "#0e0e0e", borderRadius: "0 0 4px 4px", border: "1px solid #222", borderTop: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, padding: "0 12px", pointerEvents: "auto" }}>
-        {["#2a2a2a", "#8a1a1a", "#1a4a1a", "#1a1a6a"].map((c, i) => (
-          <div key={i} style={{ height: 6, width: 22, borderRadius: 2, background: c }} />
-        ))}
-      </div>
+      {!full && (
+        <div style={{ width: "100%", height: fullscreenable ? 22 : 18, flexShrink: 0, boxSizing: "border-box", background: "#111", border: "2px solid #2a2a2a", borderTop: "1px solid #333", borderRadius: "0 0 6px 6px", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 12px", pointerEvents: "auto" }}>
+          <span style={{ fontSize: 8, color: "#444", fontFamily: "Oswald, sans-serif", letterSpacing: 2 }}>SMART</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            {fullscreenable && (
+              <button
+                onClick={() => setFull(true)}
+                title={`Show the ${fullscreenLabel.toLowerCase()} full screen`}
+                style={fsBtnStyle}
+                onMouseEnter={e => { e.currentTarget.style.color = "#fff"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.6)"; }}
+                onMouseLeave={e => { e.currentTarget.style.color = "#aaa"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.25)"; }}
+              >
+                ⛶ Full Screen
+              </button>
+            )}
+            <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#1a6c1a", boxShadow: "0 0 4px #1a6c1a" }} />
+          </div>
+        </div>
+      )}
+      {!full && (
+        <div style={{ width: "70%", height: 10, flexShrink: 0, boxSizing: "border-box", background: "#0e0e0e", borderRadius: "0 0 4px 4px", border: "1px solid #222", borderTop: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, padding: "0 12px", pointerEvents: "auto" }}>
+          {["#2a2a2a", "#8a1a1a", "#1a4a1a", "#1a1a6a"].map((c, i) => (
+            <div key={i} style={{ height: 6, width: 22, borderRadius: 2, background: c }} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -3797,7 +3859,9 @@ export default function App({ viewer = false } = {}) {
     // so Full Screen still fills the viewport from here.
     return (
       <div style={{ position: "relative", width: "100%", height: "100%" }}>
-        <SmartBoard src={boardSlides} />
+        {/* The unit page's calendar gets Full Screen; lesson slides do not
+            (Jay: "The slides are fine the way they are"). */}
+        <SmartBoard src={boardSlides} fullscreenable={isOverview && !!boardSlides} fullscreenLabel="Calendar" />
         {kamiState && (
           <KamiOverlay
             label={kamiOverlayLabel}
