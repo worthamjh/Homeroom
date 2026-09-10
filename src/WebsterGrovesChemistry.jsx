@@ -2120,6 +2120,19 @@ const KAMI_CHROME = {
 // back to the picture. No picture (a pasted doc the token cannot read, no
 // Google sign-in on this computer, Drive not answering) means the clipped
 // frame, as before.
+// Kami's viewer is built on pdf.js, which reads a zoom and position hint
+// from the link's hash: "#page=1&zoom=page-width" opens page one at the
+// width of the frame, scrolled to the top, every time. That is where a
+// question paper's dotted question space is, so the class sees the
+// question at once instead of wherever Kami last left the page (Jay: "can
+// we make it default zoom so the text part is centered on the smartboard
+// automatically"). Harmless if Kami ignores it. Added once, on the src,
+// so toggling Full Screen never reloads the document.
+function kamiViewerHint(url) {
+  if (!url || url.includes("#")) return url;
+  return `${url}#page=1&zoom=page-width`;
+}
+
 function KamiOverlay({ url, state, onToggleFullscreen, onClose, contained = false, label = "Bell Ringer", picture = null }) {
   if (!url || !state) return null;
   const isFullscreen = state === "fullscreen";
@@ -2168,7 +2181,7 @@ function KamiOverlay({ url, state, onToggleFullscreen, onClose, contained = fals
           contained board view clips Kami's chrome away — see KAMI_CHROME. */}
       <div style={{ flex: 1, position: "relative", overflow: "hidden", background: showPicture ? "#0a0a0a" : "#fff" }}>
         <iframe
-          src={url}
+          src={kamiViewerHint(url)}
           style={isFullscreen
             ? { border: "none", width: "100%", height: "100%", display: "block" }
             : showPicture ? { display: "none" }
