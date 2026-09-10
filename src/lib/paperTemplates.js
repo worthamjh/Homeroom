@@ -52,13 +52,75 @@ function gridContent() {
   return ops.join("\n");
 }
 
+// Question papers (2026-09-10). A bell ringer opened from the agenda is to
+// show up on the smartboard as a picture of just the question, not the
+// clipped Kami frame; these sheets mark the band that picture is taken
+// from, so the teacher can see what the class will get. Jay's geometry:
+//   one question  -> top 20% of the page is the question band.
+//   two questions -> 20% question, 30% answer, 20% question, 30% answer,
+//                    and the two question bands stack into one 16:9 picture.
+// `boardBands` on the paper entry is the same geometry as fractions of the
+// page height from the top, for whatever crops the Drive rendering later.
+// The bands are blank (a clean picture); the answer areas are wide ruled.
+// The label sits just BELOW the dotted line, in the answer area, so it is
+// never in the picture.
+const DOT = "0.55 0.58 0.62";
+const LABEL = "0.62 0.65 0.68";
+const BOARD_LABEL = "above the dotted line shows on the board";
+
+function rulesBetween(top, bottom, pitch) {
+  const ops = [`${BLUE} RG`, "0.7 w"];
+  for (let y = top - pitch; y >= bottom + 0.01; y -= pitch) {
+    ops.push(`0 ${y.toFixed(2)} m ${PAGE_W} ${y.toFixed(2)} l S`);
+  }
+  return ops;
+}
+
+function dottedLine(y) {
+  return [`${DOT} RG`, "1 w", "[3 4] 0 d", `0 ${y.toFixed(2)} m ${PAGE_W} ${y.toFixed(2)} l S`, "[] 0 d"];
+}
+
+// Small grey caption, right-aligned under a dotted line. Helvetica is one
+// of the standard fourteen fonts every PDF viewer carries, so it needs no
+// embedding; its average glyph is about half an em wide, which is close
+// enough to right-align a short caption.
+function caption(text, y, size = 7) {
+  const approxWidth = text.length * size * 0.5;
+  const x = PAGE_W - 0.5 * PT_PER_INCH - approxWidth;
+  return [`BT /F1 ${size} Tf ${LABEL} rg ${x.toFixed(2)} ${y.toFixed(2)} Td (${text}) Tj ET`];
+}
+
+// Question bands as fractions of the page height from the top, [top, bottom].
+const ONE_QUESTION_BANDS = [[0, 0.2]];
+const TWO_QUESTION_BANDS = [[0, 0.2], [0.5, 0.7]];
+
+function questionContent(bands) {
+  const ops = [];
+  bands.forEach(([topFrac, bottomFrac], i) => {
+    const bandTop = PAGE_H * (1 - topFrac);
+    const bandBottom = PAGE_H * (1 - bottomFrac);
+    // A solid line where a second question band begins, so the answer
+    // area above it has a visible end and the next question a top edge.
+    if (i > 0) ops.push(`${DOT} RG`, "1 w", `0 ${bandTop.toFixed(2)} m ${PAGE_W} ${bandTop.toFixed(2)} l S`);
+    ops.push(...dottedLine(bandBottom));
+    ops.push(...caption(BOARD_LABEL, bandBottom - 9));
+    const nextTop = bands[i + 1] ? PAGE_H * (1 - bands[i + 1][0]) : 0;
+    // Wide rules for the answer area, starting a rule's width under the
+    // caption so the first line of writing has room.
+    ops.push(...rulesBetween(bandBottom - 14, nextTop, WIDE_RULE));
+  });
+  return ops.join("\n");
+}
+
+const HELVETICA = "<< /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> >>";
+
 // Minimal single-page PDF. The xref table needs each object's byte offset,
 // so the body is assembled first and measured as it goes.
-function buildPdf(content) {
+function buildPdf(content, resources = "<< >>") {
   const objects = [
     "<< /Type /Catalog /Pages 2 0 R >>",
     "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
-    `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PAGE_W} ${PAGE_H}] /Contents 4 0 R /Resources << >> >>`,
+    `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PAGE_W} ${PAGE_H}] /Contents 4 0 R /Resources ${resources} >>`,
     `<< /Length ${content.length} >>\nstream\n${content}\nendstream`,
   ];
 
@@ -86,6 +148,10 @@ export const BUILT_IN_PAPERS = [
   { id: "builtin:wide", label: "Wide Ruled", thumb: "/papers/thumbs/wide.png", build: () => buildPdf(ruledContent(WIDE_RULE)) },
   { id: "builtin:college", label: "College Ruled", thumb: "/papers/thumbs/college.png", build: () => buildPdf(ruledContent(COLLEGE_RULE)) },
   { id: "builtin:graph", label: "Graph Paper", thumb: "/papers/thumbs/graph.png", build: () => buildPdf(gridContent()) },
+  // Question papers: the dotted band is what the smartboard shows. See the
+  // note above questionContent.
+  { id: "builtin:question1", label: "One Question", thumb: "/papers/thumbs/question1.png", boardBands: ONE_QUESTION_BANDS, build: () => buildPdf(questionContent(ONE_QUESTION_BANDS), HELVETICA) },
+  { id: "builtin:question2", label: "Two Questions", thumb: "/papers/thumbs/question2.png", boardBands: TWO_QUESTION_BANDS, build: () => buildPdf(questionContent(TWO_QUESTION_BANDS), HELVETICA) },
   // A paper may also be a designed page shipped as a static PDF (`file`
   // instead of `build`), fetched at create time. The CER sheet was one for
   // two days; as of 2026-09-04 CER is a notebook only (Jay: "lets actually
