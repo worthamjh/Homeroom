@@ -61,6 +61,7 @@ const CACHE_PREFIX = "gb:bellPic:";
 const CACHE_KEEP = 8;
 
 export function readCachedBoardPicture(fileId) {
+  if (!DRIVE_PICTURE_ENABLED) return null;
   try {
     const raw = localStorage.getItem(CACHE_PREFIX + fileId);
     if (!raw) return null;
@@ -83,9 +84,19 @@ function writeCachedBoardPicture(fileId, dataUrl) {
   } catch { /* quota or private mode: the picture still shows this once */ }
 }
 
+// OFF (2026-09-10): Drive's rendering never carries Kami's annotations --
+// Kami keeps them on its own servers and does not write them into the
+// Drive file -- so the picture came back as the blank paper band (Jay:
+// "not getting the image"). The board falls back to the clipped Kami
+// frame until the picture is drawn from a question typed in Gil-Bilt
+// instead. The Drive path stays here for a file whose page does carry
+// the question.
+export const DRIVE_PICTURE_ENABLED = false;
+
 // The fresh picture for a file, or null when Drive cannot be asked (no
 // cached token, an unreadable file, no rendering yet). Never prompts.
 export async function loadBoardPicture(fileId, bands) {
+  if (!DRIVE_PICTURE_ENABLED) return null;
   const got = await fetchDriveFilePicture(fileId);
   if (!got) return null;
   try {
