@@ -2164,7 +2164,21 @@ function KamiOverlay({ url, state, onToggleFullscreen, onClose, contained = fals
     const h = box ? box.clientHeight : 0;
     setHint({ forUrl: url, src: kamiViewerHint(url, w, h) });
   }, [hint.forUrl, url, state]);
-  const src = hint.forUrl === url ? hint.src : null;
+  // Coming back from Full Screen, Kami keeps the horizontal scroll the
+  // wider window had, so the question sat off to one side until the doc
+  // was opened again (Jay: "if you open the full screen ... then go back
+  // to minimize, it goes back to the left"). pdf.js viewers apply a
+  // changed hash without reloading, so each Minimize re-sends the same
+  // hint with a counter on it (an unknown key, which pdf.js ignores) and
+  // the view snaps back to the centred question. The document itself is
+  // not reloaded: only the fragment changes.
+  const [resync, setResync] = useState(0);
+  const prevStateRef = useRef(state);
+  useEffect(() => {
+    if (prevStateRef.current === "fullscreen" && state === "overlay") setResync(n => n + 1);
+    prevStateRef.current = state;
+  }, [state]);
+  const src = hint.forUrl === url ? (resync && hint.src.includes("#") ? `${hint.src}&r=${resync}` : hint.src) : null;
   if (!url || !state) return null;
   const isFullscreen = state === "fullscreen";
   const showPicture = !isFullscreen && !!picture;
