@@ -73,7 +73,10 @@ function localApi() {
             res.end(JSON.stringify(payload))
             return vercelRes
           },
-          end() { res.end(); return vercelRes },
+          // Bytes as well as nothing: the Drive picture proxy in api/profile.js
+          // answers an image. Vercel's res.send does the same there.
+          end(data) { res.end(data); return vercelRes },
+          send(data) { res.end(data); return vercelRes },
           setHeader: (k, v) => res.setHeader(k, v),
         }
 

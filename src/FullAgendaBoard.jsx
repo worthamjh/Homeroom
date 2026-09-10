@@ -354,7 +354,10 @@ function KamiUrlInput({ kamiUrl, onSaveKamiUrl, lessonLabel, surface = DEFAULT_S
       // The doc was still made, just without the template -- say so rather
       // than handing back a blank page with no explanation.
       if (templateError) setCreateError(templateError);
-      onSaveKamiUrl(newUrl);
+      // The paper goes with the link so the board can crop the question
+      // band out of the page (see bellRingerPicture.js); a template that
+      // failed to apply is a blank doc, so no paper is recorded for it.
+      onSaveKamiUrl(newUrl, templateError ? "" : templateId);
     } catch (err) {
       setCreateError(err.message || "Couldn't create the file.");
     } finally {

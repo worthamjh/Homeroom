@@ -1159,6 +1159,45 @@ export async function driveFileStatus(fileId, { accessToken } = {}) {
   }
 }
 
+// The cached Drive token, or null. Never prompts: for the board at class
+// time, where a consent popup over the projector would be worse than no
+// picture. Callers fall back to the Kami frame when this is null.
+export function peekDriveAccessToken() {
+  return readCachedToken();
+}
+
+// Drive's own rendering of page one of a file, as an image the page can
+// draw. Drive keeps a thumbnail for every file and re-renders it when the
+// file changes, so a bell ringer that Kami has synced back to Drive shows
+// up here with its question on it. The link Drive hands out is a signed
+// lh3.googleusercontent.com URL; the bytes come through the site's own
+// image proxy (/api/profile?thumb=) rather than straight from Google,
+// because ad blockers and the strict CSP both stop Google image loads
+// from the page. `size` is the longest side in pixels.
+//   -> { blob, modifiedTime } or null when there is no token, the file
+//      cannot be read, or Drive has no rendering yet.
+export async function fetchDriveFilePicture(fileId, { size = 1600, accessToken } = {}) {
+  const token = accessToken || readCachedToken();
+  if (!token || !fileId) return null;
+  try {
+    const res = await fetch(
+      `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?fields=thumbnailLink,modifiedTime`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    if (!res.ok) return null;
+    const meta = await res.json();
+    if (!meta.thumbnailLink) return null;
+    const link = meta.thumbnailLink.replace(/=s\d+(-c)?$/, `=s${size}`);
+    const img = await fetch(`/api/profile?thumb=${encodeURIComponent(link)}`);
+    if (!img.ok) return null;
+    const blob = await img.blob();
+    if (!blob.type.startsWith("image/")) return null;
+    return { blob, modifiedTime: meta.modifiedTime || null };
+  } catch {
+    return null;
+  }
+}
+
 // A Drive token for a caller that wants to ask Drive something itself.
 // Same rule as everything above: call it from inside a click, before any
 // await, or the consent popup is blocked when there is no cached token.

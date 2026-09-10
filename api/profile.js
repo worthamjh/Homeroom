@@ -235,6 +235,33 @@ export default async function handler(req, res) {
     return;
   }
 
+  // Drive picture proxy: /api/profile?thumb=<thumbnailLink> answers the
+  // image bytes of a Drive rendering (see fetchDriveFilePicture in
+  // src/lib/googleDrive.js). The link is one Drive signed for the caller
+  // who asked it, so nothing here needs a token; the proxy exists because
+  // the page cannot load Google images directly (ad blockers, and the CSP
+  // keeps connect-src off googleusercontent.com on purpose). Only Google's
+  // image hosts are fetched, so this is not a general proxy. Lives here
+  // for the same twelve-function reason as the district lookup below.
+  if (req.method === "GET" && typeof req.query?.thumb === "string") {
+    if (!(await enforceRateLimit(req, res, { teacherId: PUBLIC_TEACHER_ID, bucket: "thumb" }))) return;
+    let target;
+    try { target = new URL(req.query.thumb); } catch { res.status(400).json({ error: "bad url" }); return; }
+    const host = target.hostname;
+    const allowed = target.protocol === "https:" && (host === "drive.google.com" || host === "lh3.googleusercontent.com" || host.endsWith(".googleusercontent.com"));
+    if (!allowed) { res.status(400).json({ error: "not a Drive image" }); return; }
+    const r = await fetchWithin(target.toString(), 8000);
+    const type = r ? (r.headers.get("content-type") || "") : "";
+    if (!r || !r.ok || !type.startsWith("image/")) { res.status(404).json({ error: "no picture" }); return; }
+    const bytes = Buffer.from(await r.arrayBuffer());
+    res.setHeader("Content-Type", type);
+    res.setHeader("Cache-Control", "private, max-age=20");
+    // res.end rather than res.send: both Vercel and the dev shim in
+    // vite.config.js write a Buffer through it.
+    res.status(200).end(bytes);
+    return;
+  }
+
   // Partner district lookup: /api/profile?districtDomain=wgmail.org or
   // ?districtId=webster-groves answers the district, or null. Public,
   // like the address lookup below, and lives here rather than in its own

@@ -35,6 +35,7 @@ const LIMITS = {
   write: 120,
   // Expensive or sensitive, so much tighter.
   calendarList: 60,    // proxies an upstream Google call
+  thumb: 120,          // proxies one Drive image per bell ringer open
   export: 10,          // reads and serialises every collection
   deleteAccount: 5,    // irreversible
   curriculumHistory: 60,

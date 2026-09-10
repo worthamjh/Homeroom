@@ -6,6 +6,7 @@ import { uploadAssignmentPdf, uploadSlidesFile } from "./lib/cloudinary";
 import { googleDriveConfigured, googleDriveSignedIn, ensureGoogleScriptsLoaded, pickGoogleSlidesEmbed, pickGoogleDriveAssignmentFiles, pickGoogleCalendar, driveErrorMessage, createNotebookDoc, driveFileIdFromKamiUrl, driveFileStatus, requestDriveAccessToken, GOOGLE_TOKEN_STORAGE_KEY } from "./lib/googleDrive";
 import BulletinNotebook from "./BulletinNotebook";
 import { notebookTemplate } from "./lib/notebooks";
+import { boardBandsForPaper, loadBoardPicture, readCachedBoardPicture } from "./lib/bellRingerPicture";
 import { LegalLinks } from "./LegalPage";
 import { dropUnknownClassroom } from "./lib/activeClassroom";
 import { fetchProfile, readCachedProfile } from "./lib/profileApi";
@@ -2109,9 +2110,20 @@ const KAMI_CHROME = {
   bottom: 56,  // floating zoom/page controls + horizontal scrollbar
 };
 
-function KamiOverlay({ url, state, onToggleFullscreen, onClose, contained = false, label = "Bell Ringer" }) {
+// `picture` (a data URL, or null) is the board picture of the document
+// (src/lib/bellRingerPicture.js). When there is one, the contained state
+// shows IT in place of the clipped Kami frame: the question, the size of
+// the smartboard, with nothing of Kami's around it (Jay: "the thumbnail
+// shows up on top of the smartboard, with the fullscreen and close
+// buttons like they are now"). The Kami iframe stays mounted underneath,
+// hidden, so Full Screen opens the real document at once; Minimize comes
+// back to the picture. No picture (a pasted doc the token cannot read, no
+// Google sign-in on this computer, Drive not answering) means the clipped
+// frame, as before.
+function KamiOverlay({ url, state, onToggleFullscreen, onClose, contained = false, label = "Bell Ringer", picture = null }) {
   if (!url || !state) return null;
   const isFullscreen = state === "fullscreen";
+  const showPicture = !isFullscreen && !!picture;
   return (
     <div style={{
       position: isFullscreen ? "fixed" : (contained ? "absolute" : "fixed"),
@@ -2154,11 +2166,12 @@ function KamiOverlay({ url, state, onToggleFullscreen, onClose, contained = fals
       </div>
       {/* Kami iframe. Fullscreen shows it whole (tools and all); the
           contained board view clips Kami's chrome away — see KAMI_CHROME. */}
-      <div style={{ flex: 1, position: "relative", overflow: "hidden", background: "#fff" }}>
+      <div style={{ flex: 1, position: "relative", overflow: "hidden", background: showPicture ? "#0a0a0a" : "#fff" }}>
         <iframe
           src={url}
           style={isFullscreen
             ? { border: "none", width: "100%", height: "100%", display: "block" }
+            : showPicture ? { display: "none" }
             : {
                 border: "none",
                 display: "block",
@@ -2171,6 +2184,15 @@ function KamiOverlay({ url, state, onToggleFullscreen, onClose, contained = fals
           allow="fullscreen; clipboard-read; clipboard-write"
           title={`${label} — Kami`}
         />
+        {showPicture && (
+          <img
+            src={picture}
+            alt={label}
+            title="Open in Kami"
+            onClick={onToggleFullscreen}
+            style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "contain", display: "block", cursor: "pointer" }}
+          />
+        )}
       </div>
     </div>
   );
@@ -3868,6 +3890,7 @@ export default function App({ viewer = false } = {}) {
             url={kamiOverlayUrl}
             state={kamiState}
             contained={kamiState !== "fullscreen"}
+            picture={kamiPicture && kamiPicture.fileId === kamiFileId ? kamiPicture.dataUrl : null}
             onToggleFullscreen={() => setKamiState(prev => prev === "fullscreen" ? "overlay" : "fullscreen")}
             onClose={() => { setKamiState(null); setKamiSourcePanelIdx(null); }}
           />
@@ -4247,6 +4270,32 @@ export default function App({ viewer = false } = {}) {
     : fullAgendaFields.content[kamiUrlKey]) || "";
   const kamiOverlayLabel = kamiSourceField === "exitSlip" ? "Exit Slip" : "Bell Ringer";
 
+  // The board picture for the open document (src/lib/bellRingerPicture.js).
+  // Fetched when the overlay opens and again each time Full Screen is
+  // minimized, since the teacher may have just typed the question; Drive
+  // re-renders a changed file a little after Kami syncs it, so each open
+  // looks twice more. The cached picture shows first so the click feels
+  // instant. Keyed by file id so a stale picture never shows for another doc.
+  const kamiFileId = driveFileIdFromKamiUrl(kamiOverlayUrl);
+  const kamiPaperKey = `${kamiSourceField}Paper`;
+  const kamiPaper = (kamiSourcePanelIdx != null
+    ? mergePanelWithUnit(panelFieldsAt(kamiSourcePanelIdx)).content[kamiPaperKey]
+    : fullAgendaFields.content[kamiPaperKey]) || "";
+  const [kamiPicture, setKamiPicture] = useState(null);   // { fileId, dataUrl }
+  useEffect(() => {
+    if (kamiState !== "overlay" || !kamiFileId) return;
+    let cancelled = false;
+    const cached = readCachedBoardPicture(kamiFileId);
+    setKamiPicture(cached ? { fileId: kamiFileId, dataUrl: cached.dataUrl } : null);
+    const bands = boardBandsForPaper(kamiPaper);
+    const attempt = () => loadBoardPicture(kamiFileId, bands).then(dataUrl => {
+      if (!cancelled && dataUrl) setKamiPicture({ fileId: kamiFileId, dataUrl });
+    });
+    attempt();
+    const again = [setTimeout(attempt, 8000), setTimeout(attempt, 25000)];
+    return () => { cancelled = true; again.forEach(clearTimeout); };
+  }, [kamiState, kamiFileId, kamiPaper]);
+
   // The props a doc field (Bell Ringer, Exit Slip) needs, and the pinned
   // docs the Agenda carries when either is set to live inside it. One
   // helper for both render branches (sliding panels and the flat column)
@@ -4254,7 +4303,10 @@ export default function App({ viewer = false } = {}) {
   const DOC_FIELDS = { bellRinger: { label: "Bell Ringer", folderName: "Bell Ringers" }, exitSlip: { label: "Exit Slip", folderName: "Exit Slips" } };
   const docProps = (fields, docKey, panelIdx) => ({
     kamiUrl: fields.content[`${docKey}KamiUrl`] || "",
-    onSaveKamiUrl: val => fields.save(`${docKey}KamiUrl`, val),
+    // The paper the doc was made on rides along (second argument, from
+    // KamiUrlInput's Make button), so the board knows which band of the
+    // page is the question. A pasted or blank doc clears it.
+    onSaveKamiUrl: (val, paper) => { fields.save(`${docKey}KamiUrl`, val); fields.save(`${docKey}Paper`, paper || ""); },
     onKamiOpen: () => { setKamiSourcePanelIdx(panelIdx); setKamiSourceField(docKey); setKamiState(prev => prev ? null : "overlay"); },
     lessonLabel: activeLesson?.title,
   });
