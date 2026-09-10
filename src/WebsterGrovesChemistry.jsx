@@ -2120,20 +2120,51 @@ const KAMI_CHROME = {
 // back to the picture. No picture (a pasted doc the token cannot read, no
 // Google sign-in on this computer, Drive not answering) means the clipped
 // frame, as before.
-// Kami's viewer is built on pdf.js, which reads a zoom and position hint
-// from the link's hash: "#page=1&zoom=page-width" opens page one at the
-// width of the frame, scrolled to the top, every time. That is where a
-// question paper's dotted question space is, so the class sees the
-// question at once instead of wherever Kami last left the page (Jay: "can
-// we make it default zoom so the text part is centered on the smartboard
-// automatically"). Harmless if Kami ignores it. Added once, on the src,
-// so toggling Full Screen never reloads the document.
-function kamiViewerHint(url) {
+// Kami's viewer is built on pdf.js, which reads a zoom and position from
+// the link's hash: "#page=1&zoom=<percent>,<left>,<top>" opens page one at
+// that zoom, scrolled so the point (left, top) in PDF units sits at the
+// view's top-left. The question space on every paper is the top fifth of
+// the page (see paperTemplates.js: One Question's band, and the natural
+// place for a question on any sheet), so the overlay asks for the zoom
+// that makes that fifth exactly the height of the smartboard frame, with
+// the page centred, and the class sees the question at once (Jay: "It
+// would be fantastic if it would automatically put the question part of
+// the pdf centered and readable on the minimized mode"). Read once, at
+// load: the hint is built from the frame the overlay opens in and never
+// changes, so toggling Full Screen never reloads the document (Kami then
+// keeps that zoom in full screen, which is fine for writing on it).
+// Harmless if Kami ignores it: then it opens as Kami pleases.
+const PDF_PAGE_W_PT = 612, PDF_PAGE_H_PT = 792;  // US Letter
+const QUESTION_SPACE_FRACTION = 0.2;
+const PX_PER_PT = 96 / 72;                        // pdf.js CSS pixels at 100%
+function kamiViewerHint(url, frameW, frameH) {
   if (!url || url.includes("#")) return url;
-  return `${url}#page=1&zoom=page-width`;
+  if (!(frameW > 0 && frameH > 0)) return `${url}#page=1&zoom=page-width`;
+  const bandPxAt100 = QUESTION_SPACE_FRACTION * PDF_PAGE_H_PT * PX_PER_PT;
+  const zoom = Math.max(50, Math.min(400, Math.round(100 * frameH / bandPxAt100)));
+  const viewWidthPt = frameW / (PX_PER_PT * zoom / 100);
+  const left = Math.max(0, Math.round((PDF_PAGE_W_PT - viewWidthPt) / 2));
+  return `${url}#page=1&zoom=${zoom},${left},${PDF_PAGE_H_PT}`;
 }
 
 function KamiOverlay({ url, state, onToggleFullscreen, onClose, contained = false, label = "Bell Ringer", picture = null }) {
+  // The frame's size is read once, when the overlay first shows, and the
+  // Kami link is built from it (see kamiViewerHint). The iframe waits for
+  // that measurement so the document loads exactly once, with the hint.
+  const clipRef = useRef(null);
+  // { forUrl, src }: one measurement per document. A second effect that
+  // reset this on url change raced the first on mount and left src null
+  // until the next re-render (the Full Screen click), so the hint was built
+  // from the full-screen frame instead. One state, keyed by url, cannot.
+  const [hint, setHint] = useState({ forUrl: null, src: null });
+  useEffect(() => {
+    if (!url || !state || hint.forUrl === url) return;
+    const box = clipRef.current;
+    const w = box ? box.clientWidth : 0;
+    const h = box ? box.clientHeight : 0;
+    setHint({ forUrl: url, src: kamiViewerHint(url, w, h) });
+  }, [hint.forUrl, url, state]);
+  const src = hint.forUrl === url ? hint.src : null;
   if (!url || !state) return null;
   const isFullscreen = state === "fullscreen";
   const showPicture = !isFullscreen && !!picture;
@@ -2179,24 +2210,26 @@ function KamiOverlay({ url, state, onToggleFullscreen, onClose, contained = fals
       </div>
       {/* Kami iframe. Fullscreen shows it whole (tools and all); the
           contained board view clips Kami's chrome away — see KAMI_CHROME. */}
-      <div style={{ flex: 1, position: "relative", overflow: "hidden", background: showPicture ? "#0a0a0a" : "#fff" }}>
-        <iframe
-          src={kamiViewerHint(url)}
-          style={isFullscreen
-            ? { border: "none", width: "100%", height: "100%", display: "block" }
-            : showPicture ? { display: "none" }
-            : {
-                border: "none",
-                display: "block",
-                position: "absolute",
-                top: -KAMI_CHROME.top,
-                left: -KAMI_CHROME.left,
-                width: `calc(100% + ${KAMI_CHROME.left + KAMI_CHROME.right}px)`,
-                height: `calc(100% + ${KAMI_CHROME.top + KAMI_CHROME.bottom}px)`,
-              }}
-          allow="fullscreen; clipboard-read; clipboard-write"
-          title={`${label} — Kami`}
-        />
+      <div ref={clipRef} style={{ flex: 1, position: "relative", overflow: "hidden", background: showPicture ? "#0a0a0a" : "#fff" }}>
+        {src && (
+          <iframe
+            src={src}
+            style={isFullscreen
+              ? { border: "none", width: "100%", height: "100%", display: "block" }
+              : showPicture ? { display: "none" }
+              : {
+                  border: "none",
+                  display: "block",
+                  position: "absolute",
+                  top: -KAMI_CHROME.top,
+                  left: -KAMI_CHROME.left,
+                  width: `calc(100% + ${KAMI_CHROME.left + KAMI_CHROME.right}px)`,
+                  height: `calc(100% + ${KAMI_CHROME.top + KAMI_CHROME.bottom}px)`,
+                }}
+            allow="fullscreen; clipboard-read; clipboard-write"
+            title={`${label} — Kami`}
+          />
+        )}
         {showPicture && (
           <img
             src={picture}
