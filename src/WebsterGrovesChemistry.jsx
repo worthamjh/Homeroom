@@ -2143,8 +2143,14 @@ function kamiQuestionHint(frameW, frameH) {
   if (!(frameW > 0 && frameH > 0)) return "page=1&zoom=page-width";
   const bandPxAt100 = QUESTION_SPACE_FRACTION * PDF_PAGE_H_PT * PX_PER_PT;
   const zoom = Math.max(50, Math.min(400, Math.round(100 * frameH / bandPxAt100)));
-  const viewWidthPt = frameW / (PX_PER_PT * zoom / 100);
-  const left = Math.max(0, Math.round((PDF_PAGE_W_PT - viewWidthPt) / 2));
+  const pxPerPt = PX_PER_PT * zoom / 100;
+  const viewWidthPt = frameW / pxPerPt;
+  // Kami's page area runs under its left tool rail, and the minimized
+  // view clips that rail off (KAMI_CHROME.left), so the frame's left edge
+  // sits that many pixels to the right of where pdf.js puts `left`. Ask
+  // for a point that much further left, and the box lands centred (Jay:
+  // "the zoom doesnt quite fit" -- it was shifted by exactly the rail).
+  const left = Math.max(0, Math.round((PDF_PAGE_W_PT - viewWidthPt) / 2 - KAMI_CHROME.left / pxPerPt));
   return `page=1&zoom=${zoom},${left},${PDF_PAGE_H_PT}`;
 }
 const KAMI_FULLSCREEN_HINT = "page=1&zoom=page-width";
