@@ -66,7 +66,13 @@ function gridContent() {
 // never in the picture.
 const DOT = "0.55 0.58 0.62";
 const LABEL = "0.62 0.65 0.68";
-const BOARD_LABEL = "above the dotted line shows on the board";
+const BOARD_LABEL = "the dotted box is what shows on the board";
+// The overlay shows the band through a 16:9 window (see KamiOverlay in
+// WebsterGrovesChemistry.jsx), so the part of the band the class sees is
+// a 16:9 box as tall as the band, centred on the page. It is drawn on the
+// sheet as the place to put the question (Jay: "an exact rectangle that
+// will take up the space that the minimized mode occupies").
+const BOARD_ASPECT = 16 / 9;
 
 function rulesBetween(top, bottom, pitch) {
   const ops = [`${BLUE} RG`, "0.7 w"];
@@ -80,13 +86,31 @@ function dottedLine(y) {
   return [`${DOT} RG`, "1 w", "[3 4] 0 d", `0 ${y.toFixed(2)} m ${PAGE_W} ${y.toFixed(2)} l S`, "[] 0 d"];
 }
 
+// The board window inside a band: 16:9, the band's full height, centred.
+// Three dotted sides; the band's own dotted line is the fourth. The top
+// side sits a hair inside the band so it is visible when the band starts
+// at the page edge.
+function boardBox(bandTop, bandBottom) {
+  const h = bandTop - bandBottom;
+  const w = h * BOARD_ASPECT;
+  const x0 = (PAGE_W - w) / 2, x1 = x0 + w;
+  const top = Math.min(bandTop - 3, PAGE_H - 3);
+  return [`${DOT} RG`, "1 w", "[3 4] 0 d",
+    `${x0.toFixed(2)} ${bandBottom.toFixed(2)} m ${x0.toFixed(2)} ${top.toFixed(2)} l ${x1.toFixed(2)} ${top.toFixed(2)} l ${x1.toFixed(2)} ${bandBottom.toFixed(2)} l S`,
+    "[] 0 d"];
+}
+
+function boardBoxRight(bandTop, bandBottom) {
+  return (PAGE_W + (bandTop - bandBottom) * BOARD_ASPECT) / 2;
+}
+
 // Small grey caption, right-aligned under a dotted line. Helvetica is one
 // of the standard fourteen fonts every PDF viewer carries, so it needs no
 // embedding; its average glyph is about half an em wide, which is close
 // enough to right-align a short caption.
-function caption(text, y, size = 7) {
+function caption(text, y, size = 7, right = PAGE_W - 0.5 * PT_PER_INCH) {
   const approxWidth = text.length * size * 0.5;
-  const x = PAGE_W - 0.5 * PT_PER_INCH - approxWidth;
+  const x = right - approxWidth;
   return [`BT /F1 ${size} Tf ${LABEL} rg ${x.toFixed(2)} ${y.toFixed(2)} Td (${text}) Tj ET`];
 }
 
@@ -103,7 +127,8 @@ function questionContent(bands) {
     // area above it has a visible end and the next question a top edge.
     if (i > 0) ops.push(`${DOT} RG`, "1 w", `0 ${bandTop.toFixed(2)} m ${PAGE_W} ${bandTop.toFixed(2)} l S`);
     ops.push(...dottedLine(bandBottom));
-    ops.push(...caption(BOARD_LABEL, bandBottom - 9));
+    ops.push(...boardBox(bandTop, bandBottom));
+    ops.push(...caption(BOARD_LABEL, bandBottom - 9, 7, boardBoxRight(bandTop, bandBottom)));
     const nextTop = bands[i + 1] ? PAGE_H * (1 - bands[i + 1][0]) : 0;
     // Wide rules for the answer area, starting a rule's width under the
     // caption so the first line of writing has room.
