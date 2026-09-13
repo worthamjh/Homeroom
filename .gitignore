@@ -31,3 +31,6 @@ dist-ssr
 
 .vercel
 .env*
+
+# Local project notes exported from Claude's memory for other sessions to read; carry contact details, never committed
+notes/
