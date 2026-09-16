@@ -1,8 +1,8 @@
 import { Link } from "react-router-dom";
 
 /**
- * /help -- the nine short how-to clips, embedded from the Gil-Bilt
- * Classroom: How-To playlist on YouTube, grouped the way a teacher meets
+ * /help -- the five-minute tour, then the nine short how-to clips
+ * embedded from the Gil-Bilt Classroom: How-To playlist on YouTube, grouped the way a teacher meets
  * the features: content first, then the board, then its look, then
  * sharing. Linked from Build's header ("? Help") and named in the guided
  * tour's last step, so a teacher who forgets how the calendar works has
@@ -13,6 +13,10 @@ import { Link } from "react-router-dom";
  */
 const PLAYLIST_ID = "PLGPAUlGb-GUo";
 const PLAYLIST_URL = `https://www.youtube.com/playlist?list=${PLAYLIST_ID}`;
+// The five-minute tour (published 2026-09-16), shown once at the top so a
+// teacher who has never seen the board gets the whole shape before the
+// one-thing-each clips.
+const TOUR = { id: "dcGSZKX0wfw", title: "The five-minute tour", covers: "Where the format came from, then the whole board: Build, slides and handouts from Drive, bell ringers and exit slips, notebooks, the calendar, and sharing a board with no account." };
 
 const GROUPS = [
   {
@@ -85,7 +89,9 @@ export default function HelpPage() {
     <div style={page}>
       <div style={inner}>
         <h1 style={h1}>How-To</h1>
-        <div style={muted}>Nine short clips, under a minute each. Sound on, or read the captions.</div>
+        <div style={muted}>The tour, then nine short clips under a minute each. Sound on, or read the captions.</div>
+        <h2 style={h2}>The tour</h2>
+        <Clip {...TOUR} index={0} />
         <p style={{ marginTop: 14 }}>
           Everything on the board is set up in Build, the page behind the 🛠 icon. These clips show one thing each, in the order a teacher usually needs them. They are also on YouTube as a{" "}
           <a style={link} href={PLAYLIST_URL} target="_blank" rel="noopener noreferrer">playlist</a>.

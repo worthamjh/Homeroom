@@ -6,6 +6,8 @@ import { fetchProfile, readCachedProfile } from "./lib/profileApi";
 import ProfileOnboarding from "./ProfileOnboarding";
 import { LegalLinks } from "./LegalPage";
 
+const TOUR_URL = "https://youtu.be/dcGSZKX0wfw";
+
 /**
  * LandingPage — the new "/" route. Used to be the Webster Groves board
  * itself (moved to /board — see main.jsx and the iframe src updates in
@@ -90,6 +92,17 @@ function ClerkAwareLanding() {
             <button style={secondaryButtonStyle}>Sign Up</button>
           </SignUpButton>
         </div>
+        {/* The tour video (published 2026-09-16) is the one thing a signed-out
+            teacher can look at before making an account: a plain link, not a
+            player, so the front door stays the logo and the two buttons. */}
+        <a
+          href={TOUR_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ display: "inline-block", marginTop: 22, color: "rgba(255,255,255,0.55)", fontSize: 14, textDecoration: "underline", textUnderlineOffset: 3 }}
+        >
+          Watch the five-minute tour
+        </a>
         {/* No demo link here any more (Jay: "can we get rid of the webster
             groves demo link on the main page altogether"). The front door
             offers exactly one thing now: make an account. The demo board
