@@ -103,7 +103,7 @@ export default function HelpPage() {
           </div>
         ))}
         <div style={{ ...muted, marginTop: 40 }}>
-          Something these do not cover? Email <a style={link} href="mailto:worthamjh@gmail.com">worthamjh@gmail.com</a>.
+          Something these do not cover? Email <a style={link} href="mailto:gilbiltclassroom@gmail.com">gilbiltclassroom@gmail.com</a>.
           {" · "}<Link style={link} to="/build">Back to Build</Link>
         </div>
       </div>

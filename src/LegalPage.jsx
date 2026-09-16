@@ -14,10 +14,10 @@ import { Link, useLocation } from "react-router-dom";
 const OPERATOR = {
   name: "Jay Wortham",
   product: "Gil-Bilt Classroom",
-  email: "worthamjh@gmail.com",
+  email: "gilbiltclassroom@gmail.com",
   site: "gil-bilt.com",
   state: "Missouri",
-  updated: "September 3, 2026",
+  updated: "September 16, 2026",
 };
 
 const page = { minHeight: "100vh", background: "#141414", color: "rgba(255,255,255,0.85)", fontFamily: "Lato, sans-serif", padding: "40px 24px 64px" };
