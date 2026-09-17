@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/clerk-react";
-import { getActiveTeacherId, DEFAULT_TEACHER_ID, CLERK_CONFIGURED, boardThemeVars, useScopedSetting, BUILD_TOUR_DONE_KEY, DEFAULT_BUILD_TOUR_DONE, readCurrentView, getActiveClassroomId, setActiveClassroomId, classroomQuery, DEFAULT_CLASSROOM_ID } from "./boardConfig";
+import { getActiveTeacherId, DEFAULT_TEACHER_ID, CLERK_CONFIGURED, boardThemeVars, useScopedSetting, BUILD_TOUR_DONE_KEY, DEFAULT_BUILD_TOUR_DONE, readCurrentView, getActiveClassroomId, setActiveClassroomId, classroomQuery, DEFAULT_CLASSROOM_ID, clearBuildTabView } from "./boardConfig";
 import { dropUnknownClassroom } from "./lib/activeClassroom";
 import { fetchProfile, readCachedProfile } from "./lib/profileApi";
 import BoardSettingsPanel from "./BoardSettingsPanel";
@@ -335,6 +335,19 @@ function ClassroomSwitcher({ classrooms }) {
 export default function BuildPage() {
   const activeTeacherId = getActiveTeacherId();
   const isBlankTeacher = activeTeacherId !== DEFAULT_TEACHER_ID;
+
+  // A fresh load of this page -- the 🛠 button, a bookmark, the address bar
+  // -- means "open Build where the board is now". The board copy inside the
+  // iframe below keeps a tab-local note of where Build last was, so its OWN
+  // reloads (after the Drive picker) come back to the same lesson. But the
+  // 🛠 button reuses an existing Build tab by name, which reloads THIS page
+  // in that tab, and the note outlived the click: Build reopened on
+  // whatever lesson it had been on before, and "← Back to board" then took
+  // the board there too. Wiped here, during the first render, before the
+  // iframe exists to read it. The iframe's own reloads never remount this
+  // page, so the note still does its job for those.
+  const wipedTabView = useRef(false);
+  if (!wipedTabView.current) { wipedTabView.current = true; clearBuildTabView(); }
 
   // Same theming as the real board (see WebsterGrovesChemistry.jsx) — Build
   // renders outside the iframe, so it needs its own profile fetch rather

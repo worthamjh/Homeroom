@@ -40,6 +40,7 @@ import {
   NOTEBOOK_POSITIONS_KEY, DEFAULT_NOTEBOOK_POSITIONS, isNotebookPositionsValue, parseNotebookPositions, serializeNotebookPositions,
   buildSlidingPanels,
   CURRENT_VIEW_STORAGE_KEY, readCurrentView, writeCurrentView,
+  BUILD_VIEW_STORAGE_KEY, BUILD_RELOAD_RESTORE_KEY,
   useBoardContentOrder,
 } from "./boardConfig";
 
@@ -2786,9 +2787,10 @@ function TopBar({ viewer = false, curriculum, activeUnitIdx, isOverview, activeL
 // `lessons` (which shifts if lessons are ever reordered). unitIdx null or
 // lessonTitle null both mean "no lesson" — a unit overview only sets
 // unitIdx, the homepage sets neither.
-// Where this tab's Build/Preview page currently is. Tab-local by design --
-// see the effect that writes it.
-const BUILD_VIEW_STORAGE_KEY = "homeroom-build-view";
+// Where this tab's Build/Preview page currently is: BUILD_VIEW_STORAGE_KEY
+// (boardConfig.js). Tab-local by design -- see the effect that writes it --
+// and wiped by BuildPage on every fresh load of Build, so it only ever
+// carries a position across this tab's OWN reloads (the Drive picker's).
 
 function readBuildView() {
   try {
@@ -2941,9 +2943,9 @@ export default function App({ viewer = false } = {}) {
   if (initialViewRef.current === null) initialViewRef.current = (isPreviewMode || isBuildMode)
     ? (() => {
         try {
-          const raw = sessionStorage.getItem("homeroom-build-reload-restore");
+          const raw = sessionStorage.getItem(BUILD_RELOAD_RESTORE_KEY);
           if (raw) {
-            sessionStorage.removeItem("homeroom-build-reload-restore");
+            sessionStorage.removeItem(BUILD_RELOAD_RESTORE_KEY);
             const parsed = JSON.parse(raw);
             const v = resolveView(parsed, activeCurriculum);
             // Only treat the restore as satisfied if we got what was asked
@@ -2957,7 +2959,7 @@ export default function App({ viewer = false } = {}) {
             if (v.unitIdx !== null && (!parsed.lessonTitle || v.lesson)) return v;
             // Not resolved (or only half resolved) — put it back so the
             // re-resolve effect can try again once the real units load.
-            sessionStorage.setItem("homeroom-build-reload-restore", raw);
+            sessionStorage.setItem(BUILD_RELOAD_RESTORE_KEY, raw);
           }
         } catch {}
         return resolveView(readBuildView() || readCurrentView(), activeCurriculum);
@@ -2987,7 +2989,7 @@ export default function App({ viewer = false } = {}) {
     let saved = null;
     let pendingRaw = null;
     try {
-      pendingRaw = sessionStorage.getItem("homeroom-build-reload-restore");
+      pendingRaw = sessionStorage.getItem(BUILD_RELOAD_RESTORE_KEY);
       if (pendingRaw) saved = JSON.parse(pendingRaw);
     } catch {}
     // A pending restore wins even when we have already landed somewhere.
@@ -3011,7 +3013,7 @@ export default function App({ viewer = false } = {}) {
     // actually resolves; a later blankUnits update retries.
     const fullyResolved = view.unitIdx !== null && (!saved.lessonTitle || view.lesson);
     if (!fullyResolved) return;
-    if (pendingRaw) { try { sessionStorage.removeItem("homeroom-build-reload-restore"); } catch {} }
+    if (pendingRaw) { try { sessionStorage.removeItem(BUILD_RELOAD_RESTORE_KEY); } catch {} }
     setActiveUnitIdx(view.unitIdx);
     setActiveLesson(view.lesson);
   }, [blankUnits]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -3124,6 +3126,24 @@ export default function App({ viewer = false } = {}) {
   useEffect(() => {
     if (isPreviewMode || isBuildMode) return;
     writeCurrentView(activeUnitIdx == null ? null : { unitIdx: activeUnitIdx, lessonTitle: activeLesson?.title || null });
+  }, [activeUnitIdx, activeLesson]);
+
+  // Real board tab only: a deep link (?unit=&lesson=&board=, see
+  // readViewFromUrlParams) is a one-shot instruction, so once it has been
+  // applied it comes off the address bar. Left there, it outlived the click
+  // that sent it: the tab's own navigation never touches the URL, so a
+  // refresh, a browser restart or a session refresh reopened the lesson
+  // from the last "← Back to board" instead of the one actually up.
+  // replaceState, so history is untouched; ?teacher= and ?class= stay.
+  useEffect(() => {
+    if (isPreviewMode || isBuildMode) return;
+    if (activeUnitIdx === null) return; // nothing applied yet (or home)
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    const params = ["unit", "lesson", "board"];
+    if (!params.some(k => url.searchParams.has(k))) return;
+    params.forEach(k => url.searchParams.delete(k));
+    try { window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash); } catch {}
   }, [activeUnitIdx, activeLesson]);
 
   // Build-mode-only: tell the parent (BuildPage.jsx) which unit/lesson
@@ -3443,7 +3463,7 @@ export default function App({ viewer = false } = {}) {
 
   const handleSaveSlides = (url) => {
     // Persist current lesson so the post-picker window.location.reload() returns here
-    try { sessionStorage.setItem("homeroom-build-reload-restore", JSON.stringify({ unitIdx: activeUnitIdx, lessonTitle: activeLesson?.title || null })); } catch {}
+    try { sessionStorage.setItem(BUILD_RELOAD_RESTORE_KEY, JSON.stringify({ unitIdx: activeUnitIdx, lessonTitle: activeLesson?.title || null })); } catch {}
     writeLessonSlidesUrl(activeUnit?.unit, activeLesson?.title, url);
     setLessonSlidesUrl(url);
     setSlidesEditing(false);

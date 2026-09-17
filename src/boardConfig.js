@@ -401,6 +401,26 @@ export function readCurrentView() {
   }
 }
 
+// Where THIS tab's Build page (or Settings preview) currently is, and the
+// one-shot "come back here" note the Drive-picker reload leaves. Both are
+// sessionStorage on purpose: they describe one tab, not the account, and
+// must never leak into the shared currentView above. The board copy
+// embedded in Build writes and reads them (WebsterGrovesChemistry.jsx);
+// BuildPage wipes them the moment it loads, because a fresh load of Build
+// -- the 🛠 button, a bookmark -- means "open where the board is now", and
+// the 🛠 button reuses the existing Build tab by name, so without the wipe
+// the tab's old note won over the board's current lesson.
+export const BUILD_VIEW_STORAGE_KEY = "homeroom-build-view";
+export const BUILD_RELOAD_RESTORE_KEY = "homeroom-build-reload-restore";
+
+export function clearBuildTabView() {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.removeItem(BUILD_VIEW_STORAGE_KEY);
+    window.sessionStorage.removeItem(BUILD_RELOAD_RESTORE_KEY);
+  } catch { /* ignore */ }
+}
+
 // ── A blank-shell teacher's course calendar ─────────────────────────────
 // Webster Groves' unit overview screen shows one hardcoded Google Calendar
 // embed (CALENDAR_SRC in WebsterGrovesChemistry.jsx) in the spot the
