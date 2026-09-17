@@ -1,1 +1,21 @@
-*.pdf binary
+# The repo stores LF and every checkout gets LF. Without this, a file
+# written on Windows comes back CRLF and git reports the whole file as
+# changed, which buries the real edit in a few hundred phantom lines.
+* text=auto eol=lf
+
+# Windows-only scripts keep CRLF.
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Never convert these.
+*.pdf  binary
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.ico  binary
+*.xlsx binary
+*.mp4  binary
+*.woff binary
+*.woff2 binary
+*.ttf  binary
