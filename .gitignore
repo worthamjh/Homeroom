@@ -34,3 +34,7 @@ dist-ssr
 
 # Local project notes exported from Claude's memory for other sessions to read; carry contact details, never committed
 notes/
+
+# Claude Code: the shared project config is committed (launch.json pins the dev
+# port every session uses), per-machine settings are not
+.claude/settings.local.json
