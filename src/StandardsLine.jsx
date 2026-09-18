@@ -53,19 +53,25 @@ export default function StandardsLine({ frameworks, value, onSave, goalTexts = [
 
   const chipBase = {
     display: "inline-flex", alignItems: "center", gap: 5,
-    fontFamily: "Lato, sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: 0.3, lineHeight: 1,
+    fontFamily: "Lato, sans-serif", fontSize: 12, fontWeight: 700, letterSpacing: 0.3, lineHeight: 1,
     padding: "3px 8px", borderRadius: 10, whiteSpace: "nowrap", userSelect: "none",
   };
   const labelStyle = { fontFamily: "Oswald, sans-serif", fontSize: 10, letterSpacing: 1.5, textTransform: "uppercase", color: dim, marginRight: 2 };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 6, padding: "6px 0 2px" }}>
-      {/* What is chosen: the only part that shows on the live board. */}
+      {/* What is chosen: the only part that shows on the live board.
+          There it is the chips alone, tucked to the right under the
+          goals like a stamp, in the accent outline -- enough for an
+          admin to spot from the doorway, no label, no extra row (Jay:
+          "the standard code is enough to show that it is a standard").
+          The "Standards" label only appears in Build, next to the
+          "Suggested" row, where the two need telling apart. */}
       {(chosen.length > 0 || interactive) && (
-        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6 }}>
-          <span style={labelStyle}>Standards</span>
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6, justifyContent: interactive ? "flex-start" : "flex-end" }}>
+          {interactive && <span style={labelStyle}>Standards</span>}
           {chosen.map(s => (
-            <span key={s.key} title={tip(s)} style={{ ...chipBase, border: `1px solid ${border}`, color: bodyText, textShadow: surface?.textShadow }}>
+            <span key={s.key} title={tip(s)} style={{ ...chipBase, border: `1px solid ${accent}`, color: bodyText, textShadow: surface?.textShadow }}>
               <span style={{ opacity: 0.6, fontWeight: 400 }}>{s.framework.short}</span>
               {s.code}
               {interactive && (
