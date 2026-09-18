@@ -120,6 +120,9 @@ export default function ChalkboardBoardRow({
   // Only the front panel's instance should be interactive, same rule as
   // extraContent.
   goalsFooter = null,
+  // Same shape, for the right end of the Learning Goals TITLE line: the
+  // standards chips sit there, not in a row of their own.
+  goalsHeaderTrailing = null,
   // Which order the Learning Goals checklist and the four Full Agenda
   // fields render in on each panel face — the same
   // BOARD_CONTENT_ORDER_STORAGE_KEY/useBoardContentOrder value the flat
@@ -564,8 +567,9 @@ export default function ChalkboardBoardRow({
                       renderedCount++;
                       return (
                         <div key={key} style={dividerStyle}>
-                          <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 12, color: goalsHeaderColor, letterSpacing: 2, textTransform: "uppercase", borderBottom: "1px solid rgba(255,255,255,0.15)", paddingBottom: 8, marginBottom: 2 }}>
-                            {goalsLabel}
+                          <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 12, color: goalsHeaderColor, letterSpacing: 2, textTransform: "uppercase", borderBottom: "1px solid rgba(255,255,255,0.15)", paddingBottom: 8, marginBottom: 2, display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6 }}>
+                            <span style={{ flex: 1, whiteSpace: "nowrap" }}>{goalsLabel}</span>
+                            {goalsHeaderTrailing ? goalsHeaderTrailing(isFront, i) : null}
                           </div>
                           {panel.goals.map((goalItem, gi) => {
                             // A goal entry is either a plain string (Unit

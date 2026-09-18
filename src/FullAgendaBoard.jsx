@@ -258,13 +258,20 @@ export function useFullAgendaFields(storageKey, mongoKey, { backfill = [] } = {}
 // below) -- there is deliberately NO "tap to open" badge or button next
 // to the label. Jay asked for that badge to be removed: clicking the
 // Bell Ringer itself is the whole affordance. Don't re-add one.
-function SectionHeader({ label, surface, onClick }) {
+// `trailing`: something small that sits at the right end of the title
+// line -- the standards chips (src/StandardsLine.jsx), which live on
+// the LEARNING GOALS line rather than in a row of their own.
+function SectionHeader({ label, surface, onClick, trailing }) {
   return (
     <div
       onClick={onClick}
-      style={{ fontFamily: "Oswald, sans-serif", fontSize: 12, color: surface.accent, letterSpacing: 2, textTransform: "uppercase", borderBottom: `1px solid ${surface.dividerBorder}`, paddingBottom: 6, display: "flex", alignItems: "center", gap: 6, cursor: onClick ? "pointer" : "default" }}
+      style={{ fontFamily: "Oswald, sans-serif", fontSize: 12, color: surface.accent, letterSpacing: 2, textTransform: "uppercase", borderBottom: `1px solid ${surface.dividerBorder}`, paddingBottom: 6, display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6, cursor: onClick ? "pointer" : "default" }}
     >
-      <span style={{ flex: 1 }}>{label}</span>
+      {/* The title never wraps mid-phrase; when the column is too narrow
+          for title and trailing together, the trailing drops to its own
+          line, still right-aligned, still above the rule. */}
+      <span style={{ flex: 1, whiteSpace: "nowrap" }}>{label}</span>
+      {trailing}
     </div>
   );
 }
@@ -575,7 +582,7 @@ function PinnedDocLine({ docKey = "bellRinger", label = "Bell Ringer", folderNam
   );
 }
 
-function Section({ label, value, placeholder, editing, onStartEdit, onSave, rows = 3, minHeight, surface, itemized, checkedLines, onToggleLine, quickAddOptions, interactive = true, kamiUrl, onSaveKamiUrl, onKamiOpen, lessonLabel, docOnly = false, pinnedDocs = [], docLabel, folderName }) {
+function Section({ label, value, placeholder, editing, onStartEdit, onSave, rows = 3, minHeight, surface, itemized, checkedLines, onToggleLine, quickAddOptions, interactive = true, kamiUrl, onSaveKamiUrl, onKamiOpen, lessonLabel, docOnly = false, pinnedDocs = [], docLabel, folderName, headerTrailing }) {
   // Docs pinned into this (Agenda) list: [{ key, label, position: "top" |
   // "bottom", kamiUrl, onSaveKamiUrl, onKamiOpen, lessonLabel, folderName }].
   const pinnedTop = pinnedDocs.filter(d => d.position !== "bottom");
@@ -737,7 +744,7 @@ function Section({ label, value, placeholder, editing, onStartEdit, onSave, rows
     if (isEmpty && pinnedDocs.length === 0) {
       return (
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          <SectionHeader label={label} surface={surface} onClick={!interactive && onKamiOpen && kamiUrl ? onKamiOpen : undefined} />
+          <SectionHeader label={label} surface={surface} onClick={!interactive && onKamiOpen && kamiUrl ? onKamiOpen : undefined} trailing={headerTrailing} />
         </div>
       );
     }
@@ -745,7 +752,7 @@ function Section({ label, value, placeholder, editing, onStartEdit, onSave, rows
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-      <SectionHeader label={label} surface={surface} onClick={!interactive && onKamiOpen && kamiUrl ? onKamiOpen : undefined} />
+      <SectionHeader label={label} surface={surface} onClick={!interactive && onKamiOpen && kamiUrl ? onKamiOpen : undefined} trailing={headerTrailing} />
       {docOnly ? null : itemized ? (
         editable ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
@@ -1127,7 +1134,7 @@ function useAutoCreateKamiDoc({ kamiUrl, onSaveKamiUrl, lessonLabel, docLabel = 
   };
 }
 
-export function EditableField({ fieldKey, content, editingKey, onStartEdit, onSave, surface = DEFAULT_SURFACE, interactive = true, checkedLines, onToggleLine, kamiUrl, onSaveKamiUrl, onKamiOpen, lessonLabel, pinnedDocs = [] }) {
+export function EditableField({ fieldKey, content, editingKey, onStartEdit, onSave, surface = DEFAULT_SURFACE, interactive = true, checkedLines, onToggleLine, kamiUrl, onSaveKamiUrl, onKamiOpen, lessonLabel, pinnedDocs = [], headerTrailing }) {
   const meta = FULL_AGENDA_FIELD_META[fieldKey];
   // Before the early return -- hooks can't run conditionally.
   const autoCreateKamiDoc = useAutoCreateKamiDoc({ kamiUrl, onSaveKamiUrl, lessonLabel, docLabel: meta?.label, folderName: meta?.folderName });
@@ -1170,6 +1177,7 @@ export function EditableField({ fieldKey, content, editingKey, onStartEdit, onSa
       docOnly={meta.docOnly}
       docLabel={meta.label}
       folderName={meta.folderName}
+      headerTrailing={headerTrailing}
     />
   );
 }
@@ -1180,10 +1188,10 @@ export function EditableField({ fieldKey, content, editingKey, onStartEdit, onSa
 // Used for the non-sliding Full Agenda case; when Sliding Boards is on,
 // ChalkboardBoardRow renders the checklist itself (per docked panel)
 // instead, with `goalsLabel="Objectives & Benchmarks"`.
-export function ObjectivesChecklist({ goalItems, checkedGoals, toggleGoal, surface = DEFAULT_SURFACE, label = "Objectives & Benchmarks", interactive = true }) {
+export function ObjectivesChecklist({ goalItems, checkedGoals, toggleGoal, surface = DEFAULT_SURFACE, label = "Objectives & Benchmarks", interactive = true, headerTrailing }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-      <SectionHeader label={label} surface={surface} />
+      <SectionHeader label={label} surface={surface} trailing={headerTrailing} />
       {goalItems.length === 0 ? (
         interactive ? (
         <div style={{ fontFamily: "Caveat, cursive", fontSize: 17, color: surface.placeholderText, fontStyle: "italic", padding: "2px 4px" }}>

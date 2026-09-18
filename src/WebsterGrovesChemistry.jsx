@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, cloneElement } from "react";
 import ChalkboardBoardRow, { toGoalPanels } from "./ChalkboardBoardRow";
 import { useFullAgendaFields, ObjectivesChecklist, EditableField, ResetBoardButton } from "./FullAgendaBoard";
-import StandardsLine from "./StandardsLine";
+import StandardsLine, { StandardsChips } from "./StandardsLine";
 import { STANDARDS_FRAMEWORKS } from "./lib/standards";
 import { fetchExtraAssignments, createExtraAssignment, deleteExtraAssignment, updateExtraAssignment, reorderExtraAssignments } from "./lib/extraAssignments";
 import { uploadAssignmentPdf, uploadSlidesFile } from "./lib/cloudinary";
@@ -4202,6 +4202,17 @@ export default function App({ viewer = false } = {}) {
   const standardsGoalTexts = useEditableLearningGoals
     ? allPanelFields.flatMap(f => (f.content.learningGoals || "").split("\n")).map(t => t.trim()).filter(Boolean)
     : goalItems.map(g => g.text);
+  // The chips go on the Learning Goals title line; the suggestions row
+  // (Build only) goes under the goals.
+  const renderStandardsChips = (interactive) => standardsFrameworks.length ? (
+    <StandardsChips
+      frameworks={standardsFrameworks}
+      value={fullAgendaFields.content.standards}
+      onSave={(raw) => fullAgendaFields.save("standards", raw)}
+      surface={surface}
+      interactive={interactive}
+    />
+  ) : null;
   const renderStandardsLine = (interactive) => standardsFrameworks.length ? (
     <StandardsLine
       frameworks={standardsFrameworks}
@@ -4737,6 +4748,7 @@ export default function App({ viewer = false } = {}) {
                   showGoals={learningGoalsIsOn && !useEditableLearningGoals}
                   learningGoalsEditable={useEditableLearningGoals}
                   goalsFooter={standardsFrameworks.length ? (isFront) => renderStandardsLine(isFront && isBuildMode) : null}
+                  goalsHeaderTrailing={standardsFrameworks.length ? (isFront) => renderStandardsChips(isFront && isBuildMode) : null}
                   goalsLabel={anyFullAgendaFieldOn ? "Objectives & Benchmarks" : "Learning Goals"}
                   goalsHeaderColor={anyFullAgendaFieldOn ? surface.accent : surface.headerText}
                   // Same boardContentOrder the flat (non-sliding) column
@@ -4770,6 +4782,7 @@ export default function App({ viewer = false } = {}) {
                             interactive={isFront && isBuildMode}
                             checkedLines={pf.checkedLearningGoalsLines}
                             onToggleLine={pf.toggleLearningGoalsLine}
+                            headerTrailing={renderStandardsChips(isFront && isBuildMode)}
                           />
                           {renderStandardsLine(isFront && isBuildMode)}
                         </div>
@@ -4902,6 +4915,7 @@ export default function App({ viewer = false } = {}) {
                                     interactive={isBuildMode}
                                     checkedLines={fullAgendaFields.checkedLearningGoalsLines}
                                     onToggleLine={fullAgendaFields.toggleLearningGoalsLine}
+                                    headerTrailing={renderStandardsChips(isBuildMode)}
                                   />
                                   {renderStandardsLine(isBuildMode)}
                                 </div>
@@ -4916,6 +4930,7 @@ export default function App({ viewer = false } = {}) {
                                   surface={surface}
                                   label={anyFullAgendaFieldOn ? "Objectives & Benchmarks" : "Learning Goals"}
                                   interactive={isBuildMode}
+                                  headerTrailing={renderStandardsChips(isBuildMode)}
                                 />
                                 {renderStandardsLine(isBuildMode)}
                               </div>
