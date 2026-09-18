@@ -175,6 +175,9 @@ function Preview({ preview }) {
 // Used twice on the Learning Standards shelf (subject, then grade band)
 // so a teacher gets from twenty-odd cards to the two or three that are
 // theirs without reading every title.
+// Grade chips in school order, not string order (K before 1, 6-8 before 9-12).
+const BAND_ORDER = ["K", "1", "2", "3", "4", "5", "6-8", "9-12"];
+
 function FilterChips({ label, values, current, onPick }) {
   const chip = (value) => {
     const on = current === value;
@@ -353,7 +356,7 @@ export default function DesignStorePage() {
                 />
                 <FilterChips
                   label="Grades"
-                  values={[...new Set(section.options.map(o => o.band))].sort()}
+                  values={[...new Set(section.options.map(o => o.band))].sort((a, b) => BAND_ORDER.indexOf(a) - BAND_ORDER.indexOf(b))}
                   current={standardsFilter.band}
                   onPick={band => setStandardsFilter(f => ({ ...f, band }))}
                 />

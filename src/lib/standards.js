@@ -18,11 +18,12 @@
 //
 // The catalogue itself lives in src/lib/standardsData.js, one entry per
 // band and strand of the Missouri science standards.
-import { MISSOURI_SCIENCE_FRAMEWORKS, MISSOURI_MATH_FRAMEWORKS, MISSOURI_ELA_FRAMEWORKS, MISSOURI_SOCIAL_STUDIES_FRAMEWORKS } from "./standardsData.js";
+import { MISSOURI_SCIENCE_FRAMEWORKS, MISSOURI_MATH_FRAMEWORKS, MISSOURI_ELA_FRAMEWORKS, MISSOURI_SOCIAL_STUDIES_FRAMEWORKS, MISSOURI_K5_FRAMEWORKS } from "./standardsData.js";
 
 // `short` is what a chip is prefixed with when a teacher owns frameworks
 // from more than one family (see StandardsChips): "MLS 9-12.PS1.A.1".
-export const STANDARDS_FRAMEWORKS = [...MISSOURI_SCIENCE_FRAMEWORKS, ...MISSOURI_MATH_FRAMEWORKS, ...MISSOURI_ELA_FRAMEWORKS, ...MISSOURI_SOCIAL_STUDIES_FRAMEWORKS];
+// K-5 first, so the shelf reads kindergarten upward when unfiltered.
+export const STANDARDS_FRAMEWORKS = [...MISSOURI_K5_FRAMEWORKS, ...MISSOURI_SCIENCE_FRAMEWORKS, ...MISSOURI_MATH_FRAMEWORKS, ...MISSOURI_ELA_FRAMEWORKS, ...MISSOURI_SOCIAL_STUDIES_FRAMEWORKS];
 
 export const frameworkById = (id) => STANDARDS_FRAMEWORKS.find(f => f.id === id) || null;
 
