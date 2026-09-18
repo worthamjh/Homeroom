@@ -21,10 +21,11 @@ import { suggestStandards, searchStandards, parseLessonStandards, serializeLesso
  * Both exist only when the teacher has added a standards framework in the
  * Design Store (`frameworks` is what they own); with none, nothing.
  *
- * The framework prefix ("MLS") is dropped while a teacher owns one
- * framework -- on a Missouri board it says nothing an admin does not
- * already know -- and comes back on its own once two are owned, so
- * codes from different frameworks can be told apart. The "9-12" stays
+ * The framework prefix ("MLS") is dropped while everything a teacher
+ * owns comes from one family -- on a Missouri board it says nothing an
+ * admin does not already know -- and comes back on its own once two
+ * families are owned (Missouri and NGSS, say), so codes can be told
+ * apart. Several Missouri items together still need no prefix. The "9-12" stays
  * always: it is part of the official code (6-8.PS1.A.1 also exists).
  *
  * Presentational and stateless about the lesson: `value` is the saved
@@ -53,7 +54,7 @@ export function StandardsChips({ frameworks, value, onSave, surface, interactive
   const accent = surface?.accent || "var(--board-secondary-accent)";
   const bodyText = surface?.bodyText || "rgba(255,255,255,0.88)";
   const dim = surface?.placeholderText || "rgba(255,255,255,0.4)";
-  const showPrefix = frameworks.length > 1;
+  const showPrefix = new Set(frameworks.map(f => f.short)).size > 1;
   const remove = (key) => onSave?.(serializeLessonStandards(chosenKeys.filter(k => k !== key)));
 
   return (
@@ -99,7 +100,7 @@ export default function StandardsLine({ frameworks, value, onSave, goalTexts = [
   const bodyText = surface?.bodyText || "rgba(255,255,255,0.88)";
   const dim = surface?.placeholderText || "rgba(255,255,255,0.4)";
   const border = surface?.checkboxBorder || "rgba(255,255,255,0.4)";
-  const showPrefix = frameworks.length > 1;
+  const showPrefix = new Set(frameworks.map(f => f.short)).size > 1;
   const add = (key) => onSave?.(serializeLessonStandards([...chosenKeys, key]));
   const labelStyle = { fontFamily: "Oswald, sans-serif", fontSize: 10, letterSpacing: 1.5, textTransform: "uppercase", color: dim, marginRight: 2 };
 

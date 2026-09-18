@@ -142,18 +142,20 @@ function Preview({ preview }) {
   // A standards framework previews as what it puts on the board: the
   // goals list with a row of code chips under it.
   if (preview.kind === "standards") {
-    const codes = preview.framework.standards.slice(0, 2).map(s => s.code);
+    // Drawn the way the board draws it: a title line with the code chip at
+    // its right end, then the goals. boxSizing matters -- the padding was
+    // once added on top of the 100% width and the strip ran past the card.
+    const code = preview.framework.standards[0]?.code;
     return (
-      <div style={{ ...box, background: "#2d5a2d", display: "flex", flexDirection: "column", justifyContent: "center", gap: 5, padding: "0 10px" }}>
-        <div style={{ height: 3, width: "80%", borderRadius: 2, background: "rgba(255,255,255,0.5)" }} />
-        <div style={{ height: 3, width: "65%", borderRadius: 2, background: "rgba(255,255,255,0.5)" }} />
-        <div style={{ display: "flex", gap: 4, marginTop: 3 }}>
-          {codes.map(c => (
-            <span key={c} style={{ fontFamily: "Lato, sans-serif", fontSize: 8, fontWeight: 700, color: "rgba(255,255,255,0.85)", border: "1px solid rgba(255,255,255,0.4)", borderRadius: 8, padding: "1px 5px", whiteSpace: "nowrap" }}>
-              <span style={{ opacity: 0.6, fontWeight: 400 }}>{preview.framework.short} </span>{c}
-            </span>
-          ))}
+      <div style={{ ...box, boxSizing: "border-box", background: "#2d5a2d", display: "flex", flexDirection: "column", justifyContent: "center", gap: 6, padding: "0 10px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <div style={{ height: 4, width: "40%", borderRadius: 2, background: "var(--board-secondary-accent, #E87722)" }} />
+          <span style={{ marginLeft: "auto", fontFamily: "Lato, sans-serif", fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,0.9)", border: "1px solid var(--board-secondary-accent, #E87722)", borderRadius: 8, padding: "1px 6px", whiteSpace: "nowrap" }}>
+            {code}
+          </span>
         </div>
+        <div style={{ height: 3, width: "85%", borderRadius: 2, background: "rgba(255,255,255,0.5)" }} />
+        <div style={{ height: 3, width: "70%", borderRadius: 2, background: "rgba(255,255,255,0.5)" }} />
       </div>
     );
   }
