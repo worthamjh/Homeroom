@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/clerk-react";
-import { getActiveTeacherId, DEFAULT_TEACHER_ID, CLERK_CONFIGURED, boardThemeVars, useScopedSetting, BUILD_TOUR_DONE_KEY, DEFAULT_BUILD_TOUR_DONE, readCurrentView, getActiveClassroomId, setActiveClassroomId, classroomQuery, DEFAULT_CLASSROOM_ID, clearBuildTabView } from "./boardConfig";
+import { getActiveTeacherId, DEFAULT_TEACHER_ID, CLERK_CONFIGURED, boardThemeVars, useScopedSetting, BUILD_TOUR_DONE_KEY, DEFAULT_BUILD_TOUR_DONE, readCurrentView, getActiveClassroomId, setActiveClassroomId, classroomQuery, buildPageHref, DEFAULT_CLASSROOM_ID, clearBuildTabView } from "./boardConfig";
 import { dropUnknownClassroom } from "./lib/activeClassroom";
 import { fetchProfile, readCachedProfile } from "./lib/profileApi";
 import BoardSettingsPanel from "./BoardSettingsPanel";
@@ -317,7 +317,7 @@ function ClassroomSwitcher({ classrooms }) {
   const go = (id) => {
     if (id === "__new") { window.location.href = "/profile?from=build&new=1"; return; }
     setActiveClassroomId(id);
-    window.location.href = id === DEFAULT_CLASSROOM_ID ? "/build" : `/build?class=${encodeURIComponent(id)}`;
+    window.location.href = buildPageHref(id);
   };
   return (
     <select

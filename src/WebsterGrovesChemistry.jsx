@@ -37,7 +37,7 @@ import {
   useLessonBoardCount, seedLessonBoardCount,
   SLIDING_BOARDS_ENABLED_KEY, DEFAULT_SLIDING_BOARDS_ENABLED,
   SLIDING_BOARDS_COUNT_KEY, DEFAULT_SLIDING_BOARDS_COUNT,
-  getActiveClassroomId, classroomQuery, DEFAULT_CLASSROOM_ID,
+  getActiveClassroomId, classroomQuery, buildPageHref, DEFAULT_CLASSROOM_ID,
   BELL_RINGER_PLACEMENT_KEY, DEFAULT_BELL_RINGER_PLACEMENT, isBellRingerPlacement,
   EXIT_SLIP_PLACEMENT_KEY, DEFAULT_EXIT_SLIP_PLACEMENT,
   LEDGE_NOTEBOOK_KEY, DEFAULT_LEDGE_NOTEBOOK, isLedgeNotebookValue, parseLedgeNotebooks,
@@ -2376,7 +2376,7 @@ function TopBar({ viewer = false, curriculum, activeUnitIdx, isOverview, activeL
             // when a teacher is done editing. Safe to skip noopener: this
             // is a same-origin, first-party popup, not a link to some
             // other site.
-            window.open(`/build${classroomQuery() ? "?" + classroomQuery().slice(1) : ""}`, "homeroom-build");
+            window.open(buildPageHref(), "homeroom-build");
           }}
           title="Build — add or edit content, and change how the board looks"
           aria-label="Open Build page"
@@ -4569,7 +4569,7 @@ export default function App({ viewer = false } = {}) {
                         Units, lessons, slides and assignments are added in Build. It's also the 🛠 button at the top right, any time.
                       </div>
                       <a
-                        href={`/build${classroomQuery() ? "?" + classroomQuery().replace(/^&/, "") : ""}`}
+                        href={buildPageHref()}
                         style={{ display: "inline-block", background: "var(--board-secondary)", color: "var(--board-secondary-fg)", textDecoration: "none", borderRadius: 6, padding: "10px 18px", fontFamily: "Oswald, sans-serif", fontSize: 14, letterSpacing: 0.8, textTransform: "uppercase", boxShadow: "0 2px 8px rgba(0,0,0,0.4)" }}
                       >
                         🛠 Open Build and add your first unit

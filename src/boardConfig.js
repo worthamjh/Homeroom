@@ -13,7 +13,7 @@ import { registerAuthTokenGetter } from "./lib/apiClient";
 import { useUser, useAuth } from "@clerk/clerk-react";
 import { fetchBoardSettings, saveBoardSetting } from "./lib/boardSettingsApi";
 import { getActiveClassroomId, setActiveClassroomId, DEFAULT_CLASSROOM_ID, currentSlugRoute } from "./lib/activeClassroom";
-export { getActiveClassroomId, setActiveClassroomId, classroomQuery, DEFAULT_CLASSROOM_ID } from "./lib/activeClassroom";
+export { getActiveClassroomId, setActiveClassroomId, classroomQuery, buildPageHref, DEFAULT_CLASSROOM_ID } from "./lib/activeClassroom";
 // Named here as a plain string rather than referencing OWNED_DESIGN_OPTIONS_KEY,
 // which is declared further down this module (const, not hoisted).
 const OWNED_DESIGN_OPTIONS_KEY_NAME = "ownedDesignOptions";

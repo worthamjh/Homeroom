@@ -86,3 +86,14 @@ export function classroomQuery() {
   const id = getActiveClassroomId();
   return id === DEFAULT_CLASSROOM_ID ? "" : `&class=${encodeURIComponent(id)}`;
 }
+
+// The Build page for a classroom, ALWAYS naming it -- the default one
+// included. Build reads ?class= first and only then what this browser
+// remembers, and a Build link that left the default classroom implicit
+// opened on whatever was remembered instead: Jay, on the Chemistry board,
+// "hit the build button, and i was in the american history classroom".
+// The board's public links keep leaving the default implicit (see
+// classroomQuery); Build is the teacher's own page and can be explicit.
+export function buildPageHref(id = getActiveClassroomId()) {
+  return `/build?class=${encodeURIComponent(valid(id) || DEFAULT_CLASSROOM_ID)}`;
+}
