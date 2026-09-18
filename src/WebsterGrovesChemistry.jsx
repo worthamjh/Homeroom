@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, cloneElement } from "react";
 import ChalkboardBoardRow, { toGoalPanels } from "./ChalkboardBoardRow";
 import { useFullAgendaFields, ObjectivesChecklist, EditableField, ResetBoardButton } from "./FullAgendaBoard";
+import StandardsLine from "./StandardsLine";
+import { STANDARDS_FRAMEWORKS } from "./lib/standards";
 import { fetchExtraAssignments, createExtraAssignment, deleteExtraAssignment, updateExtraAssignment, reorderExtraAssignments } from "./lib/extraAssignments";
 import { uploadAssignmentPdf, uploadSlidesFile } from "./lib/cloudinary";
 import { googleDriveConfigured, googleDriveSignedIn, ensureGoogleScriptsLoaded, pickGoogleSlidesEmbed, pickGoogleDriveAssignmentFiles, pickGoogleCalendar, driveErrorMessage, createNotebookDoc, driveFileIdFromKamiUrl, driveFileStatus, requestDriveAccessToken, GOOGLE_TOKEN_STORAGE_KEY } from "./lib/googleDrive";
@@ -24,6 +26,7 @@ import {
   BOARD_ARRANGEMENTS, DEFAULT_ARRANGEMENT, ARRANGEMENT_STORAGE_KEY,
   bulletinStyles, isBulletinStyleId, migrateBulletinStyleId, DEFAULT_BULLETIN, BULLETIN_STORAGE_KEY,
   BOARD_COMPONENTS,
+  DESIGN_AREAS, useOwnedDesignOptions,
   GOALS_STORAGE_KEY,
   WALL_TYPES, DEFAULT_WALL_TYPE, WALL_TYPE_STORAGE_KEY,
   DEFAULT_WALL_COLOR_BY_TYPE, WALL_COLOR_STORAGE_KEY,
@@ -4167,13 +4170,16 @@ export default function App({ viewer = false } = {}) {
   // Merge a panel's fields with the unit-level Essential Question.
   const mergePanelWithUnit = (pf) => ({
     ...pf,
-    content: { ...pf.content, essentialQuestion: unitFields.content.essentialQuestion },
+    // Standards are per LESSON, like the essential question is per unit:
+    // every sliding panel shows the flat slot's list and writes back to it.
+    content: { ...pf.content, essentialQuestion: unitFields.content.essentialQuestion, standards: flatPanelFields.content.standards },
     // Saving the question goes to the unit hook, but the panel hook is the
     // one whose editingKey opened the box (setEditingKey below sets both),
     // so it has to be closed here too -- or the box stays open after a
     // save and Enter looks like it "does nothing" (Jay).
     save: (key, value) => {
       if (key === "essentialQuestion") { unitFields.save(key, value); pf.setEditingKey(null); }
+      else if (key === "standards") { flatPanelFields.save(key, value); pf.setEditingKey(null); }
       else pf.save(key, value);
     },
     setEditingKey: (k) => { pf.setEditingKey(k); unitFields.setEditingKey(k); },
@@ -4184,6 +4190,28 @@ export default function App({ viewer = false } = {}) {
   // Reset Board button and Edit fields in the flat content column. It
   // always refers to the flat per-lesson key so existing content is kept.
   const fullAgendaFields = mergePanelWithUnit(flatPanelFields);
+
+  // Learning standards. The frameworks a teacher ADDED in the Design Store
+  // are the switch (see DESIGN_AREAS.STANDARDS in boardConfig.js): own
+  // none and renderStandardsLine renders nothing. The suggestions are
+  // made from whatever the lesson's goals are -- the curriculum's own, or
+  // the lines a teacher typed into the editable Learning Goals field on
+  // any of its boards.
+  const ownedDesign = useOwnedDesignOptions();
+  const standardsFrameworks = STANDARDS_FRAMEWORKS.filter(f => ownedDesign.has(DESIGN_AREAS.STANDARDS, f.id));
+  const standardsGoalTexts = useEditableLearningGoals
+    ? allPanelFields.flatMap(f => (f.content.learningGoals || "").split("\n")).map(t => t.trim()).filter(Boolean)
+    : goalItems.map(g => g.text);
+  const renderStandardsLine = (interactive) => standardsFrameworks.length ? (
+    <StandardsLine
+      frameworks={standardsFrameworks}
+      value={fullAgendaFields.content.standards}
+      onSave={(raw) => fullAgendaFields.save("standards", raw)}
+      goalTexts={standardsGoalTexts}
+      surface={surface}
+      interactive={interactive}
+    />
+  ) : null;
 
   // The Kami URL the overlay should show -- the sliding board keeps a
   // separate Bell Ringer link per panel (allPanelFields), so once a panel's
@@ -4708,6 +4736,7 @@ export default function App({ viewer = false } = {}) {
                   surface={surface}
                   showGoals={learningGoalsIsOn && !useEditableLearningGoals}
                   learningGoalsEditable={useEditableLearningGoals}
+                  goalsFooter={standardsFrameworks.length ? (isFront) => renderStandardsLine(isFront && isBuildMode) : null}
                   goalsLabel={anyFullAgendaFieldOn ? "Objectives & Benchmarks" : "Learning Goals"}
                   goalsHeaderColor={anyFullAgendaFieldOn ? surface.accent : surface.headerText}
                   // Same boardContentOrder the flat (non-sliding) column
@@ -4730,18 +4759,20 @@ export default function App({ viewer = false } = {}) {
                     if (key === "learningGoals") {
                       if (!useEditableLearningGoals || !learningGoalsIsOn) return null;
                       return (
-                        <EditableField
-                          key={key}
-                          fieldKey="learningGoals"
-                          content={pf.content}
-                          editingKey={pf.editingKey}
-                          onStartEdit={pf.setEditingKey}
-                          onSave={pf.save}
-                          surface={surface}
-                          interactive={isFront && isBuildMode}
-                          checkedLines={pf.checkedLearningGoalsLines}
-                          onToggleLine={pf.toggleLearningGoalsLine}
-                        />
+                        <div key={key}>
+                          <EditableField
+                            fieldKey="learningGoals"
+                            content={pf.content}
+                            editingKey={pf.editingKey}
+                            onStartEdit={pf.setEditingKey}
+                            onSave={pf.save}
+                            surface={surface}
+                            interactive={isFront && isBuildMode}
+                            checkedLines={pf.checkedLearningGoalsLines}
+                            onToggleLine={pf.toggleLearningGoalsLine}
+                          />
+                          {renderStandardsLine(isFront && isBuildMode)}
+                        </div>
                       );
                     }
                     const isOnByKey = { essentialQuestion: essentialQuestionIsOn, agenda: agendaIsOn, bellRinger: bellRingerIsOn && !bellRingerInAgenda, exitSlip: exitSlipIsOn && !exitSlipInAgenda };
@@ -4872,6 +4903,7 @@ export default function App({ viewer = false } = {}) {
                                     checkedLines={fullAgendaFields.checkedLearningGoalsLines}
                                     onToggleLine={fullAgendaFields.toggleLearningGoalsLine}
                                   />
+                                  {renderStandardsLine(isBuildMode)}
                                 </div>
                               );
                             }
@@ -4885,6 +4917,7 @@ export default function App({ viewer = false } = {}) {
                                   label={anyFullAgendaFieldOn ? "Objectives & Benchmarks" : "Learning Goals"}
                                   interactive={isBuildMode}
                                 />
+                                {renderStandardsLine(isBuildMode)}
                               </div>
                             );
                           }

@@ -113,6 +113,13 @@ export default function ChalkboardBoardRow({
   // caller's `extraContent` (same as the four Full Agenda fields),
   // not this component's own goals-checklist rendering below.
   learningGoalsEditable = false,
+  // Rendered inside the Learning Goals block, under the list, on every
+  // panel that shows one -- `(isFront, panelIdx) => ReactNode`. The
+  // standards line (src/StandardsLine.jsx) uses it, since a lesson's
+  // standards belong with its goals rather than as a section of their own.
+  // Only the front panel's instance should be interactive, same rule as
+  // extraContent.
+  goalsFooter = null,
   // Which order the Learning Goals checklist and the four Full Agenda
   // fields render in on each panel face — the same
   // BOARD_CONTENT_ORDER_STORAGE_KEY/useBoardContentOrder value the flat
@@ -588,6 +595,7 @@ export default function ChalkboardBoardRow({
                               </div>
                             );
                           })}
+                          {goalsFooter ? goalsFooter(isFront, i) : null}
                         </div>
                       );
                     }

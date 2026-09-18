@@ -19,6 +19,7 @@ export { getActiveClassroomId, setActiveClassroomId, classroomQuery, DEFAULT_CLA
 const OWNED_DESIGN_OPTIONS_KEY_NAME = "ownedDesignOptions";
 import { BUILT_IN_PAPERS } from "./lib/paperTemplates";
 import { NOTEBOOK_TEMPLATES, isNotebookTemplateId } from "./lib/notebooks";
+import { STANDARDS_FRAMEWORKS } from "./lib/standards";
 
 // Real identity now exists (Clerk — see main.jsx's <ClerkProvider> and
 // useSyncAuthIdentity below), but the placeholder scheme this replaces
@@ -1187,6 +1188,12 @@ export const DESIGN_AREAS = {
   // Notebooks: a many-page PDF of one blank template, kept per unit,
   // pinned to the bulletin board. See src/lib/notebooks.js.
   NOTEBOOK: "notebook",
+  // Learning standards frameworks (Missouri Learning Standards, ...).
+  // Owning one IS the switch: it puts a standards line under the
+  // Learning Goals and has Build suggest which standards the goals meet.
+  // No framework added, no line, no setting to decide. See src/lib/
+  // standards.js and src/StandardsLine.jsx.
+  STANDARDS: "standards",
 };
 
 // Which notebooks are pinned to the bulletin board for this classroom.
@@ -1301,6 +1308,9 @@ const STORE_GATED_OPTIONS = {
   // Every notebook is a store item: nothing sits on the ledge until a
   // teacher adds one.
   [DESIGN_AREAS.NOTEBOOK]: NOTEBOOK_TEMPLATES.map(t => t.id),
+  // Every framework is a store item, because adding one is what puts
+  // standards on the board at all.
+  [DESIGN_AREAS.STANDARDS]: STANDARDS_FRAMEWORKS.map(f => f.id),
 };
 
 // Ships with every board, no purchase, no ownership record.
@@ -1325,6 +1335,7 @@ export const DESIGN_AREA_LABELS = {
   [DESIGN_AREAS.BOARD_ACCENT]: "Header & Accent Colors",
   [DESIGN_AREAS.PAPER]: "Bell Ringer & Exit Slip Papers",
   [DESIGN_AREAS.NOTEBOOK]: "Notebooks",
+  [DESIGN_AREAS.STANDARDS]: "Learning Standards",
 };
 
 // What each area's setting currently is, and what it falls back to. The
@@ -1396,6 +1407,12 @@ export function designCatalog(primaryColor, secondaryColor) {
       label: DESIGN_AREA_LABELS[DESIGN_AREAS.NOTEBOOK],
       blurb: "A notebook of blank templates, pinned to the bulletin board. Every unit gets its own copy. Choose which one is out under Bulletin Board in Build.",
       options: NOTEBOOK_TEMPLATES.map(t => ({ id: t.id, label: `${t.label} · ${t.pages} pages`, preview: { kind: "notebook", template: t } })),
+    },
+    {
+      area: DESIGN_AREAS.STANDARDS,
+      label: DESIGN_AREA_LABELS[DESIGN_AREAS.STANDARDS],
+      blurb: "Post the standards a lesson meets under its Learning Goals. Add a framework and, in Build, Gil-Bilt suggests which of its standards your goals line up with — you pick the ones that fit, and they show on the board as small codes with the full wording on hover.",
+      options: STANDARDS_FRAMEWORKS.map(f => ({ id: f.id, label: f.label, preview: { kind: "standards", framework: f } })),
     },
   ];
 }

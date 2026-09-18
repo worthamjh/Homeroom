@@ -63,6 +63,9 @@ export function defaultFullAgendaContent() {
     exitSlip: "",
     exitSlipKamiUrl: "",
     learningGoals: "",
+    // Learning standards the lesson meets -- a JSON array of
+    // "<framework>:<code>" keys (src/lib/standards.js), or "" for none.
+    standards: "",
   };
 }
 
