@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { suggestStandards, searchStandards, parseLessonStandards, serializeLessonStandards, lookupStandard } from "./lib/standards";
+import { useEffect, useMemo, useState } from "react";
+import { suggestStandards, searchStandards, parseLessonStandards, serializeLessonStandards, splitStandardKey, frameworkById, loadStandardsCatalog } from "./lib/standards";
 
 /**
  * The learning standards a lesson meets, in two pieces:
@@ -19,7 +19,14 @@ import { suggestStandards, searchStandards, parseLessonStandards, serializeLesso
  *    decides; nothing is ever tagged without them.
  *
  * Both exist only when the teacher has added a standards framework in the
- * Design Store (`frameworks` is what they own); with none, nothing.
+ * Design Store (`frameworks` is what they own, as index entries); with
+ * none, nothing.
+ *
+ * The catalogue of statements is loaded on demand (it is half a
+ * megabyte), and the chips never wait for it: a chip's text is the code,
+ * which is in the key itself, so the live board paints the chips at
+ * once and the hover wording arrives a moment later. Only Build's
+ * suggestions and browse list need the catalogue before they can show.
  *
  * The framework prefix ("MLS") is dropped while everything a teacher
  * owns comes from one family -- on a Missouri board it says nothing an
@@ -33,22 +40,48 @@ import { suggestStandards, searchStandards, parseLessonStandards, serializeLesso
  * one back through the same path as the other board fields.
  */
 
-const tip = (s) => `${s.framework.short} ${s.code}\n${s.text}${s.note ? `\n\n${s.note}` : ""}`;
-
 const chipBase = {
   display: "inline-flex", alignItems: "center", gap: 5,
   fontFamily: "Lato, sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: 0.3, lineHeight: 1,
   textTransform: "none", padding: "3px 8px", borderRadius: 10, whiteSpace: "nowrap", userSelect: "none",
 };
 
+// The full frameworks (with their standards) for a set of index entries,
+// once the catalogue has loaded; null until then.
+function useStandardsCatalog(frameworks) {
+  const [catalog, setCatalog] = useState(null);
+  const ids = (frameworks || []).map(f => f.id).join(",");
+  useEffect(() => {
+    let cancelled = false;
+    if (!ids) { setCatalog(null); return; }
+    loadStandardsCatalog().then(byId => {
+      if (cancelled) return;
+      setCatalog(ids.split(",").map(id => byId.get(id)).filter(Boolean));
+    }).catch(() => { if (!cancelled) setCatalog([]); });
+    return () => { cancelled = true; };
+  }, [ids]);
+  return catalog;
+}
+
+// What a chip can say before and after the catalogue arrives.
+function describe(key, catalog) {
+  const parts = splitStandardKey(key);
+  if (!parts) return null;
+  const framework = frameworkById(parts.frameworkId);
+  if (!framework) return null;
+  const full = catalog?.find(f => f.id === framework.id)?.standards.find(s => s.code === parts.code);
+  return { key, framework, code: parts.code, text: full?.text || "", note: full?.note || "" };
+}
+const tip = (s) => `${s.framework.short} ${s.code}${s.text ? `\n${s.text}` : ""}${s.note ? `\n\n${s.note}` : ""}`;
+
 function useChosen(value) {
-  const chosenKeys = useMemo(() => parseLessonStandards(value), [value]);
-  const chosen = useMemo(() => chosenKeys.map(lookupStandard).filter(Boolean), [chosenKeys]);
-  return { chosenKeys, chosen };
+  return useMemo(() => parseLessonStandards(value), [value]);
 }
 
 export function StandardsChips({ frameworks, value, onSave, surface, interactive = false }) {
-  const { chosenKeys, chosen } = useChosen(value);
+  const chosenKeys = useChosen(value);
+  const catalog = useStandardsCatalog(frameworks);
+  const chosen = useMemo(() => chosenKeys.map(k => describe(k, catalog)).filter(Boolean), [chosenKeys, catalog]);
   if (!frameworks || frameworks.length === 0 || chosen.length === 0) return null;
 
   const accent = surface?.accent || "var(--board-secondary-accent)";
@@ -82,16 +115,17 @@ export function StandardsChips({ frameworks, value, onSave, surface, interactive
 export default function StandardsLine({ frameworks, value, onSave, goalTexts = [], surface, interactive = false }) {
   const [browsing, setBrowsing] = useState(false);
   const [query, setQuery] = useState("");
-  const { chosenKeys } = useChosen(value);
+  const chosenKeys = useChosen(value);
+  const catalog = useStandardsCatalog(interactive ? frameworks : null);
   const goalsSignature = goalTexts.join("\n");
   const suggestions = useMemo(
-    () => interactive ? suggestStandards(goalTexts, frameworks, { limit: 3, exclude: chosenKeys }) : [],
+    () => (interactive && catalog) ? suggestStandards(goalTexts, catalog, { limit: 3, exclude: chosenKeys }) : [],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [interactive, goalsSignature, frameworks, chosenKeys],
+    [interactive, catalog, goalsSignature, chosenKeys],
   );
   const browseResults = useMemo(
-    () => browsing ? searchStandards(frameworks, query, 12).filter(s => !chosenKeys.includes(s.key)) : [],
-    [browsing, query, frameworks, chosenKeys],
+    () => (browsing && catalog) ? searchStandards(catalog, query, 12).filter(s => !chosenKeys.includes(s.key)) : [],
+    [browsing, catalog, query, chosenKeys],
   );
 
   if (!interactive || !frameworks || frameworks.length === 0) return null;
@@ -103,28 +137,28 @@ export default function StandardsLine({ frameworks, value, onSave, goalTexts = [
   const showPrefix = new Set(frameworks.map(f => f.short)).size > 1;
   const add = (key) => onSave?.(serializeLessonStandards([...chosenKeys, key]));
   const labelStyle = { fontFamily: "Oswald, sans-serif", fontSize: 10, letterSpacing: 1.5, textTransform: "uppercase", color: dim, marginRight: 2 };
+  const hint = (text) => <span style={{ fontFamily: "Lato, sans-serif", fontSize: 11, color: dim, fontStyle: "italic" }}>{text}</span>;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 6, padding: "6px 0 2px" }}>
       <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6 }}>
         <span style={labelStyle}>Suggested standards</span>
-        {suggestions.length === 0 ? (
-          <span style={{ fontFamily: "Lato, sans-serif", fontSize: 11, color: dim, fontStyle: "italic" }}>
-            {goalTexts.length === 0
-              ? "add learning goals and Gil-Bilt will suggest standards"
-              : chosenKeys.length ? "nothing else close enough — browse for more" : "nothing close enough to suggest — browse instead"}
-          </span>
-        ) : suggestions.map(s => (
-          <button
-            key={s.key}
-            type="button"
-            title={tip(s)}
-            onClick={(e) => { e.stopPropagation(); add(s.key); }}
-            style={{ ...chipBase, border: `1px dashed ${accent}`, color: accent, background: "transparent", cursor: "pointer" }}
-          >
-            + {showPrefix ? `${s.framework.short} ` : ""}{s.code}
-          </button>
-        ))}
+        {!catalog ? hint("loading standards…")
+          : suggestions.length === 0 ? hint(
+              goalTexts.length === 0
+                ? "add learning goals and Gil-Bilt will suggest standards"
+                : chosenKeys.length ? "nothing else close enough — browse for more" : "nothing close enough to suggest — browse instead")
+          : suggestions.map(s => (
+            <button
+              key={s.key}
+              type="button"
+              title={tip(s)}
+              onClick={(e) => { e.stopPropagation(); add(s.key); }}
+              style={{ ...chipBase, border: `1px dashed ${accent}`, color: accent, background: "transparent", cursor: "pointer" }}
+            >
+              + {showPrefix ? `${s.framework.short} ` : ""}{s.code}
+            </button>
+          ))}
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); setBrowsing(b => !b); }}
@@ -143,9 +177,7 @@ export default function StandardsLine({ frameworks, value, onSave, goalTexts = [
             placeholder={`Search ${frameworks.map(f => f.short).join(", ")} by code or wording…`}
             style={{ fontFamily: "Lato, sans-serif", fontSize: 12, padding: "5px 8px", borderRadius: 4, border: `1px solid ${border}`, background: "rgba(0,0,0,0.3)", color: "#fff", outline: "none" }}
           />
-          {browseResults.length === 0 ? (
-            <span style={{ fontFamily: "Lato, sans-serif", fontSize: 11, color: dim, fontStyle: "italic", padding: "2px 2px" }}>no matches</span>
-          ) : browseResults.map(s => (
+          {!catalog ? hint("loading standards…") : browseResults.length === 0 ? hint("no matches") : browseResults.map(s => (
             <button
               key={s.key}
               type="button"

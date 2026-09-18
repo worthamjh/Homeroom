@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "standards:index": "node scripts/build-standards-index.mjs"
   },
   "dependencies": {
     "@clerk/backend": "^3.16.13",

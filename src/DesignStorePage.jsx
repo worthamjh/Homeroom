@@ -145,7 +145,7 @@ function Preview({ preview }) {
     // Drawn the way the board draws it: a title line with the code chip at
     // its right end, then the goals. boxSizing matters -- the padding was
     // once added on top of the 100% width and the strip ran past the card.
-    const code = preview.framework.standards[0]?.code;
+    const code = preview.framework.sampleCode;
     return (
       <div style={{ ...box, boxSizing: "border-box", background: "#2d5a2d", display: "flex", flexDirection: "column", justifyContent: "center", gap: 6, padding: "0 10px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>

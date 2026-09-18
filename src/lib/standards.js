@@ -16,28 +16,59 @@
 // the teacher confirms with one tap. Swapping in a model call later is a
 // change to suggestStandards() alone.
 //
-// The catalogue itself lives in src/lib/standardsData.js, one entry per
-// band and strand of the Missouri science standards.
-import { MISSOURI_SCIENCE_FRAMEWORKS, MISSOURI_MATH_FRAMEWORKS, MISSOURI_ELA_FRAMEWORKS, MISSOURI_SOCIAL_STUDIES_FRAMEWORKS, MISSOURI_K5_FRAMEWORKS } from "./standardsData.js";
+// The catalogue itself lives in src/lib/standardsData.js (every Missouri
+// K-12 standard in the four core subjects, about half a megabyte) and
+// is NOT imported here: the board would pay for it on every first paint
+// to show a few chips whose text is already in their keys. What loads
+// up front is standardsIndex.js, the light list of frameworks (id,
+// label, subject, band, one sample code), generated from the data by
+// scripts/build-standards-index.mjs. The statements arrive through
+// loadStandardsCatalog() when something needs them: hover wording,
+// suggestions, the browse list.
+import { STANDARDS_FRAMEWORK_INDEX } from "./standardsIndex.js";
 
 // `short` is what a chip is prefixed with when a teacher owns frameworks
 // from more than one family (see StandardsChips): "MLS 9-12.PS1.A.1".
 // K-5 first, so the shelf reads kindergarten upward when unfiltered.
-export const STANDARDS_FRAMEWORKS = [...MISSOURI_K5_FRAMEWORKS, ...MISSOURI_SCIENCE_FRAMEWORKS, ...MISSOURI_MATH_FRAMEWORKS, ...MISSOURI_ELA_FRAMEWORKS, ...MISSOURI_SOCIAL_STUDIES_FRAMEWORKS];
+export const STANDARDS_FRAMEWORKS = STANDARDS_FRAMEWORK_INDEX;
 
 export const frameworkById = (id) => STANDARDS_FRAMEWORKS.find(f => f.id === id) || null;
+
+// The full catalogue, as a Map of framework id -> framework with its
+// `standards`, fetched once per page (Vite splits the dynamic import into
+// its own chunk, so the data leaves the main bundle).
+let catalogPromise = null;
+export function loadStandardsCatalog() {
+  if (!catalogPromise) {
+    catalogPromise = import("./standardsData.js").then(data => {
+      const byId = new Map();
+      for (const list of Object.values(data)) {
+        if (!Array.isArray(list)) continue;
+        for (const f of list) byId.set(f.id, f);
+      }
+      return byId;
+    }).catch(err => { catalogPromise = null; throw err; });
+  }
+  return catalogPromise;
+}
+
+export function splitStandardKey(key) {
+  if (typeof key !== "string") return null;
+  const i = key.indexOf(":");
+  return i < 0 ? null : { frameworkId: key.slice(0, i), code: key.slice(i + 1) };
+}
 
 // A lesson stores standards as "<frameworkId>:<code>" keys, so two
 // frameworks that happen to share a code can never collide.
 export const standardKey = (frameworkId, code) => `${frameworkId}:${code}`;
 
-export function lookupStandard(key) {
-  if (typeof key !== "string") return null;
-  const i = key.indexOf(":");
-  if (i < 0) return null;
-  const framework = frameworkById(key.slice(0, i));
-  const code = key.slice(i + 1);
-  const std = framework?.standards.find(s => s.code === code);
+// `frameworks` are FULL frameworks (with `standards`), from
+// loadStandardsCatalog(); the index alone cannot answer this.
+export function lookupStandard(key, frameworks) {
+  const parts = splitStandardKey(key);
+  if (!parts) return null;
+  const framework = (frameworks || []).find(f => f.id === parts.frameworkId);
+  const std = framework?.standards.find(s => s.code === parts.code);
   return std ? { key, framework, ...std } : null;
 }
 
