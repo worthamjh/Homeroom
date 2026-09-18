@@ -1412,7 +1412,9 @@ export function designCatalog(primaryColor, secondaryColor) {
       area: DESIGN_AREAS.STANDARDS,
       label: DESIGN_AREA_LABELS[DESIGN_AREAS.STANDARDS],
       blurb: "Post the standards a lesson meets under its Learning Goals. Add a framework and, in Build, Gil-Bilt suggests which of its standards your goals line up with — you pick the ones that fit, and they show on the board as small codes with the full wording on hover.",
-      options: STANDARDS_FRAMEWORKS.map(f => ({ id: f.id, label: f.label, preview: { kind: "standards", framework: f } })),
+      // `subject` and `band` drive the shelf's filter chips (DesignStorePage):
+      // 22 items is too many to scan, and a teacher wants one subject.
+      options: STANDARDS_FRAMEWORKS.map(f => ({ id: f.id, label: f.label, subject: f.subject, band: f.band, preview: { kind: "standards", framework: f } })),
     },
   ];
 }

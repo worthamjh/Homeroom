@@ -19,6 +19,8 @@
 export const MISSOURI_SCIENCE_FRAMEWORKS = [
   {
     id: "mo-sci-9-12-ps",
+    subject: "Science",
+    band: "9-12",
     label: "Missouri Learning Standards · Science 9-12 · Physical",
     short: "MLS",
     blurb: "Missouri's high school physical science expectations: matter and reactions (PS1), forces and motion (PS2), energy (PS3), waves (PS4). Chemistry and physics.",
@@ -74,6 +76,8 @@ export const MISSOURI_SCIENCE_FRAMEWORKS = [
   },
   {
     id: "mo-sci-9-12-ls",
+    subject: "Science",
+    band: "9-12",
     label: "Missouri Learning Standards · Science 9-12 · Life",
     short: "MLS",
     blurb: "Missouri's high school life science expectations: cells and organisms (LS1), ecosystems (LS2), heredity (LS3), evolution (LS4). Biology.",
@@ -133,6 +137,8 @@ export const MISSOURI_SCIENCE_FRAMEWORKS = [
   },
   {
     id: "mo-sci-9-12-ess",
+    subject: "Science",
+    band: "9-12",
     label: "Missouri Learning Standards · Science 9-12 · Earth & Space",
     short: "MLS",
     blurb: "Missouri's high school earth and space science expectations: the universe (ESS1), Earth's systems (ESS2), Earth and human activity (ESS3).",
@@ -178,6 +184,8 @@ export const MISSOURI_SCIENCE_FRAMEWORKS = [
   },
   {
     id: "mo-sci-9-12-ets",
+    subject: "Science",
+    band: "9-12",
     label: "Missouri Learning Standards · Science 9-12 · Engineering Design",
     short: "MLS",
     blurb: "Missouri's four high school engineering design expectations (ETS1), for any science course that runs a design project.",
@@ -195,6 +203,8 @@ export const MISSOURI_SCIENCE_FRAMEWORKS = [
   },
   {
     id: "mo-sci-6-8",
+    subject: "Science",
+    band: "6-8",
     label: "Missouri Learning Standards · Science 6-8",
     short: "MLS",
     blurb: "Every middle school science expectation, all four strands: physical, life, earth and space, and engineering design.",
@@ -325,6 +335,8 @@ export const MISSOURI_SCIENCE_FRAMEWORKS = [
 export const MISSOURI_MATH_FRAMEWORKS = [
   {
     id: "mo-math-a1",
+    subject: "Math",
+    band: "9-12",
     label: "Missouri Learning Standards · Algebra I",
     short: "MLS",
     blurb: "Missouri's Algebra I expectations: number and quantity, expressions, equations and inequalities, functions, and data and statistics.",
@@ -426,6 +438,8 @@ export const MISSOURI_MATH_FRAMEWORKS = [
   },
   {
     id: "mo-math-g",
+    subject: "Math",
+    band: "9-12",
     label: "Missouri Learning Standards · Geometry",
     short: "MLS",
     blurb: "Missouri's Geometry expectations: congruence, similarity and trigonometry, circles, coordinate geometry, measurement, modeling, and probability.",
@@ -525,6 +539,8 @@ export const MISSOURI_MATH_FRAMEWORKS = [
   },
   {
     id: "mo-math-a2",
+    subject: "Math",
+    band: "9-12",
     label: "Missouri Learning Standards · Algebra II",
     short: "MLS",
     blurb: "Missouri's Algebra II expectations: complex numbers, polynomial and rational expressions, equations, functions and modeling, and data and statistics.",
@@ -602,6 +618,8 @@ export const MISSOURI_MATH_FRAMEWORKS = [
   },
   {
     id: "mo-math-6",
+    subject: "Math",
+    band: "6-8",
     label: "Missouri Learning Standards · Math Grade 6",
     short: "MLS",
     blurb: "Missouri's grade 6 mathematics expectations: ratios, the number system, expressions and equations, geometry and measurement, data and statistics.",
@@ -669,6 +687,8 @@ export const MISSOURI_MATH_FRAMEWORKS = [
   },
   {
     id: "mo-math-7",
+    subject: "Math",
+    band: "6-8",
     label: "Missouri Learning Standards · Math Grade 7",
     short: "MLS",
     blurb: "Missouri's grade 7 mathematics expectations: ratios and proportions, the number system, expressions and equations, geometry and measurement, data and probability.",
@@ -726,6 +746,8 @@ export const MISSOURI_MATH_FRAMEWORKS = [
   },
   {
     id: "mo-math-8",
+    subject: "Math",
+    band: "6-8",
     label: "Missouri Learning Standards · Math Grade 8",
     short: "MLS",
     blurb: "Missouri's grade 8 mathematics expectations: the number system, expressions and equations, functions, geometry and measurement, data and statistics.",
@@ -804,6 +826,8 @@ export const MISSOURI_MATH_FRAMEWORKS = [
 export const MISSOURI_ELA_FRAMEWORKS = [
   {
     id: "mo-ela-9-10",
+    subject: "ELA",
+    band: "9-12",
     label: "Missouri Learning Standards · ELA 9-10",
     short: "MLS",
     blurb: "Missouri's grade 9-10 English language arts expectations: reading literary and informational text, writing, speaking and listening.",
@@ -879,6 +903,8 @@ export const MISSOURI_ELA_FRAMEWORKS = [
   },
   {
     id: "mo-ela-11-12",
+    subject: "ELA",
+    band: "9-12",
     label: "Missouri Learning Standards · ELA 11-12",
     short: "MLS",
     blurb: "Missouri's grade 11-12 English language arts expectations: reading literary and informational text, writing, speaking and listening.",
@@ -954,6 +980,8 @@ export const MISSOURI_ELA_FRAMEWORKS = [
   },
   {
     id: "mo-ela-6",
+    subject: "ELA",
+    band: "6-8",
     label: "Missouri Learning Standards · ELA Grade 6",
     short: "MLS",
     blurb: "Missouri's grade 6 English language arts expectations: reading literary and informational text, writing, speaking and listening.",
@@ -1029,6 +1057,8 @@ export const MISSOURI_ELA_FRAMEWORKS = [
   },
   {
     id: "mo-ela-7",
+    subject: "ELA",
+    band: "6-8",
     label: "Missouri Learning Standards · ELA Grade 7",
     short: "MLS",
     blurb: "Missouri's grade 7 English language arts expectations: reading literary and informational text, writing, speaking and listening.",
@@ -1104,6 +1134,8 @@ export const MISSOURI_ELA_FRAMEWORKS = [
   },
   {
     id: "mo-ela-8",
+    subject: "ELA",
+    band: "6-8",
     label: "Missouri Learning Standards · ELA Grade 8",
     short: "MLS",
     blurb: "Missouri's grade 8 English language arts expectations: reading literary and informational text, writing, speaking and listening.",
@@ -1195,6 +1227,8 @@ export const MISSOURI_ELA_FRAMEWORKS = [
 export const MISSOURI_SOCIAL_STUDIES_FRAMEWORKS = [
   {
     id: "mo-ss-6-8-ah",
+    subject: "Social Studies",
+    band: "6-8",
     label: "Missouri Learning Standards · American History 6-8",
     short: "MLS",
     blurb: "Missouri's middle school American History expectations, across all five strands: history, government, geography, economics, and people and cultures.",
@@ -1374,6 +1408,8 @@ export const MISSOURI_SOCIAL_STUDIES_FRAMEWORKS = [
   },
   {
     id: "mo-ss-6-8-wh",
+    subject: "Social Studies",
+    band: "6-8",
     label: "Missouri Learning Standards · World History 6-8",
     short: "MLS",
     blurb: "Missouri's middle school World History expectations, across all five strands.",
@@ -1489,6 +1525,8 @@ export const MISSOURI_SOCIAL_STUDIES_FRAMEWORKS = [
   },
   {
     id: "mo-ss-6-8-geo",
+    subject: "Social Studies",
+    band: "9-12",
     label: "Missouri Learning Standards · Geography 6-8",
     short: "MLS",
     blurb: "Missouri's middle school Geography expectations, across all five strands.",
@@ -1568,6 +1606,8 @@ export const MISSOURI_SOCIAL_STUDIES_FRAMEWORKS = [
   },
   {
     id: "mo-ss-9-12-ah",
+    subject: "Social Studies",
+    band: "9-12",
     label: "Missouri Learning Standards · American History 9-12",
     short: "MLS",
     blurb: "Missouri's high school American History expectations, across all five strands: history, government, geography, economics, and people and cultures.",
@@ -1763,6 +1803,8 @@ export const MISSOURI_SOCIAL_STUDIES_FRAMEWORKS = [
   },
   {
     id: "mo-ss-9-12-wh",
+    subject: "Social Studies",
+    band: "9-12",
     label: "Missouri Learning Standards · World History 9-12",
     short: "MLS",
     blurb: "Missouri's high school World History expectations, across all five strands.",
@@ -1914,6 +1956,8 @@ export const MISSOURI_SOCIAL_STUDIES_FRAMEWORKS = [
   },
   {
     id: "mo-ss-9-12-gv",
+    subject: "Social Studies",
+    band: "9-12",
     label: "Missouri Learning Standards · Government 9-12",
     short: "MLS",
     blurb: "Missouri's high school Government expectations, across all five strands.",

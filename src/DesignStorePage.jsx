@@ -171,6 +171,35 @@ function Preview({ preview }) {
   return <div style={{ ...box, background: "#2a2a2a" }} />;
 }
 
+// One row of chips: "All" plus each value, the current one filled in.
+// Used twice on the Learning Standards shelf (subject, then grade band)
+// so a teacher gets from twenty-odd cards to the two or three that are
+// theirs without reading every title.
+function FilterChips({ label, values, current, onPick }) {
+  const chip = (value) => {
+    const on = current === value;
+    return (
+      <button
+        key={value}
+        type="button"
+        onClick={() => onPick(value)}
+        style={{ fontFamily: "Lato, sans-serif", fontSize: 11, letterSpacing: 0.3, padding: "4px 10px", borderRadius: 12, cursor: "pointer",
+                 border: `1px solid ${on ? "var(--board-secondary)" : "rgba(255,255,255,0.2)"}`,
+                 background: on ? "var(--board-secondary)" : "transparent", color: on ? "var(--board-secondary-fg)" : "rgba(255,255,255,0.7)" }}
+      >
+        {value}
+      </button>
+    );
+  };
+  return (
+    <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
+      <span style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: 0.8, color: "rgba(255,255,255,0.4)", marginRight: 4, minWidth: 52 }}>{label}</span>
+      {chip("All")}
+      {values.map(chip)}
+    </div>
+  );
+}
+
 function StateChip({ children, tone }) {
   const bg = tone === "added" ? "rgba(60,120,60,0.9)" : "rgba(255,255,255,0.12)";
   return (
@@ -229,6 +258,15 @@ export default function DesignStorePage() {
   // Drive flow there is nothing stopping it drawing its own UI -- which
   // also lets it SHOW the two designs rather than just name them.
   const [pendingRemoval, setPendingRemoval] = useState(null);
+
+  // Learning Standards shelf filter. Page state only: it is a way of
+  // looking at the shelf, not a preference, and "All" on every visit is
+  // the least surprising start.
+  const [standardsFilter, setStandardsFilter] = useState({ subject: "All", band: "All" });
+  const filterable = (section) => section.options.some(o => o.subject);
+  const visibleOptions = (section) => !filterable(section) ? section.options : section.options.filter(o =>
+    (standardsFilter.subject === "All" || o.subject === standardsFilter.subject) &&
+    (standardsFilter.band === "All" || o.band === standardsFilter.band));
 
   // Notebooks are the one area whose setting is a LIST (any number can hang
   // on the strip), so "in use" means "in the list" and removing one takes
@@ -305,8 +343,28 @@ export default function DesignStorePage() {
             </h2>
             <div style={{ fontSize: 12, color: "rgba(255,255,255,0.45)", marginBottom: 12 }}>{section.blurb}</div>
 
+            {filterable(section) && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 14 }}>
+                <FilterChips
+                  label="Subject"
+                  values={[...new Set(section.options.map(o => o.subject))]}
+                  current={standardsFilter.subject}
+                  onPick={subject => setStandardsFilter(f => ({ ...f, subject }))}
+                />
+                <FilterChips
+                  label="Grades"
+                  values={[...new Set(section.options.map(o => o.band))].sort()}
+                  current={standardsFilter.band}
+                  onPick={band => setStandardsFilter(f => ({ ...f, band }))}
+                />
+              </div>
+            )}
+
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(190px, 1fr))", gap: 14 }}>
-              {section.options.map(opt => {
+              {visibleOptions(section).length === 0 && (
+                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.45)", fontStyle: "italic" }}>Nothing for that subject at those grades yet.</div>
+              )}
+              {visibleOptions(section).map(opt => {
                 const included = isDesignOptionIncluded(section.area, opt.id);
                 const owned = design.has(section.area, opt.id);
                 return (
