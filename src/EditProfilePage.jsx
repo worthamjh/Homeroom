@@ -13,6 +13,7 @@ import { fetchDistrictByDomain, emailDomain } from "./lib/districtApi";
 import { LegalLinks } from "./LegalPage";
 import { uploadImage, cloudinaryConfigured } from "./lib/cloudinary";
 import { getActiveClassroomId, setActiveClassroomId, DEFAULT_CLASSROOM_ID } from "./lib/activeClassroom";
+import { schoolNameFor } from "./lib/classroomSchool";
 
 /**
  * EditProfilePage — /profile route, linked from the Build page header.
@@ -73,19 +74,31 @@ export default function EditProfilePage() {
   const tidySlug = (v) => v.toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/-{2,}/g, "-").replace(/^-/, "").slice(0, 40);
   // The teacher's classrooms. Each is its own board (Jay: "a profile can
   // have multiple classrooms for teachers who teach more than one
-  // course"). The subject, board address and home photo fields below edit
-  // the SELECTED classroom; name, school, colours and fonts are the
+  // course"). The subject, school, board address and home photo fields
+  // below edit the SELECTED classroom; name, colours and fonts are the
   // teacher's and apply to every board.
   const [classrooms,     setClassrooms]     = useState([]);
   const [selectedId,     setSelectedId]     = useState(DEFAULT_CLASSROOM_ID);
+  // The selected classroom's own school, for the teacher who covers two
+  // buildings. Blank means the school above (see lib/classroomSchool.js),
+  // which is every classroom of a teacher in one building.
+  const [roomSchool,     setRoomSchool]     = useState("");
+  const [roomSchoolId,   setRoomSchoolId]   = useState("");
+  const pickRoomSchool = (id) => {
+    setRoomSchoolId(id);
+    const s = district?.schools?.find(x => x.id === id);
+    setRoomSchool(s ? s.name : "");
+  };
   // The list with the selected classroom's fields folded back in.
   const withSelected = (list = classrooms) =>
-    list.map(c => c.id === selectedId ? { ...c, subject: subject.trim(), slug: slug.replace(/-$/, "") || null, homeImageUrl: homeImageUrl || null } : c);
+    list.map(c => c.id === selectedId ? { ...c, subject: subject.trim(), slug: slug.replace(/-$/, "") || null, homeImageUrl: homeImageUrl || null, school: roomSchool.trim() || null, schoolId: roomSchoolId || null } : c);
   const showClassroom = (c) => {
     setSelectedId(c.id);
     setSubject(c.subject || "");
     setSlug(c.slug || "");
     setHomeImageUrl(c.homeImageUrl || "");
+    setRoomSchool(c.school || "");
+    setRoomSchoolId(c.schoolId || "");
   };
   const selectClassroom = (id) => {
     const list = withSelected();
@@ -96,7 +109,7 @@ export default function EditProfilePage() {
   const addClassroom = () => {
     const list = withSelected();
     const id = `c-${Math.random().toString(36).slice(2, 8)}`;
-    const c = { id, name: "New classroom", subject: "", slug: null, homeImageUrl: null };
+    const c = { id, name: "New classroom", subject: "", slug: null, homeImageUrl: null, school: null, schoolId: null };
     setClassrooms([...list, c]);
     showClassroom(c);
   };
@@ -192,7 +205,7 @@ Your other classrooms are not affected.`;
         if (wanted.get("new") === "1") {
           // Arrived from Build's "+ New classroom": start one right away.
           const id = `c-${Math.random().toString(36).slice(2, 8)}`;
-          const c = { id, name: "New classroom", subject: "", slug: null, homeImageUrl: null };
+          const c = { id, name: "New classroom", subject: "", slug: null, homeImageUrl: null, school: null, schoolId: null };
           setClassrooms([...list, c]);
           showClassroom(c);
         }
@@ -297,7 +310,7 @@ Your other classrooms are not affected.`;
           {/* ── Classrooms ── */}
           <div style={sectionHead}>Classrooms</div>
           <div style={{ fontSize: 12, color: "rgba(255,255,255,0.45)", fontFamily: "Lato, sans-serif", lineHeight: 1.5, marginBottom: 8 }}>
-            One board per course. Pick a classroom to edit its subject, address and photo below; your name, school and colours are shared by all of them.
+            One board per course. Pick a classroom to edit its subject, school, address and photo below; your name and colours are shared by all of them.
           </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
             {classrooms.map(c => (
@@ -336,6 +349,30 @@ Your other classrooms are not affected.`;
               )}
             </div>
           )}
+
+          {/* This classroom's school, for the teacher who splits time
+              between two buildings. Blank is the school above. Shown for
+              every classroom, so the single-building teacher sees the
+              default named and leaves it alone. */}
+          <div style={{ marginBottom: 8 }}>
+            {district?.schools?.length ? (
+              <>
+                <label style={labelStyle} htmlFor="ep-room-school-pick">School for this classroom (optional)</label>
+                <select id="ep-room-school-pick" value={roomSchoolId} onChange={e => pickRoomSchool(e.target.value)} style={{ ...fieldStyle, cursor: "pointer" }}>
+                  <option value="">{school.trim() ? `Same as above (${school.trim()})` : "Same as above"}</option>
+                  {district.schools.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+              </>
+            ) : (
+              <>
+                <label style={labelStyle} htmlFor="ep-room-school">School for this classroom (optional)</label>
+                <input id="ep-room-school" style={fieldStyle} value={roomSchool} onChange={e => setRoomSchool(e.target.value)} placeholder={school.trim() ? `Same as above: ${school.trim()}` : "Same as above"} />
+              </>
+            )}
+            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", fontFamily: "Lato, sans-serif", marginTop: 4 }}>
+              Only for a classroom at a different building from the school above. It shows in this board's title and its address.
+            </div>
+          </div>
 
           <div style={{ marginBottom: 8 }}>
             <label style={labelStyle} htmlFor="ep-subject">Subject / room for this classroom (optional)</label>
@@ -432,7 +469,7 @@ Your other classrooms are not affected.`;
           <div style={{ marginTop: 24, marginBottom: 24, borderRadius: 4, overflow: "hidden", border: "1px solid rgba(255,255,255,0.15)" }}>
             <div style={{ background: primaryColor, borderBottom: `4px solid ${secondaryColor}`, padding: "14px 16px", textAlign: "center" }}>
               <span style={{ fontFamily: `'${headingFont}', sans-serif`, color: "#fff", fontSize: 16, letterSpacing: 1 }}>
-                {school.trim() || "Your School"} <span style={{ color: secondaryColor }}>{subject.trim() || "Your Subject"}</span>
+                {schoolNameFor({ school }, { school: roomSchool }) || "Your School"} <span style={{ color: secondaryColor }}>{subject.trim() || (selectedClassroom && selectedClassroom.id !== DEFAULT_CLASSROOM_ID ? selectedClassroom.name : "") || "Your Subject"}</span>
               </span>
             </div>
             <div style={{ background: secondaryColor, padding: "6px 16px", display: "flex", gap: 8 }}>

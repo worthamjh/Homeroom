@@ -11,6 +11,7 @@ import { notebookTemplate } from "./lib/notebooks";
 import { boardBandsForPaper, loadBoardPicture, readCachedBoardPicture } from "./lib/bellRingerPicture";
 import { LegalLinks } from "./LegalPage";
 import { dropUnknownClassroom } from "./lib/activeClassroom";
+import { schoolNameFor, districtSchoolFor } from "./lib/classroomSchool";
 import { fetchProfile, readCachedProfile } from "./lib/profileApi";
 import { fetchCurriculum, saveCurriculum, readCachedCurriculum } from "./lib/curriculumApi";
 import CurriculumHistory from "./CurriculumHistory";
@@ -2899,7 +2900,10 @@ export default function App({ viewer = false } = {}) {
   // fields (which mirror the default classroom) for a profile saved
   // before classrooms existed.
   const activeClassroom = teacherProfile?.classrooms?.find(c => c.id === getActiveClassroomId()) || null;
-  const boardTitleMain = isBlankTeacher ? (teacherProfile?.school || "Your School") : undefined;
+  // The school is the classroom's own when it has one (a specialist who
+  // covers two buildings), else the teacher's -- see lib/classroomSchool.js.
+  const boardSchoolName = schoolNameFor(teacherProfile, activeClassroom);
+  const boardTitleMain = isBlankTeacher ? (boardSchoolName || "Your School") : undefined;
   // The tab title names the classroom, so a bookmark of this board is
   // called "Biology · Gil-Bilt Classroom" rather than the same thing as
   // every other tab. (Bookmarks take the page title as their name.)
@@ -4523,16 +4527,17 @@ export default function App({ viewer = false } = {}) {
                 rather have some black border than cut off the top of the
                 school like it is in the demo page." */}
             {(() => {
-              // A classroom with no photo of its own shows the school's, when
-              // the teacher picked one from a partner district's list.
+              // A classroom with no photo of its own shows its school's, when
+              // the teacher picked one from a partner district's list --
+              // the classroom's own school if it has one, else the teacher's.
               const homeImage = (activeClassroom ? activeClassroom.homeImageUrl : teacherProfile?.homeImageUrl)
-                || teacherProfile?.district?.school?.homeImageUrl
+                || districtSchoolFor(teacherProfile, activeClassroom)?.homeImageUrl
                 || (!isBlankTeacher ? "/images/wghs-building.jpg" : null);
               if (homeImage) {
                 return (
                   <img
                     src={homeImage}
-                    alt={isBlankTeacher ? (teacherProfile?.school || "School") : "Webster Groves High School"}
+                    alt={isBlankTeacher ? (boardSchoolName || "School") : "Webster Groves High School"}
                     style={{ width: "100%", height: "100%", display: "block", objectFit: "contain" }}
                   />
                 );

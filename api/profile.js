@@ -121,7 +121,8 @@ export async function ensureClassroomSlugs(col, teacherId, { school, teacherName
   let changed = false;
   for (const c of classrooms) {
     if (!c || c.slug) continue;
-    const who = slugify(school) || slugify(teacherName) || "board";
+    // The classroom's own school when it has one, else the teacher's.
+    const who = slugify(c.school || school) || slugify(teacherName) || "board";
     const what = slugify(c.name) || slugify(c.subject) || "class";
     let base = `${who}-${what}`.replace(/-{2,}/g, "-").slice(0, 40).replace(/-+$/, "");
     if (base.length < 3) base = `${base}-board`.replace(/^-/, "");
@@ -313,17 +314,27 @@ export default async function handler(req, res) {
       // Only a district that exists, and only one of its schools; "" or
       // null clears either. Left out of the body entirely = unchanged.
       let districtId, schoolId;
+      let district = null;   // the partner district named in this save, when one was
       if (rawDistrictId !== undefined) {
         if (!rawDistrictId) { districtId = null; schoolId = null; }
         else {
           const d = DISTRICT_ID_RE.test(String(rawDistrictId)) ? await findDistrictById(String(rawDistrictId)) : null;
           if (!d) { res.status(400).json({ error: "That district isn't one Gil-Bilt knows." }); return; }
+          district = d;
           districtId = d.id;
           schoolId = rawSchoolId && (d.schools || []).some(s => s.id === rawSchoolId) ? String(rawSchoolId) : null;
         }
       } else if (rawSchoolId !== undefined) {
         schoolId = rawSchoolId ? String(rawSchoolId) : null;
       }
+      // A school id is one of the named district's, when the save names a
+      // district; a save that leaves the district alone is taken at its
+      // word, as the top-level schoolId is above.
+      const schoolIdIn = (v) => {
+        if (!v) return null;
+        const s = String(v);
+        return district ? ((district.schools || []).some(x => x.id === s) ? s : null) : s;
+      };
       if (!teacherName) {
         res.status(400).json({ error: "teacherName is required" });
         return;
@@ -339,10 +350,18 @@ export default async function handler(req, res) {
       }
       // The classroom list, when the client sends one. Each classroom is a
       // course with its own board: name, subject line, short address, home
-      // photo. The default classroom ("main") is the board every teacher
-      // has had all along; its subject, address and photo are ALSO
-      // mirrored to the top-level fields, so the board and the slug lookup
-      // keep working for a client that predates classrooms.
+      // photo, and the school it is taught at. The default classroom
+      // ("main") is the board every teacher has had all along; its
+      // subject, address and photo are ALSO mirrored to the top-level
+      // fields, so the board and the slug lookup keep working for a client
+      // that predates classrooms.
+      //
+      // A classroom's school is null for "the teacher's school" (the
+      // top-level `school`/`schoolId`), which is every classroom of a
+      // teacher in one building. It is set for the specialist who covers
+      // two buildings (Jay: "in elementary some teachers split time
+      // between two schools"): that classroom's board shows its own
+      // school in the title, its address and its home photo.
       let classrooms;
       if (Array.isArray(rawClassrooms)) {
         if (rawClassrooms.length > 20) {
@@ -377,6 +396,8 @@ export default async function handler(req, res) {
             subject: raw.subject ? capString(String(raw.subject), LIMITS.NAME) : null,
             slug: roomSlug,
             homeImageUrl: sanitizeImageUrl(raw.homeImageUrl),
+            school: raw.school ? capString(String(raw.school), LIMITS.NAME) : null,
+            schoolId: schoolIdIn(raw.schoolId),
           });
         }
         if (!classrooms.some(c => c.id === DEFAULT_CLASSROOM_ID)) {
@@ -484,7 +505,9 @@ function toClientShape(doc) {
     // then it is the one default classroom, built from the top-level
     // fields, so every client can treat classrooms as the truth.
     classrooms: Array.isArray(doc.classrooms) && doc.classrooms.length
-      ? doc.classrooms.map(c => ({ id: c.id, name: c.name || "Classroom", subject: c.subject || "", slug: c.slug || null, homeImageUrl: c.homeImageUrl || null }))
-      : [{ id: DEFAULT_CLASSROOM_ID, name: doc.subject || "My classroom", subject: doc.subject || "", slug: doc.slug || null, homeImageUrl: doc.homeImageUrl || null }],
+      // `school`/`schoolId` null means the teacher's own (the top-level
+      // fields); set, they are this classroom's building.
+      ? doc.classrooms.map(c => ({ id: c.id, name: c.name || "Classroom", subject: c.subject || "", slug: c.slug || null, homeImageUrl: c.homeImageUrl || null, school: c.school || null, schoolId: c.schoolId || null }))
+      : [{ id: DEFAULT_CLASSROOM_ID, name: doc.subject || "My classroom", subject: doc.subject || "", slug: doc.slug || null, homeImageUrl: doc.homeImageUrl || null, school: null, schoolId: null }],
   };
 }
