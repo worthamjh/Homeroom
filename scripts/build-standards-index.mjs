@@ -16,13 +16,15 @@ import path from "node:path";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const data = await import(path.join(here, "..", "src", "lib", "standardsData.js").replace(/\\/g, "/").replace(/^([A-Za-z]):/, "file:///$1:"));
 
-// Same order the store shows: K-5 first, then the 6-12 subjects.
+// Same order the store shows: K-5 first, then the 6-12 subjects, then
+// the teacher standards.
 const all = [
   ...(data.MISSOURI_K5_FRAMEWORKS || []),
   ...(data.MISSOURI_SCIENCE_FRAMEWORKS || []),
   ...(data.MISSOURI_MATH_FRAMEWORKS || []),
   ...(data.MISSOURI_ELA_FRAMEWORKS || []),
   ...(data.MISSOURI_SOCIAL_STUDIES_FRAMEWORKS || []),
+  ...(data.MISSOURI_TEACHER_FRAMEWORKS || []),   // teacher standards last: not a subject a class takes
 ];
 const seen = new Set();
 const index = all.map(f => {

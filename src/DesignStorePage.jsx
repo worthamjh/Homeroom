@@ -176,7 +176,8 @@ function Preview({ preview }) {
 // so a teacher gets from twenty-odd cards to the two or three that are
 // theirs without reading every title.
 // Grade chips in school order, not string order (K before 1, 6-8 before 9-12).
-const BAND_ORDER = ["K", "1", "2", "3", "4", "5", "6-8", "9-12"];
+// "K-12" is the teacher standards, which do not vary by grade; it goes last.
+const BAND_ORDER = ["K", "1", "2", "3", "4", "5", "6-8", "9-12", "K-12"];
 
 function FilterChips({ label, values, current, onPick }) {
   const chip = (value) => {

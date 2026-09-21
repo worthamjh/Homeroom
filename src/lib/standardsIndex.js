@@ -508,5 +508,16 @@ export const STANDARDS_FRAMEWORK_INDEX = [
     "source": "https://dese.mo.gov/media/file/curr-mls-standards-ss-6-12-sboe-2016",
     "sampleCode": "9-12.GV.1.CC.A",
     "count": 46
+  },
+  {
+    "id": "mo-teacher",
+    "label": "Missouri Teacher Standards",
+    "short": "MTS",
+    "subject": "Teaching",
+    "band": "K-12",
+    "blurb": "Missouri's nine teacher standards and their 36 quality indicators, the framework behind the state's educator evaluation system. For a board whose learning goals are a teacher's own, such as a professional development unit.",
+    "source": "https://dese.mo.gov/educator-quality/educator-preparation/teacher-standards",
+    "sampleCode": "1.1",
+    "count": 36
   }
 ];
