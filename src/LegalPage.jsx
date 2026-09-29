@@ -66,7 +66,8 @@ function Privacy() {
         <li><strong>Cloudinary</strong>, which stores images and slide files you upload.</li>
         <li><strong>Google</strong>, when you connect Drive, Slides or Calendar, or when a board embeds Google Slides or a Google Calendar.</li>
         <li><strong>Kami</strong>, when you open a document from the board to write on it. Kami opens the file from your own Drive under your own Kami account; Gil-Bilt sends Kami only the file's identifier.</li>
-        <li><strong>YouTube</strong>, when a board embeds a video.</li>
+        <li><strong>YouTube</strong>, when a board embeds a video, and when you ask Gil-Bilt to find videos for a lesson.</li>
+        <li><strong>Anthropic</strong>, when you ask Gil-Bilt to find videos for a lesson. It receives the lesson's title, unit, learning goals and essential question, and the words you typed, so it can choose videos. It never receives student information.</li>
       </ul>
       <p>Embedded services such as YouTube, Google Slides and Google Calendar may set their own cookies when their content loads on a board, as they would on any page that embeds them.</p>
 
@@ -129,7 +130,7 @@ function Terms() {
       <p>Do not try to access another person's account or board content that has not been shared with you, interfere with the service, scrape it, or use it to send spam or anything harmful. Do not use the service in a way that breaks the law. We may suspend or close an account that does these things.</p>
 
       <h2 style={h2}>Other services</h2>
-      <p>Gil-Bilt works alongside Google Drive, Google Slides, Google Calendar, Kami, YouTube and others. Those services are governed by their own terms and can change or stop on their own schedule. Gil-Bilt does not control them and is not responsible for them.</p>
+      <p>Gil-Bilt works alongside Google Drive, Google Slides, Google Calendar, Kami, YouTube, Anthropic and others. Those services are governed by their own terms and can change or stop on their own schedule. Gil-Bilt does not control them and is not responsible for them.</p>
 
       <h2 style={h2}>Availability and changes</h2>
       <p>We work to keep Gil-Bilt available and are honest when something is broken, but it is provided as is, without a promise that it will always be available or free of errors. We may change or add features, and may retire a feature with reasonable notice. Keep your own copies of material that matters to you; the Profile page lets you download everything at any time.</p>

@@ -160,6 +160,22 @@ function Preview({ preview }) {
     );
   }
 
+  // The video library previews as the row it puts under a lesson: three
+  // thumbnails with play buttons, the first one lit as if it were playing.
+  if (preview.kind === "video") {
+    return (
+      <div style={{ ...box, boxSizing: "border-box", background: "#1a1a1a", display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6, padding: 8, alignItems: "center" }}>
+        {[0, 1, 2].map(i => (
+          <div key={i} style={{ aspectRatio: "16 / 9", borderRadius: 3, background: i === 0 ? "#3a3a3a" : "#2a2a2a", border: `1px solid ${i === 0 ? "var(--board-secondary-accent, #E87722)" : "rgba(255,255,255,0.12)"}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div style={{ width: 16, height: 12, borderRadius: 3, background: "var(--board-secondary-accent, #E87722)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <div style={{ width: 0, height: 0, borderTop: "3px solid transparent", borderBottom: "3px solid transparent", borderLeft: "5px solid white", marginLeft: 1 }} />
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   if (preview.kind === "layout") {
     return (
       <div style={{ ...box, background: "#2d5a2d", display: "grid", gridTemplateColumns: preview.columns, gap: 6, padding: 8 }}>

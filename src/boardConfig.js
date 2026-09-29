@@ -1194,7 +1194,19 @@ export const DESIGN_AREAS = {
   // No framework added, no line, no setting to decide. See src/lib/
   // standards.js and src/StandardsLine.jsx.
   STANDARDS: "standards",
+  // A lesson's video library: a row of YouTube videos under the
+  // assignments, played on the board. Owning it is the switch, as with
+  // standards: it puts the block on every lesson page and gives Build the
+  // controls, including "Build with AI" (api/videoSuggest.js). Nothing
+  // added, nothing on the board, nothing to decide. The Webster Groves
+  // demo keeps its hardcoded libraries regardless.
+  VIDEO_LIBRARY: "videoLibrary",
 };
+
+// The one item on the Video Library shelf. There is nothing to choose
+// between yet; the id is a SKU like any other so a second source could
+// join it later without moving this one.
+export const VIDEO_LIBRARY_OPTION_ID = "youtube";
 
 // Which notebooks are pinned to the bulletin board for this classroom.
 // (Named for the chalk ledge, where the first one lived for an hour; the
@@ -1311,6 +1323,8 @@ const STORE_GATED_OPTIONS = {
   // Every framework is a store item, because adding one is what puts
   // standards on the board at all.
   [DESIGN_AREAS.STANDARDS]: STANDARDS_FRAMEWORKS.map(f => f.id),
+  // The video library too: adding it is what puts the block on a lesson.
+  [DESIGN_AREAS.VIDEO_LIBRARY]: [VIDEO_LIBRARY_OPTION_ID],
 };
 
 // Ships with every board, no purchase, no ownership record.
@@ -1336,6 +1350,7 @@ export const DESIGN_AREA_LABELS = {
   [DESIGN_AREAS.PAPER]: "Bell Ringer & Exit Slip Papers",
   [DESIGN_AREAS.NOTEBOOK]: "Notebooks",
   [DESIGN_AREAS.STANDARDS]: "Learning Standards",
+  [DESIGN_AREAS.VIDEO_LIBRARY]: "Video Library",
 };
 
 // What each area's setting currently is, and what it falls back to. The
@@ -1407,6 +1422,12 @@ export function designCatalog(primaryColor, secondaryColor) {
       label: DESIGN_AREA_LABELS[DESIGN_AREAS.NOTEBOOK],
       blurb: "A notebook of blank templates, pinned to the bulletin board. Every unit gets its own copy. Choose which one is out under Bulletin Board in Build.",
       options: NOTEBOOK_TEMPLATES.map(t => ({ id: t.id, label: `${t.label} · ${t.pages} pages`, preview: { kind: "notebook", template: t } })),
+    },
+    {
+      area: DESIGN_AREAS.VIDEO_LIBRARY,
+      label: DESIGN_AREA_LABELS[DESIGN_AREAS.VIDEO_LIBRARY],
+      blurb: "A row of YouTube videos under each lesson's assignments, played right on the board. Add it and, in Build, Gil-Bilt can find the videos for a lesson, a unit or the whole course from your learning goals — you take out any that don't fit, or paste in your own.",
+      options: [{ id: VIDEO_LIBRARY_OPTION_ID, label: "Lesson Video Library", preview: { kind: "video" } }],
     },
     {
       area: DESIGN_AREAS.STANDARDS,

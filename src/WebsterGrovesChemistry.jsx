@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, cloneElement } from "react";
 import ChalkboardBoardRow, { toGoalPanels } from "./ChalkboardBoardRow";
 import { useFullAgendaFields, ObjectivesChecklist, EditableField, ResetBoardButton } from "./FullAgendaBoard";
+import { fetchVideoSuggestStatus, lookupVideoTitle, suggestLessonVideos } from "./lib/videoLibraryApi";
 import StandardsLine, { StandardsChips } from "./StandardsLine";
 import { STANDARDS_FRAMEWORKS } from "./lib/standards";
 import { fetchExtraAssignments, createExtraAssignment, deleteExtraAssignment, updateExtraAssignment, reorderExtraAssignments } from "./lib/extraAssignments";
@@ -46,6 +47,7 @@ import {
   CURRENT_VIEW_STORAGE_KEY, readCurrentView, writeCurrentView,
   BUILD_VIEW_STORAGE_KEY, BUILD_RELOAD_RESTORE_KEY,
   useBoardContentOrder,
+  VIDEO_LIBRARY_OPTION_ID,
 } from "./boardConfig";
 
 // True only for the embedded copy of this same app the Settings page
@@ -1972,35 +1974,152 @@ export function AddAssignmentCard({ open, busy, error, onOpen, onCancel, onSubmi
   );
 }
 
-function VideoThumb({ title, id, onPlay }) {
+const fmtVideoLength = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+
+function VideoThumb({ title, id, reason, channel, durationSec, onPlay, onRemove }) {
+  const meta = [channel, durationSec ? fmtVideoLength(durationSec) : null].filter(Boolean).join(" · ");
   return (
-    <button
-      onClick={() => onPlay(id)}
-      style={{ background: "#000", borderRadius: 3, overflow: "hidden", cursor: "pointer", position: "relative", border: "2px solid transparent", transition: "all 0.15s", aspectRatio: "16/9", display: "block", padding: 0, textAlign: "left", width: "100%" }}
-      onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--board-secondary)"; e.currentTarget.style.transform = "translateY(-2px)"; }}
-      onMouseLeave={e => { e.currentTarget.style.borderColor = "transparent"; e.currentTarget.style.transform = "translateY(0)"; }}
-    >
-      <img src={youtubeThumb(id)} alt={title} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-      <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <div style={{ width: 44, height: 32, borderRadius: 6, background: "rgba(232,119,34,0.92)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 8px rgba(0,0,0,0.4)" }}>
-          <div style={{ width: 0, height: 0, borderTop: "8px solid transparent", borderBottom: "8px solid transparent", borderLeft: "13px solid white", marginLeft: 3 }} />
+    // The reason a pick was made rides along as the tooltip, so trimming
+    // a library in Build takes a hover, not a click.
+    <div style={{ position: "relative" }} title={reason || title}>
+      <button
+        onClick={() => onPlay(id)}
+        style={{ background: "#000", borderRadius: 3, overflow: "hidden", cursor: "pointer", position: "relative", border: "2px solid transparent", transition: "all 0.15s", aspectRatio: "16/9", display: "block", padding: 0, textAlign: "left", width: "100%" }}
+        onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--board-secondary)"; e.currentTarget.style.transform = "translateY(-2px)"; }}
+        onMouseLeave={e => { e.currentTarget.style.borderColor = "transparent"; e.currentTarget.style.transform = "translateY(0)"; }}
+      >
+        <img src={youtubeThumb(id)} alt={title} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+        <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ width: 44, height: 32, borderRadius: 6, background: "rgba(232,119,34,0.92)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 8px rgba(0,0,0,0.4)" }}>
+            <div style={{ width: 0, height: 0, borderTop: "8px solid transparent", borderBottom: "8px solid transparent", borderLeft: "13px solid white", marginLeft: 3 }} />
+          </div>
         </div>
-      </div>
-      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "rgba(0,0,0,0.75)", color: "white", fontSize: 11, fontFamily: "Oswald, sans-serif", padding: "5px 8px", letterSpacing: 0.3 }}>
-        {title}
-      </div>
-    </button>
+        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "rgba(0,0,0,0.75)", color: "white", fontSize: 11, fontFamily: "Oswald, sans-serif", padding: "5px 8px", letterSpacing: 0.3 }}>
+          <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{title}</div>
+          {meta && <div style={{ fontFamily: "Lato, sans-serif", fontSize: 10, color: "rgba(255,255,255,0.65)", letterSpacing: 0, marginTop: 1 }}>{meta}</div>}
+        </div>
+      </button>
+      {onRemove && (
+        <button
+          type="button"
+          aria-label={`Remove ${title}`}
+          title="Remove from this lesson"
+          onClick={(e) => { e.stopPropagation(); onRemove(); }}
+          style={{ position: "absolute", top: 6, right: 6, width: 24, height: 24, borderRadius: 12, border: "1px solid rgba(255,255,255,0.5)", background: "rgba(20,20,20,0.85)", color: "white", fontSize: 15, lineHeight: 1, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}
+        >
+          ×
+        </button>
+      )}
+    </div>
   );
 }
 
-function VideoLibrary({ videos, playingVideoId, setPlayingVideoId }) {
-  if (!videos || videos.length === 0) return null;
-  const playing = videos.find(v => extractYouTubeId(v.id) === playingVideoId);
+// Build-mode tile for pasting a YouTube link into a lesson's video
+// library: a collapsed dashed "+" and then an inline form, the same idea
+// as AddAssignmentCard. The title comes from YouTube itself (the ?title
+// lookup in api/videoSuggest.js, which needs no key), so the teacher only
+// pastes -- and a link YouTube will not embed (private, gone) is refused
+// with a reason rather than becoming a tile that never plays.
+function AddVideoCard({ onAdd }) {
+  const [open, setOpen] = useState(false);
+  const [url, setUrl] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+  const reset = () => { setOpen(false); setUrl(""); setError(null); setBusy(false); };
+  const submit = async (e) => {
+    e.preventDefault();
+    const id = extractYouTubeId(url.trim());
+    if (!/^[\w-]{11}$/.test(id || "")) { setError("That doesn't look like a YouTube link."); return; }
+    setBusy(true);
+    setError(null);
+    try {
+      const meta = await lookupVideoTitle(id);
+      onAdd({ id: meta.id || id, title: meta.title || "YouTube video", channel: meta.channel || undefined });
+      reset();
+    } catch (err) {
+      setError(err.message || "That video could not be added.");
+      setBusy(false);
+    }
+  };
+  const fieldStyle = { background: "var(--board-primary)", border: "1px solid #555", borderRadius: 3, color: "var(--board-primary-fg)", fontSize: 13, padding: "9px 10px", fontFamily: "Lato, sans-serif", width: "100%", boxSizing: "border-box" };
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        style={{
+          background: "transparent", borderRadius: 3, cursor: "pointer", aspectRatio: "16/9",
+          border: "2px dashed rgba(255,255,255,0.25)", color: "rgba(255,255,255,0.4)",
+          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4,
+          fontFamily: "Oswald, sans-serif", fontSize: 12, letterSpacing: 0.5, textTransform: "uppercase",
+          transition: "all 0.15s", width: "100%",
+        }}
+        onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--board-secondary-accent)"; e.currentTarget.style.color = "var(--board-secondary-accent)"; }}
+        onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.25)"; e.currentTarget.style.color = "rgba(255,255,255,0.4)"; }}
+      >
+        <span style={{ fontSize: 28, lineHeight: 1 }}>+</span>
+        Add video
+      </button>
+    );
+  }
+  return (
+    <form
+      onSubmit={submit}
+      style={{ background: "#242424", borderRadius: 3, aspectRatio: "16/9", border: "2px solid var(--board-secondary)", display: "flex", flexDirection: "column", padding: 12, boxSizing: "border-box", gap: 8 }}
+    >
+      <div style={{ fontFamily: "Oswald, sans-serif", fontSize: 11, textTransform: "uppercase", letterSpacing: 1, color: "rgba(255,255,255,0.45)" }}>Add a YouTube video</div>
+      <input
+        autoFocus type="text" placeholder="Paste a YouTube link" value={url} onChange={e => setUrl(e.target.value)}
+        disabled={busy} style={fieldStyle}
+      />
+      {error && <div style={{ color: "#ff9a7a", fontSize: 11, fontFamily: "Lato, sans-serif", lineHeight: 1.4 }}>{error}</div>}
+      <div style={{ marginTop: "auto", display: "flex", gap: 8 }}>
+        <button
+          type="submit" disabled={busy || !url.trim()}
+          style={{ background: "var(--board-secondary)", border: "none", color: "var(--board-secondary-fg)", borderRadius: 3, fontFamily: "Oswald, sans-serif", fontSize: 12, textTransform: "uppercase", letterSpacing: 0.5, padding: "7px 14px", cursor: busy ? "wait" : "pointer", opacity: busy || !url.trim() ? 0.6 : 1 }}
+        >
+          {busy ? "Checking…" : "Add"}
+        </button>
+        <button
+          type="button" onClick={reset}
+          style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.3)", color: "#ccc", borderRadius: 3, fontFamily: "Lato, sans-serif", fontSize: 12, padding: "7px 12px", cursor: "pointer" }}
+        >
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+}
+
+const VIDEO_BTN_PRIMARY = { background: "var(--board-secondary)", border: "none", color: "var(--board-secondary-fg)", borderRadius: 3, fontFamily: "Oswald, sans-serif", fontSize: 12, textTransform: "uppercase", letterSpacing: 0.5, padding: "8px 14px", cursor: "pointer", whiteSpace: "nowrap" };
+const VIDEO_BTN_GHOST = { background: "transparent", border: "1px solid rgba(255,255,255,0.3)", color: "#ddd", borderRadius: 3, fontFamily: "Lato, sans-serif", fontSize: 12, padding: "8px 12px", cursor: "pointer", whiteSpace: "nowrap" };
+const VIDEO_NOTE = { fontSize: 12, fontFamily: "Lato, sans-serif", color: "rgba(255,255,255,0.55)", fontStyle: "italic", lineHeight: 1.45 };
+
+// The block under a lesson's assignments. On a live board it is read-only
+// and absent until the lesson has videos. In Build (`build` set) it is
+// always there for a lesson, with the add tile, a remove control on each
+// video and, once the site has its keys, the AI row: the teacher's words
+// (optional) and one button that fills the lesson with picks. The picks
+// are ADDED, not proposed -- Jay's call (2026-09-29): the AI does the
+// bulk and the teacher trims, because a library built by hand is hours
+// of watching per lesson, the same class of chore as making assignment
+// thumbnails, and most teachers never get to it.
+function VideoLibrary({ videos, playingVideoId, setPlayingVideoId, build }) {
+  const [request, setRequest] = useState("");
+  const list = Array.isArray(videos) ? videos : [];
+  if (!build && list.length === 0) return null;
+  const playing = list.find(v => extractYouTubeId(v.id) === playingVideoId);
+  const busy = !!build?.suggesting;
   return (
     <div style={{ padding: `0 ${SPACE.lg}px ${SPACE.lg}px`, maxWidth: 1700, width: "100%", margin: "0 auto", boxSizing: "border-box" }}>
       <div style={{ background: "var(--board-primary)", border: "3px solid var(--board-secondary)", borderRadius: 4, overflow: "hidden", boxShadow: "0 3px 12px rgba(0,0,0,0.25)" }}>
-        <div style={{ background: "var(--board-secondary)", padding: `${SPACE.xs}px ${SPACE.md}px`, fontFamily: "Oswald, sans-serif", fontSize: 14, color: "var(--board-secondary-fg)", letterSpacing: 1, textTransform: "uppercase", fontWeight: 600 }}>
-          Video Library
+        <div style={{ background: "var(--board-secondary)", padding: `${SPACE.xs}px ${SPACE.md}px`, fontFamily: "Oswald, sans-serif", fontSize: 14, color: "var(--board-secondary-fg)", letterSpacing: 1, textTransform: "uppercase", fontWeight: 600, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span>Video Library</span>
+          {build && (
+            <span style={{ fontSize: 11, fontFamily: "Lato, sans-serif", fontWeight: 400, opacity: 0.7, letterSpacing: 0, textTransform: "none" }}>
+              {list.length === 0 ? "nothing here yet" : `${list.length} video${list.length === 1 ? "" : "s"}`}
+            </span>
+          )}
         </div>
         <div style={{ padding: SPACE.sm }}>
           {playing && (
@@ -2022,11 +2141,112 @@ function VideoLibrary({ videos, playingVideoId, setPlayingVideoId }) {
               </button>
             </div>
           )}
+          {build && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: SPACE.sm }}>
+              {build.aiEnabled === true ? (
+                <form
+                  onSubmit={(e) => { e.preventDefault(); if (!busy) build.onSuggest(request.trim()); }}
+                  style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}
+                >
+                  <input
+                    type="text" value={request} onChange={e => setRequest(e.target.value)} disabled={busy}
+                    placeholder="Anything in particular? Optional — “under ten minutes”, “for freshmen”, “a lab demo”"
+                    style={{ flex: "1 1 280px", background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.25)", borderRadius: 3, color: "var(--board-primary-fg)", fontSize: 13, padding: "8px 10px", fontFamily: "Lato, sans-serif" }}
+                  />
+                  <button type="submit" disabled={busy} style={{ ...VIDEO_BTN_PRIMARY, cursor: busy ? "wait" : "pointer", opacity: busy ? 0.7 : 1 }}>
+                    {busy ? "Finding videos…" : list.length ? "Find more with AI" : "Build with AI"}
+                  </button>
+                </form>
+              ) : build.aiEnabled === false ? (
+                <div style={VIDEO_NOTE}>AI video search isn't switched on for this site yet. Paste YouTube links to add videos.</div>
+              ) : null}
+              {build.notice && (
+                <div style={{ fontSize: 12, fontFamily: "Lato, sans-serif", lineHeight: 1.45, color: build.notice.tone === "error" ? "#ff9a7a" : "rgba(255,255,255,0.75)" }}>
+                  {build.notice.text}
+                </div>
+              )}
+            </div>
+          )}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: SPACE.md }}>
-            {videos.map((v, vi) => (
-              <VideoThumb key={vi} title={v.title} id={v.id} onPlay={(id) => setPlayingVideoId(extractYouTubeId(id))} />
+            {list.map((v, vi) => (
+              <VideoThumb
+                key={`${extractYouTubeId(v.id)}-${vi}`}
+                title={v.title} id={v.id} reason={v.reason} channel={v.channel} durationSec={v.durationSec}
+                onPlay={(id) => setPlayingVideoId(extractYouTubeId(id))}
+                onRemove={build ? () => build.onRemove(vi) : undefined}
+              />
             ))}
+            {build && <AddVideoCard onAdd={build.onAdd} />}
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Build-only block on a unit's overview page: how many of its lessons have
+// videos, and the buttons that fill the rest -- this unit, or every unit --
+// one lesson at a time with the count ticking up as each one lands. It
+// lives on the overview because that is the one page that sees the whole
+// unit; the lesson page has its own "Build with AI" for one lesson.
+function VideoLibraryBuildBlock({ unit, unitCount, aiEnabled, state, onBuildUnit, onBuildAll }) {
+  const lessons = (unit.lessons || []).filter(l => !l.hidden);
+  const withVideos = lessons.filter(l => Array.isArray(l.videos) && l.videos.length).length;
+  const running = !!state && !state.finished;
+  const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+  let progress = null;
+  if (state?.note) progress = state.note;
+  else if (running) progress = `Building ${Math.min(state.done + 1, state.total)} of ${state.total}: ${state.current}…`;
+  else if (state) {
+    const filled = state.done - state.skipped;
+    progress = `Done. Added ${plural(state.added, "video")} across ${plural(filled, "lesson")}.` +
+      (state.skipped ? ` ${plural(state.skipped, "lesson")} came back with nothing.` : "") +
+      (state.added ? " Open a lesson to remove any that don't fit." : "");
+  }
+  return (
+    <div style={{ padding: `0 ${SPACE.lg}px ${SPACE.lg}px`, maxWidth: 1700, width: "100%", margin: "0 auto", boxSizing: "border-box" }}>
+      <div style={{ background: "var(--board-primary)", border: "3px solid var(--board-secondary)", borderRadius: 4, overflow: "hidden", boxShadow: "0 3px 12px rgba(0,0,0,0.25)" }}>
+        <div style={{ background: "var(--board-secondary)", padding: `${SPACE.xs}px ${SPACE.md}px`, fontFamily: "Oswald, sans-serif", fontSize: 14, color: "var(--board-secondary-fg)", letterSpacing: 1, textTransform: "uppercase", fontWeight: 600, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span>Video Libraries</span>
+          <span style={{ fontSize: 11, fontFamily: "Lato, sans-serif", fontWeight: 400, opacity: 0.7, letterSpacing: 0, textTransform: "none" }}>
+            {withVideos} of {plural(lessons.length, "lesson")} {withVideos === 1 ? "has" : "have"} videos
+          </span>
+        </div>
+        <div style={{ padding: SPACE.sm, display: "flex", flexDirection: "column", gap: SPACE.sm }}>
+          {aiEnabled === false ? (
+            <div style={VIDEO_NOTE}>AI video search isn't switched on for this site yet. Open a lesson to paste YouTube links.</div>
+          ) : aiEnabled === true ? (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+              <button type="button" disabled={running} onClick={onBuildUnit} style={{ ...VIDEO_BTN_PRIMARY, cursor: running ? "wait" : "pointer", opacity: running ? 0.7 : 1 }}>
+                {running ? "Building…" : "Build video libraries for this unit"}
+              </button>
+              {unitCount > 1 && (
+                <button type="button" disabled={running} onClick={onBuildAll} style={{ ...VIDEO_BTN_GHOST, cursor: running ? "wait" : "pointer", opacity: running ? 0.7 : 1 }}>
+                  Build for every unit
+                </button>
+              )}
+              <span style={VIDEO_NOTE}>Fills every lesson that has none yet, about five videos each. Lessons you've already given videos are left alone.</span>
+            </div>
+          ) : null}
+          {progress && (
+            <div style={{ fontSize: 12, fontFamily: "Lato, sans-serif", lineHeight: 1.45, color: "rgba(255,255,255,0.8)" }}>
+              {progress}
+              {state?.lastError && !running && <div style={{ color: "#ff9a7a", marginTop: 4 }}>{state.lastError}</div>}
+            </div>
+          )}
+          {lessons.length > 0 && (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 6 }}>
+              {lessons.map((l, i) => {
+                const n = Array.isArray(l.videos) ? l.videos.length : 0;
+                return (
+                  <div key={`${l.title}-${i}`} style={{ fontSize: 12, fontFamily: "Lato, sans-serif", color: n ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.4)", display: "flex", justifyContent: "space-between", gap: 8, padding: "4px 8px", background: "rgba(255,255,255,0.04)", borderRadius: 3 }}>
+                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{l.title}</span>
+                    <span style={{ flexShrink: 0 }}>{n ? plural(n, "video") : "none"}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -2862,6 +3082,11 @@ export default function App({ viewer = false } = {}) {
     return () => { cancelled = true; };
   }, [isBlankTeacher, activeTeacherId]);
   const activeCurriculum = isBlankTeacher ? blankUnits : curriculum;
+  // The latest units, readable between renders: a unit-wide video build
+  // edits several lessons in a row faster than React re-renders (see
+  // patchLessonVideos below).
+  const unitsRef = useRef(blankUnits);
+  unitsRef.current = blankUnits;
 
   // Blank-shell teachers only: the school/subject + colors they picked
   // during onboarding (ProfileOnboarding.jsx) become this board's title
@@ -4228,6 +4453,132 @@ export default function App({ viewer = false } = {}) {
     />
   ) : null;
 
+  // ── Video library (Build, blank-shell teachers) ──────────────────────
+  // Owning the store item is the switch (DESIGN_AREAS.VIDEO_LIBRARY in
+  // boardConfig.js). The Webster Groves demo keeps its hardcoded
+  // libraries: its `videos` come from the curriculum export and it has no
+  // store. The AI half is api/videoSuggest.js; see there for what it does
+  // and what it costs.
+  const videoLibraryOn = isBlankTeacher ? ownedDesign.has(DESIGN_AREAS.VIDEO_LIBRARY, VIDEO_LIBRARY_OPTION_ID) : true;
+  const videoBuild = isBuildMode && isBlankTeacher && videoLibraryOn;
+  // null until the server has said whether the site has its keys. Build
+  // shows the AI row only on a yes, and a plain note on a no, so nobody
+  // is offered a button that cannot work.
+  const [aiVideosEnabled, setAiVideosEnabled] = useState(null);
+  useEffect(() => {
+    if (!videoBuild) return;
+    let cancelled = false;
+    fetchVideoSuggestStatus()
+      .then(s => { if (!cancelled) setAiVideosEnabled(!!s?.enabled); })
+      .catch(() => { if (!cancelled) setAiVideosEnabled(false); });
+    return () => { cancelled = true; };
+  }, [videoBuild]);
+  const [videoSuggesting, setVideoSuggesting] = useState(false);
+  const [videoNotice, setVideoNotice] = useState(null);   // { text, tone: "info" | "error" }
+  useEffect(() => { setVideoNotice(null); }, [activeUnitIdx, activeLesson?.title]);
+
+  // Every video edit goes through here. It works from unitsRef rather
+  // than blankUnits because a unit-wide build makes several edits in a
+  // row before React has re-rendered between them -- read from state, the
+  // second edit would start from a copy that lacks the first and undo it.
+  // Optimistic like every other curriculum edit: the board shows the
+  // change at once and saveUnitsOrWarn reports a save that fails.
+  const patchLessonVideos = (unitIdx, lessonTitle, updater) => {
+    const next = unitsRef.current.map((u, i) => i !== unitIdx ? u : {
+      ...u,
+      lessons: u.lessons.map(l => l.title !== lessonTitle ? l : { ...l, videos: updater(Array.isArray(l.videos) ? l.videos : []) }),
+    });
+    unitsRef.current = next;
+    setBlankUnits(next);
+    setActiveLesson(prev => (prev && activeUnitIdx === unitIdx && prev.title === lessonTitle)
+      ? { ...prev, videos: updater(Array.isArray(prev.videos) ? prev.videos : []) }
+      : prev);
+    saveUnitsOrWarn(next);
+  };
+  const appendVideos = (current, incoming) => {
+    const have = new Set(current.map(v => extractYouTubeId(v.id)));
+    return [...current, ...incoming.filter(v => !have.has(extractYouTubeId(v.id)))];
+  };
+  const handleAddVideo = (video) => {
+    if (!activeLesson || activeUnitIdx == null) return;
+    patchLessonVideos(activeUnitIdx, activeLesson.title, current => appendVideos(current, [video]));
+  };
+  const handleRemoveVideo = (index) => {
+    if (!activeLesson || activeUnitIdx == null) return;
+    patchLessonVideos(activeUnitIdx, activeLesson.title, current => current.filter((_, i) => i !== index));
+  };
+  const boardSubject = activeClassroom?.subject || teacherProfile?.subject || "";
+
+  // One lesson. The page has this lesson's goals and the unit's Essential
+  // Question in memory, so it sends them. Whatever is already on the
+  // lesson is excluded, which is what turns a second press into "find
+  // more" rather than the same five again.
+  const handleSuggestVideos = async (request) => {
+    if (!activeLesson || activeUnitIdx == null || videoSuggesting) return;
+    const lessonTitle = activeLesson.title;
+    const unitIdx = activeUnitIdx;
+    setVideoSuggesting(true);
+    setVideoNotice(null);
+    try {
+      const videos = await suggestLessonVideos({
+        unitIdx,
+        unitTitle: activeUnit?.unit || "",
+        lessonTitle,
+        goals: standardsGoalTexts,
+        essentialQuestion: fullAgendaFields.content.essentialQuestion || "",
+        subject: boardSubject,
+        request,
+        exclude: (activeLesson.videos || []).map(v => extractYouTubeId(v.id)),
+      });
+      if (videos.length === 0) {
+        setVideoNotice({ text: "Nothing close enough came back. Add a learning goal or two, or say what you're looking for, and try again.", tone: "info" });
+      } else {
+        patchLessonVideos(unitIdx, lessonTitle, current => appendVideos(current, videos));
+        setVideoNotice({ text: `Added ${videos.length} video${videos.length === 1 ? "" : "s"}. Hover one to see why it was picked; remove any that don't fit.`, tone: "info" });
+      }
+    } catch (err) {
+      if (err.code === "not_configured") setAiVideosEnabled(false);
+      setVideoNotice({ text: err.message || "Video search didn't answer. Try again in a moment.", tone: "error" });
+    } finally {
+      setVideoSuggesting(false);
+    }
+  };
+
+  // A unit, or every unit: lesson by lesson, skipping hidden lessons and
+  // any lesson that already has videos (a teacher's own choices are never
+  // built over). The server reads each lesson's typed goals itself. Stops
+  // at the first answer that would only repeat -- keys missing, YouTube's
+  // quota, the daily cap -- rather than fail the same way thirty times.
+  const [bulkVideoBuild, setBulkVideoBuild] = useState(null);
+  const runBulkVideoBuild = async (unitIdxs) => {
+    if (bulkVideoBuild && !bulkVideoBuild.finished) return;
+    const units = unitsRef.current;
+    const jobs = [];
+    for (const ui of unitIdxs) {
+      for (const l of units[ui]?.lessons || []) {
+        if (!l.hidden && !(Array.isArray(l.videos) && l.videos.length)) jobs.push({ ui, title: l.title, unitTitle: units[ui].unit });
+      }
+    }
+    if (jobs.length === 0) {
+      setBulkVideoBuild({ done: 0, total: 0, added: 0, skipped: 0, finished: true, note: "Every lesson here already has videos. Open a lesson to find more for it." });
+      return;
+    }
+    setBulkVideoBuild({ done: 0, total: jobs.length, current: jobs[0].title, added: 0, skipped: 0, finished: false });
+    for (const job of jobs) {
+      setBulkVideoBuild(s => ({ ...s, current: job.title }));
+      try {
+        const videos = await suggestLessonVideos({ unitIdx: job.ui, unitTitle: job.unitTitle, lessonTitle: job.title, subject: boardSubject });
+        if (videos.length) patchLessonVideos(job.ui, job.title, current => appendVideos(current, videos));
+        setBulkVideoBuild(s => ({ ...s, done: s.done + 1, added: s.added + videos.length, skipped: s.skipped + (videos.length ? 0 : 1) }));
+      } catch (err) {
+        setBulkVideoBuild(s => ({ ...s, done: s.done + 1, skipped: s.skipped + 1, lastError: err.message }));
+        if (err.code === "not_configured") setAiVideosEnabled(false);
+        if (["not_configured", "youtube_not_configured", "youtube_quota", "daily_cap"].includes(err.code)) break;
+      }
+    }
+    setBulkVideoBuild(s => ({ ...s, finished: true, current: null }));
+  };
+
   // The Kami URL the overlay should show -- the sliding board keeps a
   // separate Bell Ringer link per panel (allPanelFields), so once a panel's
   // Bell Ringer has been tapped (kamiSourcePanelIdx set in that panel's own
@@ -5068,9 +5419,27 @@ export default function App({ viewer = false } = {}) {
         </div>
       </div>
 
-      {/* ── Video library — lesson-scoped only, matches the assignments block above ── */}
-      {!isOverview && (
-        <VideoLibrary videos={activeLesson?.videos} playingVideoId={playingVideoId} setPlayingVideoId={setPlayingVideoId} />
+      {/* ── Video libraries ── the unit overview gets Build's fill-the-unit
+          block; a lesson gets its own library (read-only on a real board
+          tab, editable in Build). Blank-shell teachers see either only
+          once they have added the Video Library in the Design Store. */}
+      {isOverview && videoBuild && activeUnit && (
+        <VideoLibraryBuildBlock
+          unit={activeUnit}
+          unitCount={activeCurriculum.filter(u => !u.hidden).length}
+          aiEnabled={aiVideosEnabled}
+          state={bulkVideoBuild}
+          onBuildUnit={() => runBulkVideoBuild([activeUnitIdx])}
+          onBuildAll={() => runBulkVideoBuild(activeCurriculum.map((u, i) => (u.hidden ? null : i)).filter(i => i !== null))}
+        />
+      )}
+      {!isOverview && videoLibraryOn && (
+        <VideoLibrary
+          videos={activeLesson?.videos}
+          playingVideoId={playingVideoId}
+          setPlayingVideoId={setPlayingVideoId}
+          build={videoBuild ? { aiEnabled: aiVideosEnabled, suggesting: videoSuggesting, notice: videoNotice, onAdd: handleAddVideo, onRemove: handleRemoveVideo, onSuggest: handleSuggestVideos } : null}
+        />
       )}
       </>
       )}

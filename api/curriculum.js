@@ -45,6 +45,29 @@ const CURRICULUM_HISTORY_LIMIT = 30;
 // malformed data (wrong types, a missing `unit`/`lessons` field) out of
 // Mongo, since this is the one collection a teacher can grow arbitrarily
 // large through repeated "+ Add Unit"/"+ Add Lesson" clicks.
+// A lesson's video library: YouTube ids with the title the tile shows and,
+// for picks made by api/videoSuggest.js, the channel, length and the
+// one-line reason the picker gave. Nothing else is kept, and no more than
+// fifty per lesson, so the one array a teacher can grow with a single
+// click cannot carry arbitrary payloads into Mongo.
+const VIDEO_TEXT = { id: 200, title: 200, channel: 100, reason: 300 };
+function sanitizeVideos(videos) {
+  if (!Array.isArray(videos)) return [];
+  return videos
+    .filter(v => v && typeof v.id === "string" && v.id.trim())
+    .slice(0, 50)
+    .map(v => {
+      const clean = {
+        id: v.id.trim().slice(0, VIDEO_TEXT.id),
+        title: typeof v.title === "string" ? v.title.slice(0, VIDEO_TEXT.title) : "",
+      };
+      if (typeof v.channel === "string" && v.channel) clean.channel = v.channel.slice(0, VIDEO_TEXT.channel);
+      if (typeof v.reason === "string" && v.reason) clean.reason = v.reason.slice(0, VIDEO_TEXT.reason);
+      if (typeof v.durationSec === "number" && Number.isFinite(v.durationSec)) clean.durationSec = Math.round(v.durationSec);
+      return clean;
+    });
+}
+
 function sanitizeUnits(units) {
   if (!Array.isArray(units)) return null;
   const clean = units
@@ -62,7 +85,7 @@ function sanitizeUnits(units) {
           slides: typeof l.slides === "string" ? l.slides : null,
           goals: Array.isArray(l.goals) ? l.goals : [],
           assignments: Array.isArray(l.assignments) ? l.assignments : [],
-          videos: Array.isArray(l.videos) ? l.videos : [],
+          videos: sanitizeVideos(l.videos),
         })),
     }));
   // An empty array is a real answer -- the teacher deleted their last
