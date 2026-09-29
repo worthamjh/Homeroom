@@ -2110,6 +2110,15 @@ function VideoLibrary({ videos, playingVideoId, setPlayingVideoId, build }) {
   if (!build && list.length === 0) return null;
   const playing = list.find(v => extractYouTubeId(v.id) === playingVideoId);
   const busy = !!build?.suggesting;
+  // The rows fill the block's width whatever the count (Jay, 2026-09-29):
+  // up to five videos share one row; six becomes two rows of three; and
+  // from there the count is split into as few rows of at most five as
+  // will hold it, as evenly as they divide -- seven is four and three,
+  // nine is five and four, eleven is four, four and three. The Build-mode
+  // add tile counts as one of them so it never hangs alone under a row.
+  const tileCount = list.length + (build ? 1 : 0);
+  const videoRows = Math.max(1, Math.ceil(tileCount / 5));
+  const videoCols = Math.max(1, Math.ceil(tileCount / videoRows));
   return (
     <div style={{ padding: `0 ${SPACE.lg}px ${SPACE.lg}px`, maxWidth: 1700, width: "100%", margin: "0 auto", boxSizing: "border-box" }}>
       <div style={{ background: "var(--board-primary)", border: "3px solid var(--board-secondary)", borderRadius: 4, overflow: "hidden", boxShadow: "0 3px 12px rgba(0,0,0,0.25)" }}>
@@ -2167,14 +2176,7 @@ function VideoLibrary({ videos, playingVideoId, setPlayingVideoId, build }) {
               )}
             </div>
           )}
-          {/* auto-fit, not auto-fill: a lesson with four videos used to sit
-              in the left four of six reserved columns, with the right third
-              of the block empty (Jay: "make the spacing of the videos go
-              across the width of the box evenly"). Empty tracks now
-              collapse and the tiles share the width, capped so a lesson
-              with one or two videos gets tiles of a sensible size, spread
-              evenly, rather than one enormous one. */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 480px))", justifyContent: "space-evenly", gap: SPACE.md }}>
+          <div style={{ display: "grid", gridTemplateColumns: `repeat(${videoCols}, minmax(0, 1fr))`, gap: SPACE.md }}>
             {list.map((v, vi) => (
               <VideoThumb
                 key={`${extractYouTubeId(v.id)}-${vi}`}
