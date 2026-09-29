@@ -1,6 +1,6 @@
 {
   "functions": {
-    "api/videoSuggest.js": { "maxDuration": 60 }
+    "api/curriculum.js": { "maxDuration": 60 }
   },
   "rewrites": [
     {

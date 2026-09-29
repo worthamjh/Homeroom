@@ -2017,7 +2017,7 @@ function VideoThumb({ title, id, reason, channel, durationSec, onPlay, onRemove 
 // Build-mode tile for pasting a YouTube link into a lesson's video
 // library: a collapsed dashed "+" and then an inline form, the same idea
 // as AddAssignmentCard. The title comes from YouTube itself (the ?title
-// lookup in api/videoSuggest.js, which needs no key), so the teacher only
+// lookup in api/_videoSuggest.js, which needs no key), so the teacher only
 // pastes -- and a link YouTube will not embed (private, gone) is refused
 // with a reason rather than becoming a tile that never plays.
 function AddVideoCard({ onAdd }) {
@@ -4457,7 +4457,7 @@ export default function App({ viewer = false } = {}) {
   // Owning the store item is the switch (DESIGN_AREAS.VIDEO_LIBRARY in
   // boardConfig.js). The Webster Groves demo keeps its hardcoded
   // libraries: its `videos` come from the curriculum export and it has no
-  // store. The AI half is api/videoSuggest.js; see there for what it does
+  // store. The AI half is api/_videoSuggest.js; see there for what it does
   // and what it costs.
   const videoLibraryOn = isBlankTeacher ? ownedDesign.has(DESIGN_AREAS.VIDEO_LIBRARY, VIDEO_LIBRARY_OPTION_ID) : true;
   const videoBuild = isBuildMode && isBlankTeacher && videoLibraryOn;

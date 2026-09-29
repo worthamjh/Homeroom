@@ -1197,7 +1197,7 @@ export const DESIGN_AREAS = {
   // A lesson's video library: a row of YouTube videos under the
   // assignments, played on the board. Owning it is the switch, as with
   // standards: it puts the block on every lesson page and gives Build the
-  // controls, including "Build with AI" (api/videoSuggest.js). Nothing
+  // controls, including "Build with AI" (api/_videoSuggest.js). Nothing
   // added, nothing on the board, nothing to decide. The Webster Groves
   // demo keeps its hardcoded libraries regardless.
   VIDEO_LIBRARY: "videoLibrary",

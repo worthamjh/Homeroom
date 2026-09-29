@@ -24,6 +24,14 @@ import { resolveTeacherId } from "./_auth.js";
 import { classroomIdFrom } from "./_classroom.js";
 import { enforceRateLimit } from "./_rateLimit.js";
 import { payloadTooBig } from "./_validate.js";
+// The lesson video picker. It lives behind THIS function rather than in a
+// file of its own because Vercel's Hobby plan caps a deployment at twelve
+// serverless functions and api/ already had twelve -- a thirteenth file
+// failed the build (2026-09-29). An underscore file is a plain module to
+// Vercel, so it costs no slot. The picker keeps its own auth and limits;
+// this is only the door, and a lesson's videos live in this document
+// anyway.
+import videoSuggestHandler from "./_videoSuggest.js";
 
 const DB_NAME = process.env.MONGODB_DB || "homeroom";
 const COLLECTION = "curricula";
@@ -46,7 +54,7 @@ const CURRICULUM_HISTORY_LIMIT = 30;
 // Mongo, since this is the one collection a teacher can grow arbitrarily
 // large through repeated "+ Add Unit"/"+ Add Lesson" clicks.
 // A lesson's video library: YouTube ids with the title the tile shows and,
-// for picks made by api/videoSuggest.js, the channel, length and the
+// for picks made by api/_videoSuggest.js, the channel, length and the
 // one-line reason the picker gave. Nothing else is kept, and no more than
 // fifty per lesson, so the one array a teacher can grow with a single
 // click cannot carry arbitrary payloads into Mongo.
@@ -126,6 +134,7 @@ async function getCollection() {
 }
 
 export default async function handler(req, res) {
+  if (req.query?.videos === "suggest") return videoSuggestHandler(req, res);
   try {
   // Identity comes from the verified session, never from the request --
   // see api/_auth.js. Any teacherId still arriving in the query or body is

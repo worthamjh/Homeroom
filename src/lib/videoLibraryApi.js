@@ -1,4 +1,6 @@
-// Client for /api/videoSuggest -- the AI half of a lesson's video library.
+// Client for the lesson video picker, api/_videoSuggest.js, served at
+// /api/curriculum?videos=suggest (see there for why it is not its own
+// route) -- the AI half of a lesson's video library.
 // See that file for what it does, what it costs, and why it ranks videos
 // on their titles, channels and descriptions rather than watching them.
 //
@@ -25,7 +27,7 @@ async function errorFrom(res, fallback) {
 
 // { enabled } -- false until the site has both keys (see .env.example).
 export async function fetchVideoSuggestStatus() {
-  const res = await apiFetch("/api/videoSuggest");
+  const res = await apiFetch("/api/curriculum?videos=suggest");
   if (!res.ok) throw await errorFrom(res, `Could not check video search (${res.status})`);
   return res.json();
 }
@@ -35,7 +37,7 @@ export async function fetchVideoSuggestStatus() {
 // cannot be shown.
 export async function lookupVideoTitle(idOrUrl) {
   const params = new URLSearchParams({ title: idOrUrl });
-  const res = await apiFetch(`/api/videoSuggest?${params}`);
+  const res = await apiFetch(`/api/curriculum?videos=suggest&${params}`);
   if (!res.ok) throw await errorFrom(res, "That video could not be found.");
   return res.json();
 }
@@ -46,7 +48,7 @@ export async function lookupVideoTitle(idOrUrl) {
 // them from the lesson's board content itself. `exclude` lists the ids
 // already on the lesson, which turns a build into "find more".
 export async function suggestLessonVideos({ unitIdx, unitTitle, lessonTitle, goals = [], essentialQuestion = "", subject = "", request = "", exclude = [] }) {
-  const res = await apiFetch("/api/videoSuggest", {
+  const res = await apiFetch("/api/curriculum?videos=suggest", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ classroomId: getActiveClassroomId(), unitIdx, unitTitle, lessonTitle, goals, essentialQuestion, subject, request, exclude }),

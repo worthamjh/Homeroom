@@ -1,4 +1,11 @@
-// Vercel serverless function: finds YouTube videos for one lesson.
+// Finds YouTube videos for one lesson. Served as
+// /api/curriculum?videos=suggest: the handler below is a complete endpoint
+// (its own auth, limits and errors) that api/curriculum.js hands the
+// request to, because Vercel's Hobby plan allows twelve serverless
+// functions per deployment and api/ already had twelve -- a thirteenth
+// file failed the build (2026-09-29). The underscore keeps this a plain
+// module in Vercel's eyes, and the local dev plugin (vite.config.js) routes
+// by the first path segment, so it lands in the same place there.
 //
 // WHAT IT DOES. Given a lesson (title, unit, learning goals, essential
 // question, and whatever the teacher typed), it asks Claude for two or

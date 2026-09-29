@@ -40,7 +40,7 @@ const LIMITS = {
   deleteAccount: 5,    // irreversible
   curriculumHistory: 60,
   // Two model calls and up to three YouTube searches per request, so a
-  // stuck loop here costs real money. api/videoSuggest.js adds a per-day
+  // stuck loop here costs real money. api/_videoSuggest.js adds a per-day
   // cap on top of this per-minute one.
   videoSuggest: 20,
 };
