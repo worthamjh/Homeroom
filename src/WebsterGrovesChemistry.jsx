@@ -2167,7 +2167,14 @@ function VideoLibrary({ videos, playingVideoId, setPlayingVideoId, build }) {
               )}
             </div>
           )}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: SPACE.md }}>
+          {/* auto-fit, not auto-fill: a lesson with four videos used to sit
+              in the left four of six reserved columns, with the right third
+              of the block empty (Jay: "make the spacing of the videos go
+              across the width of the box evenly"). Empty tracks now
+              collapse and the tiles share the width, capped so a lesson
+              with one or two videos gets tiles of a sensible size, spread
+              evenly, rather than one enormous one. */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 480px))", justifyContent: "space-evenly", gap: SPACE.md }}>
             {list.map((v, vi) => (
               <VideoThumb
                 key={`${extractYouTubeId(v.id)}-${vi}`}
