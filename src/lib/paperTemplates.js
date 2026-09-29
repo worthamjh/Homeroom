@@ -19,51 +19,25 @@ const WIDE_RULE = (11 / 32) * PT_PER_INCH;    // 24.75
 const COLLEGE_RULE = (9 / 32) * PT_PER_INCH;  // 20.25
 const GRID = 0.25 * PT_PER_INCH;              // 18 — quarter-inch squares
 
-const RULE_TOP = PAGE_H - 1.0 * PT_PER_INCH;    // the header space filler paper has
-const RULE_BOTTOM = 0;
-const VERTICAL_MARGIN_X = 1.25 * PT_PER_INCH;   // the red line down the left
-
 const BLUE = "0.62 0.76 0.90";
-const RED = "0.93 0.66 0.66";
 const GREY = "0.80 0.84 0.88";
 
-function ruledContent(pitch) {
-  const ops = [`${BLUE} RG`, "0.7 w"];
-  // Edge to edge, like a real sheet of filler paper.
-  for (let y = RULE_TOP; y >= RULE_BOTTOM; y -= pitch) {
-    ops.push(`0 ${y.toFixed(2)} m ${PAGE_W} ${y.toFixed(2)} l S`);
-  }
-  // Vertical margin rule, top edge to bottom edge.
-  ops.push(`${RED} RG`, "0.9 w");
-  ops.push(`${VERTICAL_MARGIN_X.toFixed(2)} ${PAGE_H} m ${VERTICAL_MARGIN_X.toFixed(2)} 0 l S`);
-  return ops.join("\n");
-}
-
-// Squared paper: the grid covers the whole sheet corner to corner, rather
-// than sitting as a chart area printed on a page.
-function gridContent() {
-  const ops = [`${GREY} RG`, "0.5 w"];
-  for (let x = 0; x <= PAGE_W + 0.01; x += GRID) {
-    ops.push(`${x.toFixed(2)} 0 m ${x.toFixed(2)} ${PAGE_H} l S`);
-  }
-  for (let y = 0; y <= PAGE_H + 0.01; y += GRID) {
-    ops.push(`0 ${y.toFixed(2)} m ${PAGE_W} ${y.toFixed(2)} l S`);
-  }
-  return ops.join("\n");
-}
-
-// Question papers (2026-09-10). A bell ringer opened from the agenda is to
-// show up on the smartboard as a picture of just the question, not the
-// clipped Kami frame; these sheets mark the band that picture is taken
+// The question band (2026-09-10). A bell ringer opened from the agenda
+// shows up on the smartboard as a picture of just the question, not the
+// clipped Kami frame; every sheet marks the band that picture is taken
 // from, so the teacher can see what the class will get. Jay's geometry:
-//   one question  -> top 20% of the page is the question band.
-//   two questions -> 20% question, 30% answer, 20% question, 30% answer,
-//                    and the two question bands stack into one 16:9 picture.
-// `boardBands` on the paper entry is the same geometry as fractions of the
-// page height from the top, for whatever crops the Drive rendering later.
-// The bands are blank (a clean picture); the answer areas are wide ruled.
+// the top 20% of the page is the question band. `boardBands` on the paper
+// entry is the same geometry as fractions of the page height from the
+// top, for whatever crops the Drive rendering later. The band is blank (a
+// clean picture); the answer area below it carries the paper's ruling.
 // The label sits just BELOW the dotted line, in the answer area, so it is
 // never in the picture.
+//
+// It began as two "question papers" beside plain, ruled and squared
+// sheets. On 2026-09-29 Jay put the band on every sheet ("I like the gray
+// rectangle shape indicating what part of the document will be auto
+// zoomed in on ... I would like that same shape on all of the templates"),
+// folded One Question into Wide Ruled and dropped Two Questions.
 const DOT = "0.55 0.58 0.62";
 const LABEL = "0.62 0.65 0.68";
 const BOARD_LABEL = "the dotted box is what shows on the board";
@@ -114,27 +88,40 @@ function caption(text, y, size = 7, right = PAGE_W - 0.5 * PT_PER_INCH) {
   return [`BT /F1 ${size} Tf ${LABEL} rg ${x.toFixed(2)} ${y.toFixed(2)} Td (${text}) Tj ET`];
 }
 
-// Question bands as fractions of the page height from the top, [top, bottom].
-const ONE_QUESTION_BANDS = [[0, 0.2]];
-const TWO_QUESTION_BANDS = [[0, 0.2], [0.5, 0.7]];
+// The question band as a fraction of the page height from the top,
+// [top, bottom]: the top fifth, on every sheet.
+const QUESTION_BANDS = [[0, 0.2]];
 
-function questionContent(bands) {
+// One sheet: the band with its dotted line, board box and caption, then
+// the answer area below, filled by `answerArea(top, bottom)` -- rules at
+// a pitch, a grid, or nothing at all for plain.
+function boardContent(bands, answerArea) {
   const ops = [];
   bands.forEach(([topFrac, bottomFrac], i) => {
     const bandTop = PAGE_H * (1 - topFrac);
     const bandBottom = PAGE_H * (1 - bottomFrac);
-    // A solid line where a second question band begins, so the answer
-    // area above it has a visible end and the next question a top edge.
-    if (i > 0) ops.push(`${DOT} RG`, "1 w", `0 ${bandTop.toFixed(2)} m ${PAGE_W} ${bandTop.toFixed(2)} l S`);
     ops.push(...dottedLine(bandBottom));
     ops.push(...boardBox(bandTop, bandBottom));
     ops.push(...caption(BOARD_LABEL, bandBottom - 9, 7, boardBoxRight(bandTop, bandBottom)));
     const nextTop = bands[i + 1] ? PAGE_H * (1 - bands[i + 1][0]) : 0;
-    // Wide rules for the answer area, starting a rule's width under the
-    // caption so the first line of writing has room.
-    ops.push(...rulesBetween(bandBottom - 14, nextTop, WIDE_RULE));
+    // The answer area starts a rule's width under the caption so the
+    // first line of writing has room.
+    if (answerArea) ops.push(...answerArea(bandBottom - 14, nextTop));
   });
   return ops.join("\n");
+}
+
+// Squared answer area: quarter-inch grid, edge to edge, from the top of
+// the area to the foot of the page.
+function gridBetween(top, bottom) {
+  const ops = [`${GREY} RG`, "0.5 w"];
+  for (let x = 0; x <= PAGE_W + 0.01; x += GRID) {
+    ops.push(`${x.toFixed(2)} ${bottom.toFixed(2)} m ${x.toFixed(2)} ${top.toFixed(2)} l S`);
+  }
+  for (let y = top; y >= bottom - 0.01; y -= GRID) {
+    ops.push(`0 ${y.toFixed(2)} m ${PAGE_W} ${y.toFixed(2)} l S`);
+  }
+  return ops;
 }
 
 const HELVETICA = "<< /Font << /F1 << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> >> >>";
@@ -169,14 +156,15 @@ function buildPdf(content, resources = "<< >>") {
 // it. Jay: "make the images of the previews bigger so the user can see
 // what they look like in full on the thumbnail."
 export const BUILT_IN_PAPERS = [
-  { id: "builtin:plain", label: "Plain", thumb: "/papers/thumbs/plain.png", build: () => buildPdf("") },
-  { id: "builtin:wide", label: "Wide Ruled", thumb: "/papers/thumbs/wide.png", build: () => buildPdf(ruledContent(WIDE_RULE)) },
-  { id: "builtin:college", label: "College Ruled", thumb: "/papers/thumbs/college.png", build: () => buildPdf(ruledContent(COLLEGE_RULE)) },
-  { id: "builtin:graph", label: "Graph Paper", thumb: "/papers/thumbs/graph.png", build: () => buildPdf(gridContent()) },
-  // Question papers: the dotted band is what the smartboard shows. See the
-  // note above questionContent.
-  { id: "builtin:question1", label: "One Question", thumb: "/papers/thumbs/question1.png", boardBands: ONE_QUESTION_BANDS, build: () => buildPdf(questionContent(ONE_QUESTION_BANDS), HELVETICA) },
-  { id: "builtin:question2", label: "Two Questions", thumb: "/papers/thumbs/question2.png", boardBands: TWO_QUESTION_BANDS, build: () => buildPdf(questionContent(TWO_QUESTION_BANDS), HELVETICA) },
+  // Every sheet is the question band at the top -- the dotted box is what
+  // the smartboard shows when the doc is opened from the agenda -- over an
+  // answer area in the paper's ruling. A doc made on the old One Question
+  // or Two Questions sheet still reads its band as the top fifth, which is
+  // what it was (DEFAULT_BOARD_BANDS in bellRingerPicture.js).
+  { id: "builtin:plain", label: "Plain", thumb: "/papers/thumbs/plain.png", boardBands: QUESTION_BANDS, build: () => buildPdf(boardContent(QUESTION_BANDS, null), HELVETICA) },
+  { id: "builtin:wide", label: "Wide Ruled", thumb: "/papers/thumbs/wide.png", boardBands: QUESTION_BANDS, build: () => buildPdf(boardContent(QUESTION_BANDS, (top, bottom) => rulesBetween(top, bottom, WIDE_RULE)), HELVETICA) },
+  { id: "builtin:college", label: "College Ruled", thumb: "/papers/thumbs/college.png", boardBands: QUESTION_BANDS, build: () => buildPdf(boardContent(QUESTION_BANDS, (top, bottom) => rulesBetween(top, bottom, COLLEGE_RULE)), HELVETICA) },
+  { id: "builtin:graph", label: "Graph Paper", thumb: "/papers/thumbs/graph.png", boardBands: QUESTION_BANDS, build: () => buildPdf(boardContent(QUESTION_BANDS, gridBetween), HELVETICA) },
   // A paper may also be a designed page shipped as a static PDF (`file`
   // instead of `build`), fetched at create time. The CER sheet was one for
   // two days; as of 2026-09-04 CER is a notebook only (Jay: "lets actually
