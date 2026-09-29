@@ -66,8 +66,8 @@ function Privacy() {
         <li><strong>Cloudinary</strong>, which stores images and slide files you upload.</li>
         <li><strong>Google</strong>, when you connect Drive, Slides or Calendar, or when a board embeds Google Slides or a Google Calendar.</li>
         <li><strong>Kami</strong>, when you open a document from the board to write on it. Kami opens the file from your own Drive under your own Kami account; Gil-Bilt sends Kami only the file's identifier.</li>
-        <li><strong>YouTube</strong>, when a board embeds a video, and when you ask Gil-Bilt to find videos for a lesson.</li>
-        <li><strong>Anthropic</strong>, when you ask Gil-Bilt to find videos for a lesson. It receives the lesson's title, unit, learning goals and essential question, and the words you typed, so it can choose videos. It never receives student information.</li>
+        <li><strong>YouTube</strong>, when a board embeds a video, and when you ask Gil-Bilt to find videos for a lesson. Finding videos uses YouTube API Services, which is covered by the <a style={link} href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer">Google Privacy Policy</a>, and by using that feature you also agree to the <a style={link} href="https://www.youtube.com/t/terms" target="_blank" rel="noopener noreferrer">YouTube Terms of Service</a>. Gil-Bilt sends YouTube only search words drawn from the lesson, keeps what YouTube returns for at most thirty days, and stores nothing about who asked.</li>
+        <li><strong>Anthropic</strong>, when you ask Gil-Bilt to find videos for a lesson. It receives the lesson's title, unit, learning goals and essential question, and the words you typed, so it can choose videos. It never receives student information. Anthropic does not train its models on this traffic, and under its commercial terms keeps it only for a limited time before deleting it.</li>
       </ul>
       <p>Embedded services such as YouTube, Google Slides and Google Calendar may set their own cookies when their content loads on a board, as they would on any page that embeds them.</p>
 
