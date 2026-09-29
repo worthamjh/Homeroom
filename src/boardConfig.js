@@ -1212,15 +1212,22 @@ export const DESIGN_AREAS = {
 // join it later without moving this one.
 export const VIDEO_LIBRARY_OPTION_ID = "youtube";
 
-// The two timers, one look each: the round face with the red wedge that
-// shrinks as time runs out, and a digital one with big LCD digits. Same
-// countdown underneath. Jay (2026-09-29): a physical-looking timer on the
-// bulletin board that counts a Bell Ringer's five minutes down while the
-// teacher takes attendance, "or a digital countdown option as well".
+// The timers: one digital countdown in a few looks that differ only in
+// the housing and the display (src/BulletinTimer.jsx). Jay (2026-09-29):
+// a physical-looking timer on the bulletin board that counts a Bell
+// Ringer's five minutes down while the teacher takes attendance; then,
+// having tried a dial and a digital one, "the digital one works really
+// well ... make a couple of different digital options that look different
+// but function the same". The dial went the same day.
 export const TIMER_STYLES = [
-  { id: "dial", label: "Dial Timer" },
-  { id: "digital", label: "Digital Timer" },
+  { id: "classic", label: "Classic Timer" },
+  { id: "scoreboard", label: "Scoreboard Timer" },
+  { id: "colors", label: "School Colors Timer" },
 ];
+// The first day's two ids, read as the classic so a board that had one up
+// keeps a timer up.
+const LEGACY_TIMER_IDS = { dial: "classic", digital: "classic" };
+export const migrateBulletinTimer = (saved) => LEGACY_TIMER_IDS[saved] || saved;
 export const isTimerStyleId = (id) => TIMER_STYLES.some(t => t.id === id);
 // Which timer hangs on the strip for this classroom: a style id, or ""
 // for none. Adding one in the store puts it up; the Bulletin Board menu
@@ -1234,6 +1241,15 @@ export const TIMER_MINUTES_KEY = "timerMinutes";
 export const DEFAULT_TIMER_MINUTES = "5";
 export const TIMER_MAX_MINUTES = 60;
 export const isTimerMinutesValue = (v) => /^[1-9][0-9]?$/.test(v) && Number(v) <= TIMER_MAX_MINUTES;
+// Where along the strip the timer hangs, per classroom: "" for its home
+// at the left end, or a fraction of the usable strip (0 left, 1 right),
+// the same measure the notebooks use (NOTEBOOK_POSITIONS_KEY). Dragging
+// its ☰ handle in Build sets it (Jay: "the timer should have the grab and
+// move along the bulletin board feature like the notebooks have").
+export const TIMER_POSITION_KEY = "timerPosition";
+export const DEFAULT_TIMER_POSITION = "";
+export const isTimerPositionValue = (v) => v === "" || (typeof v === "string" && v.trim() !== "" && Number.isFinite(Number(v)) && Number(v) >= 0 && Number(v) <= 1);
+export const parseTimerPosition = (v) => (typeof v === "string" && v.trim() !== "" && Number.isFinite(Number(v)) ? Math.min(1, Math.max(0, Number(v))) : null);
 
 // Which notebooks are pinned to the bulletin board for this classroom.
 // (Named for the chalk ledge, where the first one lived for an hour; the
@@ -1418,7 +1434,7 @@ export function useDesignAreaSelections() {
     [DESIGN_AREAS.BOARD_LAYOUT]: useScopedSetting(ARRANGEMENT_STORAGE_KEY, DEFAULT_ARRANGEMENT, k => !!BOARD_ARRANGEMENTS[k]),
     [DESIGN_AREAS.BOARD_ACCENT]: useScopedSetting(BOARD_ACCENT_STORAGE_KEY, DEFAULT_BOARD_ACCENT, isBoardAccentKey),
     [DESIGN_AREAS.NOTEBOOK]: useScopedSetting(LEDGE_NOTEBOOK_KEY, DEFAULT_LEDGE_NOTEBOOK, isLedgeNotebookValue),
-    [DESIGN_AREAS.TIMER]: useScopedSetting(BULLETIN_TIMER_KEY, DEFAULT_BULLETIN_TIMER, isBulletinTimerValue),
+    [DESIGN_AREAS.TIMER]: useScopedSetting(BULLETIN_TIMER_KEY, DEFAULT_BULLETIN_TIMER, isBulletinTimerValue, migrateBulletinTimer),
   };
 }
 
@@ -1459,7 +1475,7 @@ export function designCatalog(primaryColor, secondaryColor) {
     {
       area: DESIGN_AREAS.TIMER,
       label: DESIGN_AREA_LABELS[DESIGN_AREAS.TIMER],
-      blurb: "A countdown pinned to the bulletin board that looks like the one on your wall. Tap it to start, + and − set the minutes, and when a Bell Ringer goes up on the board it starts on its own — students see the time left while you take attendance. Choose which one is up under Bulletin Board in Build.",
+      blurb: "A countdown pinned to the bulletin board that looks like the one on your wall. Tap it to start or pause, tap the numbers to reset, and + and − set the minutes. When a Bell Ringer goes up on the board it starts on its own — students see the time left while you take attendance. Choose which one is up under Bulletin Board in Build.",
       options: TIMER_STYLES.map(t => ({ id: t.id, label: t.label, preview: { kind: "timer", style: t.id } })),
     },
     {
@@ -1516,10 +1532,15 @@ function isOwnedDesignOptionsValue(raw) {
 // directly, so the marker is invisible to the rest of the app.
 const DEFAULT_OWNED_OPTIONS = STARTER_PAPERS.map(id => designOptionKey(DESIGN_AREAS.PAPER, id));
 const removedMarker = (key) => `-${key}`;
+// Ids the store no longer sells, read as what replaced them (the first
+// day's two timers became the classic). Applied on the way in, so nothing
+// stored has to move and a removal marker migrates with its key.
+const LEGACY_OWNED_KEYS = { "timer:dial": "timer:classic", "timer:digital": "timer:classic" };
+const migrateOwnedKey = (k) => (k.startsWith("-") ? `-${LEGACY_OWNED_KEYS[k.slice(1)] || k.slice(1)}` : (LEGACY_OWNED_KEYS[k] || k));
 
 export function useOwnedDesignOptions() {
   const [raw, setRaw] = useScopedSetting(OWNED_DESIGN_OPTIONS_KEY, EMPTY_OWNED, isOwnedDesignOptionsValue);
-  const stored = parseOwnedDesignOptions(raw);
+  const stored = [...new Set(parseOwnedDesignOptions(raw).map(migrateOwnedKey))];
   const added = stored.filter(k => !k.startsWith("-"));
   const removed = stored.filter(k => k.startsWith("-")).map(k => k.slice(1));
   // What the teacher effectively has: everything they added, plus every

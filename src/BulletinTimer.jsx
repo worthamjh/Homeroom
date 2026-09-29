@@ -1,29 +1,32 @@
-// The classroom timer that hangs on the bulletin strip, in two looks that
-// share one countdown: the round face with the red wedge that shrinks as
-// the minutes run out, which every classroom has on the wall, and a
-// digital one with big LCD digits. Jay (2026-09-29): "a bell ringer should
-// take, let's say 5 minutes ... there is a timer on the bulletin that
-// counts down ... the teacher is greeting students and taking attendance
-// ... once the timer goes to 0, the teacher collects the bellringers and
-// gets the class period started." And: "I would like for the timer to look
-// like it could actually be a physical timer that a classroom might have."
+// The classroom timer that hangs on the bulletin strip: a digital
+// countdown in a small housing, in a few looks that differ only in the
+// plastic and the display and share one engine. Jay (2026-09-29): "a bell
+// ringer should take, let's say 5 minutes ... there is a timer on the
+// bulletin that counts down ... the teacher is greeting students and
+// taking attendance ... once the timer goes to 0, the teacher collects the
+// bellringers and gets the class period started." It has to look "like it
+// could actually be a physical timer that a classroom might have", and
+// later the same day, having tried both: the dial "looks off", the
+// digital one "works really well", so "make a couple of different digital
+// options that look different but function the same".
 //
 // Setting the time is the + and - buttons, a minute at a time, the way a
 // kitchen timer's M+ works -- nothing to open, nothing to type. The number
 // it lands on is remembered per classroom (TIMER_MINUTES_KEY), and that is
 // the count a Bell Ringer starts when it goes up on the board (see the
-// effect in WebsterGrovesChemistry.jsx). Tapping the face or the play
-// button starts and pauses; tapping the digits resets. At zero the digits
+// effect in WebsterGrovesChemistry.jsx). Tapping the housing or the play
+// button starts and pauses; tapping the numbers resets -- kept as a tap
+// rather than a fourth button because "it keeps the interface simple",
+// and said so on the store card and in Build's help. At zero the digits
 // blink red and a short chime plays, so a teacher at the door with the
 // attendance list hears it.
 //
 // Which timer is up, and whether one is up at all, is a Bulletin Board
 // setting in Build, like the notebooks; owning one in the Design Store is
-// what makes it available (DESIGN_AREAS.TIMER in boardConfig.js).
+// what makes it available (DESIGN_AREAS.TIMER in boardConfig.js). In Build
+// it also carries the notebooks' ☰ grip, and drags along the strip the
+// same way (startTimerDrag on the board).
 import { useCallback, useEffect, useRef, useState } from "react";
-
-// A full turn of the dial is an hour, as on the real thing.
-const DIAL_MS = 60 * 60 * 1000;
 
 // ── The countdown ──────────────────────────────────────────────────────
 // Time is kept as an END INSTANT while running, so a tab the browser
@@ -66,12 +69,12 @@ function chime() {
 }
 
 // `minutes` is the set time. Returns the live state plus the controls the
-// faces and the board use; `start()` with no argument runs the set time.
+// timer and the board use; `start()` with no argument runs the set time.
 export function useCountdown(minutes) {
   const totalMs = Math.max(1, minutes) * 60000;
   const [state, setState] = useState({ status: "idle", endsAt: null, remainingMs: totalMs });
 
-  // Idle follows the set time, so + and - show on the face at once.
+  // Idle follows the set time, so + and - show on the display at once.
   useEffect(() => {
     setState(s => (s.status === "idle" ? { ...s, remainingMs: totalMs } : s));
   }, [totalMs]);
@@ -120,49 +123,44 @@ export function useCountdown(minutes) {
   return { ...state, totalMs, start, pause, resume, reset, nudge };
 }
 
-// ── Faces ──────────────────────────────────────────────────────────────
-const two = (n) => String(n).padStart(2, "0");
-const readout = (ms, twoDigitMinutes) => {
-  const total = Math.ceil(ms / 1000);
-  const m = Math.floor(total / 60);
-  const s = total % 60;
-  return `${twoDigitMinutes ? two(m) : m}:${two(s)}`;
+// ── Looks ──────────────────────────────────────────────────────────────
+// Each is a set of surfaces for the same housing: the plastic, the
+// display, the digits, the buttons. Ids are the store's SKUs
+// (TIMER_STYLES in boardConfig.js); anything unknown falls back to classic.
+const LOOKS = {
+  // The white kitchen-timer classic: grey-green LCD, black digits.
+  classic: {
+    housing: "linear-gradient(180deg, #f4f4f2, #dcdcd8)", border: "#b9b9b4", highlight: "rgba(255,255,255,0.8)",
+    lcd: "linear-gradient(180deg, #c3cfb4, #d3ddc6)", lcdBorder: "#7f8a73", lcdInset: "inset 0 1px 3px rgba(0,0,0,0.45)",
+    digit: "#1f2a1a", done: "#c1121f", glow: "none",
+    button: { bg: "linear-gradient(180deg, #f6f6f6, #d9d9d9)", border: "#a9a9a9", color: "#2b2b2b" },
+  },
+  // The gym-wall scoreboard: black housing, red LED digits that glow.
+  scoreboard: {
+    housing: "linear-gradient(180deg, #333333, #141414)", border: "#050505", highlight: "rgba(255,255,255,0.14)",
+    lcd: "#0a0a0a", lcdBorder: "#000", lcdInset: "inset 0 1px 4px rgba(0,0,0,0.9)",
+    digit: "#ff3b30", done: "#ff3b30", glow: "0 0 7px rgba(255,59,48,0.75)",
+    button: { bg: "linear-gradient(180deg, #4a4a4a, #262626)", border: "#101010", color: "#f2f2f2" },
+  },
+  // The board's own accent colour for the plastic, a white display: the
+  // one that matches the room. The colour comes from the board's theme
+  // variable, so it is the teacher's, in the store as on the board.
+  colors: {
+    housing: "var(--board-secondary, #E87722)", border: "rgba(0,0,0,0.28)", highlight: "rgba(255,255,255,0.35)",
+    lcd: "linear-gradient(180deg, #f8f8f3, #e8e8e1)", lcdBorder: "rgba(0,0,0,0.4)", lcdInset: "inset 0 1px 3px rgba(0,0,0,0.35)",
+    digit: "#1c1c1c", done: "#c1121f", glow: "none",
+    button: { bg: "linear-gradient(180deg, #ffffff, #e4e4e4)", border: "rgba(0,0,0,0.4)", color: "#1c1c1c" },
+  },
 };
 
-// The dial: white face, minute ticks, and the red disc that covers as
-// much of the hour as is left, from twelve o'clock anticlockwise, the way
-// the real one is set by turning the disc.
-function DialFace({ remainingMs, size }) {
-  const frac = Math.max(0, Math.min(1, remainingMs / DIAL_MS));
-  const r = 38;
-  const angle = frac * 2 * Math.PI;
-  const ex = 50 - r * Math.sin(angle);
-  const ey = 50 - r * Math.cos(angle);
-  const wedge = frac >= 0.9999
-    ? `M50,${50 - r} A${r},${r} 0 1,0 50,${50 + r} A${r},${r} 0 1,0 50,${50 - r} Z`
-    : frac <= 0 ? "" : `M50,50 L50,${50 - r} A${r},${r} 0 ${angle > Math.PI ? 1 : 0},0 ${ex.toFixed(2)},${ey.toFixed(2)} Z`;
-  const ticks = [];
-  for (let i = 0; i < 60; i++) {
-    const a = (i / 60) * 2 * Math.PI;
-    const major = i % 5 === 0;
-    const r1 = major ? 40 : 42.5;
-    const r2 = 45;
-    ticks.push(<line key={i} x1={50 + r1 * Math.sin(a)} y1={50 - r1 * Math.cos(a)} x2={50 + r2 * Math.sin(a)} y2={50 - r2 * Math.cos(a)} stroke={major ? "#2b2b2b" : "#9a9a9a"} strokeWidth={major ? 1.6 : 0.8} />);
-  }
-  return (
-    <svg width={size} height={size} viewBox="0 0 100 100" aria-hidden style={{ display: "block", flexShrink: 0 }}>
-      <circle cx="50" cy="50" r="49" fill="#3a3a3a" />
-      <circle cx="50" cy="50" r="46.5" fill="#fbfbf8" stroke="#c9c9c9" strokeWidth="1" />
-      {ticks}
-      {wedge && <path d={wedge} fill="#e3312d" />}
-      <circle cx="50" cy="50" r="3.2" fill="#2b2b2b" />
-      <circle cx="50" cy="50" r="1.2" fill="#8a8a8a" />
-    </svg>
-  );
-}
+const two = (n) => String(n).padStart(2, "0");
+const readout = (ms) => {
+  const total = Math.ceil(ms / 1000);
+  return `${two(Math.floor(total / 60))}:${two(total % 60)}`;
+};
 
-// The plastic buttons under either face.
-function Button({ label, title, onClick, wide }) {
+// The plastic buttons under the display.
+function Button({ look, label, title, onClick, wide }) {
   return (
     <button
       type="button"
@@ -171,9 +169,9 @@ function Button({ label, title, onClick, wide }) {
       onClick={(e) => { e.stopPropagation(); onClick(); }}
       style={{
         width: wide ? 30 : 20, height: 18, padding: 0, borderRadius: 9, cursor: "pointer",
-        border: "1px solid #a9a9a9", background: "linear-gradient(180deg, #f6f6f6, #d9d9d9)",
-        boxShadow: "0 1px 1px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.9)",
-        color: "#2b2b2b", fontFamily: "Lato, sans-serif", fontSize: 11, fontWeight: 700, lineHeight: 1,
+        border: `1px solid ${look.button.border}`, background: look.button.bg,
+        boxShadow: "0 1px 1px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.35)",
+        color: look.button.color, fontFamily: "Lato, sans-serif", fontSize: 11, fontWeight: 700, lineHeight: 1,
         display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
       }}
     >
@@ -187,9 +185,12 @@ const BLINK = "@keyframes gbTimerBlink { 50% { opacity: 0.2; } }";
 // `countdown` is useCountdown()'s result on the board, or a plain object
 // for the store's static preview (`interactive` false: no buttons, no
 // taps). `minutes` is the set time; `onMinutesChange` gets the new one
-// when + or - is pressed while nothing is counting.
-export default function BulletinTimer({ style = "dial", minutes = 5, maxMinutes = 60, onMinutesChange, countdown, interactive = true }) {
-  const { status, remainingMs, totalMs } = countdown;
+// when + or - is pressed while nothing is counting. `dragHandle` (Build
+// only) draws the notebooks' ☰ grip beside the housing and
+// `onDragHandlePointerDown` gets its pointer-down.
+export default function BulletinTimer({ style = "classic", minutes = 5, maxMinutes = 60, onMinutesChange, countdown, interactive = true, dragHandle = false, onDragHandlePointerDown }) {
+  const look = LOOKS[style] || LOOKS.classic;
+  const { status, remainingMs } = countdown;
   const running = status === "running";
   const done = status === "done";
   const counting = running || status === "paused";
@@ -210,61 +211,68 @@ export default function BulletinTimer({ style = "dial", minutes = 5, maxMinutes 
       if (done) countdown.reset();
     }
   };
-  const controls = interactive ? (
-    <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-      <Button label="−" title="One minute less" onClick={() => adjust(-1)} />
-      <Button wide label={running ? "❚❚" : done ? "↺" : "▶"} title={running ? "Pause" : done ? "Reset" : status === "paused" ? "Resume" : "Start"} onClick={toggle} />
-      <Button label="+" title="One minute more" onClick={() => adjust(1)} />
-    </div>
-  ) : null;
 
-  // The digits. Tapping them resets; while done they blink red.
-  const digits = (text, big) => (
+  const housing = (
     <div
-      role={interactive ? "button" : undefined}
-      title={interactive ? "Reset" : undefined}
-      onClick={interactive ? (e) => { e.stopPropagation(); countdown.reset(); } : undefined}
+      onClick={interactive ? toggle : undefined}
+      title={interactive ? (running ? "Tap to pause" : "Tap to start") : undefined}
       style={{
-        background: "linear-gradient(180deg, #c3cfb4, #d3ddc6)", border: "1px solid #7f8a73", borderRadius: 3,
-        boxShadow: "inset 0 1px 3px rgba(0,0,0,0.45)", padding: big ? "2px 8px" : "1px 6px",
-        fontFamily: "'Courier New', Courier, monospace", fontWeight: 700, fontSize: big ? 26 : 13, letterSpacing: big ? 2 : 1, lineHeight: 1.1,
-        color: done ? "#c1121f" : "#1f2a1a", animation: done ? "gbTimerBlink 1s steps(1) infinite" : "none",
-        cursor: interactive ? "pointer" : "default", userSelect: "none", minWidth: big ? 88 : 46, textAlign: "center",
+        position: "relative", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 5,
+        width: 128, height: 74, padding: "8px 10px 7px", boxSizing: "border-box", borderRadius: 10,
+        background: look.housing, border: `1px solid ${look.border}`,
+        boxShadow: `0 2px 4px rgba(0,0,0,0.45), inset 0 1px 0 ${look.highlight}`,
+        fontFamily: "Lato, sans-serif", cursor: interactive ? "pointer" : "default",
       }}
     >
-      {text}
+      <style>{BLINK}</style>
+      {/* The same pushpin the notebooks hang from, so the two read as
+          pinned to the one board. */}
+      <span aria-hidden style={{ position: "absolute", left: "50%", top: -4, marginLeft: -5, width: 10, height: 10, borderRadius: "50%", background: "radial-gradient(circle at 35% 35%, #ff7b7b, #c8201f 70%)", boxShadow: "0 1px 2px rgba(0,0,0,0.6)" }} />
+      {/* The display. Tapping the numbers resets; while done they blink. */}
+      <div
+        role={interactive ? "button" : undefined}
+        title={interactive ? "Tap the numbers to reset" : undefined}
+        onClick={interactive ? (e) => { e.stopPropagation(); countdown.reset(); } : undefined}
+        style={{
+          background: look.lcd, border: `1px solid ${look.lcdBorder}`, borderRadius: 3, boxShadow: look.lcdInset,
+          padding: "2px 8px", minWidth: 88, textAlign: "center",
+          fontFamily: "'Courier New', Courier, monospace", fontWeight: 700, fontSize: 26, letterSpacing: 2, lineHeight: 1.1,
+          color: done ? look.done : look.digit, textShadow: look.glow,
+          animation: done ? "gbTimerBlink 1s steps(1) infinite" : "none",
+          cursor: interactive ? "pointer" : "default", userSelect: "none",
+        }}
+      >
+        {readout(remainingMs)}
+      </div>
+      {interactive && (
+        <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+          <Button look={look} label="−" title="One minute less" onClick={() => adjust(-1)} />
+          <Button look={look} wide label={running ? "❚❚" : done ? "↺" : "▶"} title={running ? "Pause" : done ? "Reset" : status === "paused" ? "Resume" : "Start"} onClick={toggle} />
+          <Button look={look} label="+" title="One minute more" onClick={() => adjust(1)} />
+        </div>
+      )}
     </div>
   );
 
-  const housing = {
-    position: "relative", display: "flex", alignItems: "center", gap: 8, padding: "8px 10px 7px",
-    borderRadius: 10, background: "linear-gradient(180deg, #f4f4f2, #dcdcd8)", border: "1px solid #b9b9b4",
-    boxShadow: "0 2px 4px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.8)", boxSizing: "border-box",
-    fontFamily: "Lato, sans-serif",
-  };
-  // The same pushpin the notebooks hang from, so the two read as pinned to
-  // the one board.
-  const pin = <span aria-hidden style={{ position: "absolute", left: "50%", top: -4, marginLeft: -5, width: 10, height: 10, borderRadius: "50%", background: "radial-gradient(circle at 35% 35%, #ff7b7b, #c8201f 70%)", boxShadow: "0 1px 2px rgba(0,0,0,0.6)" }} />;
-
-  if (style === "digital") {
-    return (
-      <div style={{ ...housing, flexDirection: "column", gap: 5, height: 74, width: 128, justifyContent: "center" }} onClick={interactive ? toggle : undefined} title={interactive ? (running ? "Tap to pause" : "Tap to start") : undefined}>
-        <style>{BLINK}</style>
-        {pin}
-        {digits(readout(remainingMs, true), true)}
-        {controls}
-      </div>
-    );
-  }
+  if (!dragHandle) return housing;
   return (
-    <div style={{ ...housing, height: 74, width: 134 }} onClick={interactive ? toggle : undefined} title={interactive ? (running ? "Tap to pause" : "Tap to start") : undefined}>
-      <style>{BLINK}</style>
-      {pin}
-      <DialFace remainingMs={counting || done ? remainingMs : totalMs} size={56} />
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 5 }}>
-        {digits(readout(remainingMs, false), false)}
-        {controls}
-      </div>
+    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+      <span
+        role="button"
+        aria-label="Move the timer along the bulletin board"
+        title="Drag to move along the bulletin board"
+        onPointerDown={onDragHandlePointerDown}
+        style={{
+          width: 16, height: 30, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+          cursor: "grab", color: "rgba(255,255,255,0.7)", fontSize: 14, letterSpacing: 1, userSelect: "none", touchAction: "none",
+          background: "rgba(0,0,0,0.35)", borderRadius: 4, textShadow: "0 1px 1px rgba(0,0,0,0.6)",
+        }}
+        onMouseEnter={e => { e.currentTarget.style.color = "var(--board-secondary-accent)"; }}
+        onMouseLeave={e => { e.currentTarget.style.color = "rgba(255,255,255,0.7)"; }}
+      >
+        ☰
+      </span>
+      {housing}
     </div>
   );
 }

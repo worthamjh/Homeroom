@@ -18,7 +18,7 @@ import {
   SLIDING_BOARDS_COUNT_KEY, DEFAULT_SLIDING_BOARDS_COUNT, SLIDING_BOARDS_COUNT_OPTIONS,
   DESIGN_AREAS, useOwnedDesignOptions,
   LEDGE_NOTEBOOK_KEY, DEFAULT_LEDGE_NOTEBOOK, isLedgeNotebookValue, parseLedgeNotebooks, serializeLedgeNotebooks,
-  TIMER_STYLES, BULLETIN_TIMER_KEY, DEFAULT_BULLETIN_TIMER, isBulletinTimerValue,
+  TIMER_STYLES, BULLETIN_TIMER_KEY, DEFAULT_BULLETIN_TIMER, isBulletinTimerValue, migrateBulletinTimer,
   useLessonBoardCount,
   BELL_RINGER_PLACEMENT_KEY, DEFAULT_BELL_RINGER_PLACEMENT, isBellRingerPlacement,
   EXIT_SLIP_PLACEMENT_KEY, DEFAULT_EXIT_SLIP_PLACEMENT,
@@ -237,7 +237,7 @@ export default function BoardSettingsPanel({ selected, onSelect, panelCountInfo,
   // Which classroom timer hangs at the left end of the strip: one of the
   // owned styles, or "" for none. Adding one in the Store puts it up; this
   // is where a teacher who owns both picks, or takes it down.
-  const [bulletinTimer, setBulletinTimer] = useScopedSetting(BULLETIN_TIMER_KEY, DEFAULT_BULLETIN_TIMER, isBulletinTimerValue);
+  const [bulletinTimer, setBulletinTimer] = useScopedSetting(BULLETIN_TIMER_KEY, DEFAULT_BULLETIN_TIMER, isBulletinTimerValue, migrateBulletinTimer);
   // Board Content: five independent on/off toggles, one storage key per
   // component (see BOARD_COMPONENTS in boardConfig.js).
   const isOnOff = k => k === "true" || k === "false";
@@ -436,7 +436,7 @@ export default function BoardSettingsPanel({ selected, onSelect, panelCountInfo,
 
                   {/* The timer hangs at the other end of the same strip,
                       so it is chosen from the same menu. */}
-                  <SectionHeading help="A countdown pinned at the left end of the bulletin board. Tap it to start, + and − set the minutes, and it starts on its own when a Bell Ringer goes up on the board. Add timers in the Store; pick which one is up here.">Timer</SectionHeading>
+                  <SectionHeading help="A countdown pinned at the left end of the bulletin board. Tap it to start or pause, tap the numbers to reset, and + and − set the minutes. It starts on its own when a Bell Ringer goes up on the board. Add timers in the Store; pick which one is up here.">Timer</SectionHeading>
                   <RadioRow selected={bulletinTimer === ""} onClick={() => setBulletinTimer("")} label="None" />
                   {TIMER_STYLES.filter(t => shows(DESIGN_AREAS.TIMER, t.id, bulletinTimer)).map(t => (
                     <RadioRow key={t.id} selected={bulletinTimer === t.id} onClick={() => setBulletinTimer(t.id)} label={t.label} />

@@ -49,8 +49,9 @@ import {
   BUILD_VIEW_STORAGE_KEY, BUILD_RELOAD_RESTORE_KEY,
   useBoardContentOrder,
   VIDEO_LIBRARY_OPTION_ID,
-  BULLETIN_TIMER_KEY, DEFAULT_BULLETIN_TIMER, isBulletinTimerValue,
+  BULLETIN_TIMER_KEY, DEFAULT_BULLETIN_TIMER, isBulletinTimerValue, migrateBulletinTimer,
   TIMER_MINUTES_KEY, DEFAULT_TIMER_MINUTES, isTimerMinutesValue, TIMER_MAX_MINUTES,
+  TIMER_POSITION_KEY, DEFAULT_TIMER_POSITION, isTimerPositionValue, parseTimerPosition,
 } from "./boardConfig";
 
 // True only for the embedded copy of this same app the Settings page
@@ -3300,10 +3301,13 @@ export default function App({ viewer = false } = {}) {
   // which one is up, and how many minutes it is set to, both per
   // classroom. The count itself lives here rather than in the timer so a
   // Bell Ringer going up can start it (see the effect after ownedDesign).
-  const [bulletinTimerValue] = useScopedSetting(BULLETIN_TIMER_KEY, DEFAULT_BULLETIN_TIMER, isBulletinTimerValue);
+  const [bulletinTimerValue] = useScopedSetting(BULLETIN_TIMER_KEY, DEFAULT_BULLETIN_TIMER, isBulletinTimerValue, migrateBulletinTimer);
   const [timerMinutesValue, setTimerMinutesValue] = useScopedSetting(TIMER_MINUTES_KEY, DEFAULT_TIMER_MINUTES, isTimerMinutesValue);
   const timerMinutes = parseInt(timerMinutesValue, 10) || 5;
   const countdown = useCountdown(timerMinutes);
+  // And where it hangs: "" is its home at the left end; a fraction is a
+  // spot on the strip's track a teacher dragged it to (see startTimerDrag).
+  const [timerPositionValue, setTimerPositionValue] = useScopedSetting(TIMER_POSITION_KEY, DEFAULT_TIMER_POSITION, isTimerPositionValue);
   const [exitSlipOn] = useScopedSetting(BOARD_COMPONENTS.exitSlip.storageKey, BOARD_COMPONENTS.exitSlip.default, isOnOff);
   const [exitSlipPlacement] = useScopedSetting(EXIT_SLIP_PLACEMENT_KEY, DEFAULT_EXIT_SLIP_PLACEMENT, isBellRingerPlacement);
   const learningGoalsIsOn = learningGoalsOn === "true";
@@ -4663,6 +4667,36 @@ export default function App({ viewer = false } = {}) {
     window.addEventListener("pointerup", up);
     window.addEventListener("pointercancel", up);
   };
+  // The timer drags the same way, on the same track (Jay: "the timer
+  // should have the grab and move along the bulletin board feature like
+  // the notebooks have"). Its spot is one fraction rather than a map
+  // entry, since there is one timer; null means its home at the left end.
+  const [draggingTimer, setDraggingTimer] = useState(null);   // frac while a drag is on
+  const timerPosition = draggingTimer ?? parseTimerPosition(timerPositionValue);
+  const startTimerDrag = (e) => {
+    if (!isBuildMode) return;
+    const track = notebookTrackRef.current;
+    const item = e.currentTarget.closest("[data-timer]");
+    if (!track || !item || (e.button != null && e.button !== 0)) return;
+    e.preventDefault();
+    const trackRect = track.getBoundingClientRect();
+    const itemRect = item.getBoundingClientRect();
+    const grab = e.clientX - itemRect.left;
+    const span = Math.max(1, trackRect.width - itemRect.width);
+    const at = clientX => Math.min(1, Math.max(0, (clientX - grab - trackRect.left) / span));
+    setDraggingTimer(at(e.clientX));
+    const move = ev => setDraggingTimer(at(ev.clientX));
+    const up = ev => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", up);
+      setDraggingTimer(null);
+      setTimerPositionValue(String(at(ev.clientX)));
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", up);
+  };
   const notebookDocs = (unitFields.content.notebookDocs && typeof unitFields.content.notebookDocs === "object") ? unitFields.content.notebookDocs : {};
   // Whether a saved notebook link still points at a usable file.
   //
@@ -4997,7 +5031,7 @@ export default function App({ viewer = false } = {}) {
                 {/* The timer, pinned at the LEFT end of the strip -- the
                     notebooks have the right end -- and pushed there by its
                     own margin so the strip's flex-end rule is untouched. */}
-                {timerStyle && (
+                {timerStyle && timerPosition == null && (
                   <div data-timer style={{ marginRight: "auto", flexShrink: 0, position: "relative", zIndex: 1 }}>
                     <BulletinTimer
                       style={timerStyle}
@@ -5010,6 +5044,8 @@ export default function App({ viewer = false } = {}) {
                       // on, like a timer on a wall, and the public demo
                       // should let a visitor press it.
                       interactive
+                      dragHandle={isBuildMode}
+                      onDragHandlePointerDown={startTimerDrag}
                     />
                   </div>
                 )}
@@ -5035,6 +5071,22 @@ export default function App({ viewer = false } = {}) {
                   </div>
                 ))}
                 <div ref={notebookTrackRef} style={{ position: "absolute", top: 4, bottom: 4, left: SPACE.lg, right: SPACE.lg, pointerEvents: "none" }}>
+                  {/* A timer that has been dragged hangs where it was put,
+                      on the same track as a dragged notebook. */}
+                  {timerStyle && timerPosition != null && (
+                    <div data-timer style={{ position: "absolute", top: "50%", left: `${timerPosition * 100}%`, transform: `translate(-${timerPosition * 100}%, -50%)`, pointerEvents: "auto", zIndex: draggingTimer != null ? 3 : 2 }}>
+                      <BulletinTimer
+                        style={timerStyle}
+                        minutes={timerMinutes}
+                        maxMinutes={TIMER_MAX_MINUTES}
+                        onMinutesChange={n => setTimerMinutesValue(String(n))}
+                        countdown={countdown}
+                        interactive
+                        dragHandle={isBuildMode}
+                        onDragHandlePointerDown={startTimerDrag}
+                      />
+                    </div>
+                  )}
                   {activeUnit && ledgeNotebooks.filter(t => notebookPositionOf(t.id) != null).map(t => {
                     const f = notebookPositionOf(t.id);
                     return (
