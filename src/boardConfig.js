@@ -1201,12 +1201,39 @@ export const DESIGN_AREAS = {
   // added, nothing on the board, nothing to decide. The Webster Groves
   // demo keeps its hardcoded libraries regardless.
   VIDEO_LIBRARY: "videoLibrary",
+  // Classroom timers, hung on the bulletin strip (src/BulletinTimer.jsx).
+  // Owning one in the store makes it available; which one is UP is a
+  // Bulletin Board setting in Build, like the notebooks.
+  TIMER: "timer",
 };
 
 // The one item on the Video Library shelf. There is nothing to choose
 // between yet; the id is a SKU like any other so a second source could
 // join it later without moving this one.
 export const VIDEO_LIBRARY_OPTION_ID = "youtube";
+
+// The two timers, one look each: the round face with the red wedge that
+// shrinks as time runs out, and a digital one with big LCD digits. Same
+// countdown underneath. Jay (2026-09-29): a physical-looking timer on the
+// bulletin board that counts a Bell Ringer's five minutes down while the
+// teacher takes attendance, "or a digital countdown option as well".
+export const TIMER_STYLES = [
+  { id: "dial", label: "Dial Timer" },
+  { id: "digital", label: "Digital Timer" },
+];
+export const isTimerStyleId = (id) => TIMER_STYLES.some(t => t.id === id);
+// Which timer hangs on the strip for this classroom: a style id, or ""
+// for none. Adding one in the store puts it up; the Bulletin Board menu
+// in Build switches between owned ones or takes it down.
+export const BULLETIN_TIMER_KEY = "bulletinTimer";
+export const DEFAULT_BULLETIN_TIMER = "";
+export const isBulletinTimerValue = (v) => v === "" || isTimerStyleId(v);
+// How many minutes the timer is set to, per classroom. Set on the timer
+// itself with + and -; a Bell Ringer going up starts this many.
+export const TIMER_MINUTES_KEY = "timerMinutes";
+export const DEFAULT_TIMER_MINUTES = "5";
+export const TIMER_MAX_MINUTES = 60;
+export const isTimerMinutesValue = (v) => /^[1-9][0-9]?$/.test(v) && Number(v) <= TIMER_MAX_MINUTES;
 
 // Which notebooks are pinned to the bulletin board for this classroom.
 // (Named for the chalk ledge, where the first one lived for an hour; the
@@ -1325,6 +1352,8 @@ const STORE_GATED_OPTIONS = {
   [DESIGN_AREAS.STANDARDS]: STANDARDS_FRAMEWORKS.map(f => f.id),
   // The video library too: adding it is what puts the block on a lesson.
   [DESIGN_AREAS.VIDEO_LIBRARY]: [VIDEO_LIBRARY_OPTION_ID],
+  // Both timers: nothing hangs on the strip until a teacher adds one.
+  [DESIGN_AREAS.TIMER]: TIMER_STYLES.map(t => t.id),
 };
 
 // Ships with every board, no purchase, no ownership record.
@@ -1351,6 +1380,7 @@ export const DESIGN_AREA_LABELS = {
   [DESIGN_AREAS.NOTEBOOK]: "Notebooks",
   [DESIGN_AREAS.STANDARDS]: "Learning Standards",
   [DESIGN_AREAS.VIDEO_LIBRARY]: "Video Library",
+  [DESIGN_AREAS.TIMER]: "Classroom Timers",
 };
 
 // What each area's setting currently is, and what it falls back to. The
@@ -1375,6 +1405,8 @@ export const DESIGN_AREA_DEFAULT_OPTION = {
   [DESIGN_AREAS.PAPER]: "builtin:plain",
   // Removing the notebook that is on the ledge takes it off the ledge.
   [DESIGN_AREAS.NOTEBOOK]: DEFAULT_LEDGE_NOTEBOOK,
+  // Removing the timer that is up takes it down.
+  [DESIGN_AREAS.TIMER]: DEFAULT_BULLETIN_TIMER,
 };
 
 export function useDesignAreaSelections() {
@@ -1386,6 +1418,7 @@ export function useDesignAreaSelections() {
     [DESIGN_AREAS.BOARD_LAYOUT]: useScopedSetting(ARRANGEMENT_STORAGE_KEY, DEFAULT_ARRANGEMENT, k => !!BOARD_ARRANGEMENTS[k]),
     [DESIGN_AREAS.BOARD_ACCENT]: useScopedSetting(BOARD_ACCENT_STORAGE_KEY, DEFAULT_BOARD_ACCENT, isBoardAccentKey),
     [DESIGN_AREAS.NOTEBOOK]: useScopedSetting(LEDGE_NOTEBOOK_KEY, DEFAULT_LEDGE_NOTEBOOK, isLedgeNotebookValue),
+    [DESIGN_AREAS.TIMER]: useScopedSetting(BULLETIN_TIMER_KEY, DEFAULT_BULLETIN_TIMER, isBulletinTimerValue),
   };
 }
 
@@ -1422,6 +1455,12 @@ export function designCatalog(primaryColor, secondaryColor) {
       label: DESIGN_AREA_LABELS[DESIGN_AREAS.NOTEBOOK],
       blurb: "A notebook of blank templates, pinned to the bulletin board. Every unit gets its own copy. Choose which one is out under Bulletin Board in Build.",
       options: NOTEBOOK_TEMPLATES.map(t => ({ id: t.id, label: `${t.label} · ${t.pages} pages`, preview: { kind: "notebook", template: t } })),
+    },
+    {
+      area: DESIGN_AREAS.TIMER,
+      label: DESIGN_AREA_LABELS[DESIGN_AREAS.TIMER],
+      blurb: "A countdown pinned to the bulletin board that looks like the one on your wall. Tap it to start, + and − set the minutes, and when a Bell Ringer goes up on the board it starts on its own — students see the time left while you take attendance. Choose which one is up under Bulletin Board in Build.",
+      options: TIMER_STYLES.map(t => ({ id: t.id, label: t.label, preview: { kind: "timer", style: t.id } })),
     },
     {
       area: DESIGN_AREAS.VIDEO_LIBRARY,

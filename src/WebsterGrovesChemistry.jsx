@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, cloneElement } from "react";
 import ChalkboardBoardRow, { toGoalPanels } from "./ChalkboardBoardRow";
 import { useFullAgendaFields, ObjectivesChecklist, EditableField, ResetBoardButton } from "./FullAgendaBoard";
 import { fetchVideoSuggestStatus, lookupVideoTitle, suggestLessonVideos } from "./lib/videoLibraryApi";
+import BulletinTimer, { useCountdown } from "./BulletinTimer";
 import StandardsLine, { StandardsChips } from "./StandardsLine";
 import { STANDARDS_FRAMEWORKS } from "./lib/standards";
 import { fetchExtraAssignments, createExtraAssignment, deleteExtraAssignment, updateExtraAssignment, reorderExtraAssignments } from "./lib/extraAssignments";
@@ -48,6 +49,8 @@ import {
   BUILD_VIEW_STORAGE_KEY, BUILD_RELOAD_RESTORE_KEY,
   useBoardContentOrder,
   VIDEO_LIBRARY_OPTION_ID,
+  BULLETIN_TIMER_KEY, DEFAULT_BULLETIN_TIMER, isBulletinTimerValue,
+  TIMER_MINUTES_KEY, DEFAULT_TIMER_MINUTES, isTimerMinutesValue, TIMER_MAX_MINUTES,
 } from "./boardConfig";
 
 // True only for the embedded copy of this same app the Settings page
@@ -3293,6 +3296,14 @@ export default function App({ viewer = false } = {}) {
   const [bellRingerPlacement] = useScopedSetting(BELL_RINGER_PLACEMENT_KEY, DEFAULT_BELL_RINGER_PLACEMENT, isBellRingerPlacement);
   const [ledgeNotebookValue] = useScopedSetting(LEDGE_NOTEBOOK_KEY, DEFAULT_LEDGE_NOTEBOOK, isLedgeNotebookValue);
   const [notebookPositionsValue, setNotebookPositionsValue] = useScopedSetting(NOTEBOOK_POSITIONS_KEY, DEFAULT_NOTEBOOK_POSITIONS, isNotebookPositionsValue);
+  // The classroom timer on the bulletin strip (see BulletinTimer.jsx):
+  // which one is up, and how many minutes it is set to, both per
+  // classroom. The count itself lives here rather than in the timer so a
+  // Bell Ringer going up can start it (see the effect after ownedDesign).
+  const [bulletinTimerValue] = useScopedSetting(BULLETIN_TIMER_KEY, DEFAULT_BULLETIN_TIMER, isBulletinTimerValue);
+  const [timerMinutesValue, setTimerMinutesValue] = useScopedSetting(TIMER_MINUTES_KEY, DEFAULT_TIMER_MINUTES, isTimerMinutesValue);
+  const timerMinutes = parseInt(timerMinutesValue, 10) || 5;
+  const countdown = useCountdown(timerMinutes);
   const [exitSlipOn] = useScopedSetting(BOARD_COMPONENTS.exitSlip.storageKey, BOARD_COMPONENTS.exitSlip.default, isOnOff);
   const [exitSlipPlacement] = useScopedSetting(EXIT_SLIP_PLACEMENT_KEY, DEFAULT_EXIT_SLIP_PLACEMENT, isBellRingerPlacement);
   const learningGoalsIsOn = learningGoalsOn === "true";
@@ -4436,6 +4447,19 @@ export default function App({ viewer = false } = {}) {
   // the lines a teacher typed into the editable Learning Goals field on
   // any of its boards.
   const ownedDesign = useOwnedDesignOptions();
+  // The timer hangs only while the teacher still owns the one that is up.
+  const timerStyle = ownedDesign.has(DESIGN_AREAS.TIMER, bulletinTimerValue) ? bulletinTimerValue : "";
+  // A Bell Ringer going up on the board starts the timer on its own, for
+  // however many minutes it is set to -- the five minutes of settling in
+  // and attendance the timer exists for. Only on the way UP: closing it,
+  // or switching it to Full Screen, leaves the count alone, and an Exit
+  // Slip is not a Bell Ringer.
+  const kamiWasOpen = useRef(false);
+  useEffect(() => {
+    const open = !!kamiState;
+    if (open && !kamiWasOpen.current && kamiSourceField === "bellRinger" && timerStyle) countdown.start(timerMinutes * 60000);
+    kamiWasOpen.current = open;
+  }, [kamiState, kamiSourceField, timerStyle, timerMinutes, countdown]);
   const standardsFrameworks = STANDARDS_FRAMEWORKS.filter(f => ownedDesign.has(DESIGN_AREAS.STANDARDS, f.id));
   const standardsGoalTexts = useEditableLearningGoals
     ? allPanelFields.flatMap(f => (f.content.learningGoals || "").split("\n")).map(t => t.trim()).filter(Boolean)
@@ -4970,6 +4994,25 @@ export default function App({ viewer = false } = {}) {
                   widest scallop band so it never sits on the border. Which
                   notebook is a Bulletin Board setting; see BulletinNotebook. */}
               <div style={{ flex: 1, position: "relative", display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 14, padding: `4px ${SPACE.lg}px`, minHeight: 0 }}>
+                {/* The timer, pinned at the LEFT end of the strip -- the
+                    notebooks have the right end -- and pushed there by its
+                    own margin so the strip's flex-end rule is untouched. */}
+                {timerStyle && (
+                  <div data-timer style={{ marginRight: "auto", flexShrink: 0, position: "relative", zIndex: 1 }}>
+                    <BulletinTimer
+                      style={timerStyle}
+                      minutes={timerMinutes}
+                      maxMinutes={TIMER_MAX_MINUTES}
+                      onMinutesChange={n => setTimerMinutesValue(String(n))}
+                      countdown={countdown}
+                      // Usable by anyone looking at the board, viewers
+                      // included: the count is local to the screen it runs
+                      // on, like a timer on a wall, and the public demo
+                      // should let a visitor press it.
+                      interactive
+                    />
+                  </div>
+                )}
                 {/* Notebooks with no spot of their own gather at the right
                     end; one that has been dragged hangs where it was put,
                     on the track below, which covers the strip inside its

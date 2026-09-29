@@ -11,6 +11,7 @@ import {
 import { fetchProfile } from "./lib/profileApi";
 import { notebookTemplate } from "./lib/notebooks";
 import BulletinPreview from "./BulletinPreview";
+import { TimerPreview } from "./BulletinTimer";
 
 /**
  * DesignStorePage — the /store route, linked from the Build header.
@@ -172,6 +173,15 @@ function Preview({ preview }) {
             </div>
           </div>
         ))}
+      </div>
+    );
+  }
+
+  // A timer previews as itself, hanging on a strip, set to five minutes.
+  if (preview.kind === "timer") {
+    return (
+      <div style={{ ...box, height: 96, background: "#8B6914", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <TimerPreview style={preview.style} />
       </div>
     );
   }
@@ -408,7 +418,9 @@ export default function DesignStorePage() {
                         </>
                       ) : (
                         <button
-                          onClick={() => design.add(section.area, opt.id)}
+                          // Adding a timer also puts it up: one hangs at a
+                          // time, and a teacher adding one wants to see it.
+                          onClick={() => { design.add(section.area, opt.id); if (section.area === DESIGN_AREAS.TIMER) selections[DESIGN_AREAS.TIMER]?.[1]?.(opt.id); }}
                           style={{ background: "var(--board-secondary)", border: "none", color: "var(--board-secondary-fg)", borderRadius: 4, fontSize: 12, padding: "6px 14px", cursor: "pointer", fontFamily: "var(--board-heading-font, 'Oswald', sans-serif)", letterSpacing: 0.5 }}
                         >
                           Add
@@ -446,6 +458,8 @@ export default function DesignStorePage() {
             <p style={{ fontSize: 13, lineHeight: 1.55, color: "rgba(255,255,255,0.65)", margin: "0 0 16px" }}>
               {pendingRemoval.area === DESIGN_AREAS.NOTEBOOK ? (
                 <>It is hanging on your bulletin board right now. Remove it and it comes down; any other notebooks stay up.</>
+              ) : pendingRemoval.area === DESIGN_AREAS.TIMER ? (
+                <>It is hanging on your bulletin board right now. Remove it and it comes down.</>
               ) : (
                 <>
                   Your board is using it right now. Remove it and the board switches to{" "}
@@ -501,7 +515,7 @@ export default function DesignStorePage() {
                 onClick={confirmRemoval}
                 style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.28)", color: "rgba(255,255,255,0.75)", borderRadius: 4, fontSize: 13, padding: "8px 16px", cursor: "pointer", fontFamily: "Lato, sans-serif" }}
               >
-                {pendingRemoval.area === DESIGN_AREAS.NOTEBOOK ? "Take it down" : "Remove and switch"}
+                {[DESIGN_AREAS.NOTEBOOK, DESIGN_AREAS.TIMER].includes(pendingRemoval.area) ? "Take it down" : "Remove and switch"}
               </button>
             </div>
           </div>
