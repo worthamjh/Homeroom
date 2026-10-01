@@ -2106,6 +2106,10 @@ function AddVideoCard({ onAdd }) {
 const VIDEO_BTN_PRIMARY = { background: "var(--board-secondary)", border: "none", color: "var(--board-secondary-fg)", borderRadius: 3, fontFamily: "Oswald, sans-serif", fontSize: 12, textTransform: "uppercase", letterSpacing: 0.5, padding: "8px 14px", cursor: "pointer", whiteSpace: "nowrap" };
 const VIDEO_BTN_GHOST = { background: "transparent", border: "1px solid rgba(255,255,255,0.3)", color: "#ddd", borderRadius: 3, fontFamily: "Lato, sans-serif", fontSize: 12, padding: "8px 12px", cursor: "pointer", whiteSpace: "nowrap" };
 const VIDEO_NOTE = { fontSize: 12, fontFamily: "Lato, sans-serif", color: "rgba(255,255,255,0.55)", fontStyle: "italic", lineHeight: 1.45 };
+// The logo file is 1705 x 573 with the mark itself 1294 wide inside its
+// clear space, so 46 tall draws the mark about 104 wide. YouTube's brand
+// site gives 100px as the smallest it may be shown on a screen.
+const YOUTUBE_LOGO_HEIGHT = 46;
 
 // The block under a lesson's assignments. On a live board it is read-only
 // and absent until the lesson has videos. In Build (`build` set) it is
@@ -2118,6 +2122,7 @@ const VIDEO_NOTE = { fontSize: 12, fontFamily: "Lato, sans-serif", color: "rgba(
 // thumbnails, and most teachers never get to it.
 function VideoLibrary({ videos, playingVideoId, setPlayingVideoId, build }) {
   const [request, setRequest] = useState("");
+  const blockRef = useRef(null);
   const saved = Array.isArray(videos) ? videos : [];
   // A video YouTube no longer has stays in Build, where the teacher can
   // remove it, and off the live board, where it would be a tile that
@@ -2137,7 +2142,7 @@ function VideoLibrary({ videos, playingVideoId, setPlayingVideoId, build }) {
   const videoRows = Math.max(1, Math.ceil(tileCount / 5));
   const videoCols = Math.max(1, Math.ceil(tileCount / videoRows));
   return (
-    <div style={{ padding: `0 ${SPACE.lg}px ${SPACE.lg}px`, maxWidth: 1700, width: "100%", margin: "0 auto", boxSizing: "border-box" }}>
+    <div id="video-library" ref={blockRef} style={{ padding: `0 ${SPACE.lg}px ${SPACE.lg}px`, maxWidth: 1700, width: "100%", margin: "0 auto", boxSizing: "border-box" }}>
       <div style={{ background: "var(--board-primary)", border: "3px solid var(--board-secondary)", borderRadius: 4, overflow: "hidden", boxShadow: "0 3px 12px rgba(0,0,0,0.25)" }}>
         <div style={{ background: "var(--board-secondary)", padding: `${SPACE.xs}px ${SPACE.md}px`, fontFamily: "Oswald, sans-serif", fontSize: 14, color: "var(--board-secondary-fg)", letterSpacing: 1, textTransform: "uppercase", fontWeight: 600, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <span>Video Library</span>
@@ -2203,6 +2208,27 @@ function VideoLibrary({ videos, playingVideoId, setPlayingVideoId, build }) {
               />
             ))}
             {build && <AddVideoCard onAdd={build.onAdd} />}
+          </div>
+          {/* YouTube's branding rules for a site that shows its videos
+              (developers.google.com/youtube/terms/branding-guidelines):
+              the official logo beside the feature, unaltered, on one solid
+              background, clickable. The file is YouTube's own full-colour
+              logo for dark backgrounds, used as downloaded: its transparent
+              margin IS the required clear space, so it is sized by height
+              and never cropped, and the chip gives it the same dark ground
+              on every school's colours. The rules let the link lead to the
+              part of the app that shows YouTube content, so it leads here
+              rather than to youtube.com -- on a projected board a stray
+              tap must not open YouTube's home page in front of a class. */}
+          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: SPACE.sm }}>
+            <a
+              href="#video-library"
+              title="These videos are from YouTube"
+              onClick={(e) => { e.preventDefault(); blockRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }); }}
+              style={{ display: "block", background: "#212121", borderRadius: 4, lineHeight: 0 }}
+            >
+              <img src="/logos/youtube-logo-fullcolor-white.png" alt="YouTube" style={{ height: YOUTUBE_LOGO_HEIGHT, width: "auto", display: "block" }} />
+            </a>
           </div>
         </div>
       </div>
