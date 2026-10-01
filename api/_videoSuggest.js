@@ -58,7 +58,9 @@ const BOARD_CONTENT_COLLECTION = "boardContent";
 // Same sentinel api/boardContent.js and the board use for unit-level text.
 const UNIT_CONTENT_LESSON = "__unit__";
 
-const MODEL = "claude-opus-5";
+// Opus 5.5 since 2026-10-01: same request as Opus 5, a fifth cheaper per
+// token. Thinking cannot be switched off on it, which this never did.
+const MODEL = "claude-opus-5-5";
 const PICK_COUNT = 5;
 const SEARCH_RESULTS_PER_QUERY = 10;
 const MAX_QUERIES = 3;
@@ -260,7 +262,8 @@ function anthropicClient() {
 // runs low; choosing among candidates is the judgement that matters, so
 // it runs higher. Server-side fallbacks are on so a safety decline on
 // the main model is answered by another model inside the same call
-// rather than by an error.
+// rather than by an error. maxTokens is a ceiling, not a spend, and the
+// thinking counts toward it, so it is set well above the answer's size.
 async function askForJson({ system, user, schema, effort, maxTokens }) {
   const response = await anthropicClient().beta.messages.create({
     model: MODEL,
@@ -329,7 +332,7 @@ async function rankCandidates(lesson, candidates, count) {
     `${i + 1}. id=${c.id} | ${c.title} | ${c.channel} | ${fmtDuration(c.durationSec)} | ${fmtViews(c.views)} views | ${c.publishedYear} | captions: ${c.captions ? "yes" : "no"}\n   ${c.description}`
   ).join("\n");
   const user = `${lessonBlock(lesson)}\n\nPick up to ${count} of these candidates.\n\nCandidates:\n${list}`;
-  const out = await askForJson({ system: RANK_SYSTEM, user, schema: PICKS_SCHEMA, effort: "medium", maxTokens: 8000 });
+  const out = await askForJson({ system: RANK_SYSTEM, user, schema: PICKS_SCHEMA, effort: "medium", maxTokens: 16000 });
   const byId = new Map(candidates.map(c => [c.id, c]));
   const seen = new Set();
   const picks = [];
