@@ -32,9 +32,10 @@ export async function fetchVideoSuggestStatus() {
   return res.json();
 }
 
-// { id, title, channel } for a pasted link or id, from YouTube's oEmbed
-// (no key, no quota). Throws with the server's sentence when the video
-// cannot be shown.
+// { id, title, channel, fetchedAt } for a pasted link or id, from
+// YouTube's oEmbed (no key, no quota). Throws with the server's sentence
+// when the video cannot be shown. `fetchedAt` is saved with the video so
+// the daily refresh knows when YouTube was last asked about it.
 export async function lookupVideoTitle(idOrUrl) {
   const params = new URLSearchParams({ title: idOrUrl });
   const res = await apiFetch(`/api/curriculum?videos=suggest&${params}`);
@@ -42,7 +43,7 @@ export async function lookupVideoTitle(idOrUrl) {
   return res.json();
 }
 
-// The picks for one lesson: [{ id, title, channel, durationSec, reason }].
+// The picks for one lesson: [{ id, title, channel, durationSec, reason, fetchedAt }].
 // `goals` and `essentialQuestion` are what the client has in memory; sent
 // empty (a unit-wide build from the overview page), the server reads
 // them from the lesson's board content itself. `exclude` lists the ids

@@ -31,7 +31,7 @@ import { payloadTooBig } from "./_validate.js";
 // Vercel, so it costs no slot. The picker keeps its own auth and limits;
 // this is only the door, and a lesson's videos live in this document
 // anyway.
-import videoSuggestHandler from "./_videoSuggest.js";
+import videoSuggestHandler, { videoRefreshHandler } from "./_videoSuggest.js";
 
 const DB_NAME = process.env.MONGODB_DB || "homeroom";
 const COLLECTION = "curricula";
@@ -58,6 +58,9 @@ const CURRICULUM_HISTORY_LIMIT = 30;
 // one-line reason the picker gave. Nothing else is kept, and no more than
 // fifty per lesson, so the one array a teacher can grow with a single
 // click cannot carry arbitrary payloads into Mongo.
+// `fetchedAt` is when YouTube was last asked about the video and
+// `unavailable` that it no longer had it; both belong to the daily refresh
+// in api/_videoSuggest.js, which is why a save has to carry them through.
 const VIDEO_TEXT = { id: 200, title: 200, channel: 100, reason: 300 };
 function sanitizeVideos(videos) {
   if (!Array.isArray(videos)) return [];
@@ -72,6 +75,10 @@ function sanitizeVideos(videos) {
       if (typeof v.channel === "string" && v.channel) clean.channel = v.channel.slice(0, VIDEO_TEXT.channel);
       if (typeof v.reason === "string" && v.reason) clean.reason = v.reason.slice(0, VIDEO_TEXT.reason);
       if (typeof v.durationSec === "number" && Number.isFinite(v.durationSec)) clean.durationSec = Math.round(v.durationSec);
+      // Never later than now: a stamp from the future would put the video
+      // out of the refresh's reach.
+      if (typeof v.fetchedAt === "number" && Number.isFinite(v.fetchedAt) && v.fetchedAt > 0) clean.fetchedAt = Math.min(Math.round(v.fetchedAt), Date.now());
+      if (v.unavailable === true) clean.unavailable = true;
       return clean;
     });
 }
@@ -135,6 +142,7 @@ async function getCollection() {
 
 export default async function handler(req, res) {
   if (req.query?.videos === "suggest") return videoSuggestHandler(req, res);
+  if (req.query?.videos === "refresh") return videoRefreshHandler(req, res);
   try {
   // Identity comes from the verified session, never from the request --
   // see api/_auth.js. Any teacherId still arriving in the query or body is

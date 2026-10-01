@@ -17,7 +17,7 @@ const OPERATOR = {
   email: "gilbiltclassroom@gmail.com",
   site: "gil-bilt.com",
   state: "Missouri",
-  updated: "September 16, 2026",
+  updated: "October 1, 2026",
 };
 
 const page = { minHeight: "100vh", background: "#141414", color: "rgba(255,255,255,0.85)", fontFamily: "Lato, sans-serif", padding: "40px 24px 64px" };
@@ -66,7 +66,7 @@ function Privacy() {
         <li><strong>Cloudinary</strong>, which stores images and slide files you upload.</li>
         <li><strong>Google</strong>, when you connect Drive, Slides or Calendar, or when a board embeds Google Slides or a Google Calendar.</li>
         <li><strong>Kami</strong>, when you open a document from the board to write on it. Kami opens the file from your own Drive under your own Kami account; Gil-Bilt sends Kami only the file's identifier.</li>
-        <li><strong>YouTube</strong>, when a board embeds a video, and when you ask Gil-Bilt to find videos for a lesson. Finding videos uses YouTube API Services, which is covered by the <a style={link} href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer">Google Privacy Policy</a>, and by using that feature you also agree to the <a style={link} href="https://www.youtube.com/t/terms" target="_blank" rel="noopener noreferrer">YouTube Terms of Service</a>. Gil-Bilt sends YouTube only search words drawn from the lesson, keeps what YouTube returns for at most thirty days, and stores nothing about who asked.</li>
+        <li><strong>YouTube</strong>, when a board embeds a video, and when you ask Gil-Bilt to find videos for a lesson. Finding videos uses YouTube API Services, which is covered by the <a style={link} href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer">Google Privacy Policy</a>, and by using that feature you also agree to the <a style={link} href="https://www.youtube.com/t/terms" target="_blank" rel="noopener noreferrer">YouTube Terms of Service</a>. Gil-Bilt sends YouTube only search words drawn from the lesson and stores nothing about who asked. Search results are kept for at most thirty days. The title, channel and length shown on a video you keep in a lesson are checked against YouTube at least every thirty days, and are brought up to date or, if YouTube no longer has the video, removed. The one-line note Gil-Bilt gives for a video it suggests is Gil-Bilt's own and does not come from YouTube.</li>
         <li><strong>Anthropic</strong>, when you ask Gil-Bilt to find videos for a lesson. It receives the lesson's title, unit, learning goals and essential question, and the words you typed, so it can choose videos. It never receives student information. Anthropic does not train its models on this traffic, and under its commercial terms keeps it only for a limited time before deleting it.</li>
       </ul>
       <p>Embedded services such as YouTube, Google Slides and Google Calendar may set their own cookies when their content loads on a board, as they would on any page that embeds them.</p>
@@ -131,6 +131,7 @@ function Terms() {
 
       <h2 style={h2}>Other services</h2>
       <p>Gil-Bilt works alongside Google Drive, Google Slides, Google Calendar, Kami, YouTube, Anthropic and others. Those services are governed by their own terms and can change or stop on their own schedule. Gil-Bilt does not control them and is not responsible for them.</p>
+      <p>Gil-Bilt's video library uses YouTube API Services. By using Gil-Bilt you agree to be bound by the <a style={link} href="https://www.youtube.com/t/terms" target="_blank" rel="noopener noreferrer">YouTube Terms of Service</a>.</p>
 
       <h2 style={h2}>Availability and changes</h2>
       <p>We work to keep Gil-Bilt available and are honest when something is broken, but it is provided as is, without a promise that it will always be available or free of errors. We may change or add features, and may retire a feature with reasonable notice. Keep your own copies of material that matters to you; the Profile page lets you download everything at any time.</p>

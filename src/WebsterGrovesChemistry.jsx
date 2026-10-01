@@ -1980,33 +1980,41 @@ export function AddAssignmentCard({ open, busy, error, onOpen, onCancel, onSubmi
 
 const fmtVideoLength = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 
-function VideoThumb({ title, id, reason, channel, durationSec, onPlay, onRemove }) {
+function VideoThumb({ title, id, reason, channel, durationSec, unavailable, onPlay, onRemove }) {
   const meta = [channel, durationSec ? fmtVideoLength(durationSec) : null].filter(Boolean).join(" · ");
+  // `unavailable` is set by the daily refresh (api/_videoSuggest.js) when
+  // YouTube no longer has the video; its saved title went with it.
+  const label = unavailable ? "No longer available on YouTube" : title;
+  // The reason a pick was made rides along as the tooltip, so trimming a
+  // library in Build takes a hover, not a click. It is Gil-Bilt's
+  // sentence shown beside YouTube's title and channel, and YouTube's
+  // Developer Policies want that said where it appears.
+  const hint = unavailable ? "YouTube no longer has this video. Remove it from the lesson."
+    : reason ? `Gil-Bilt's note, not from YouTube: ${reason}`
+    : title;
   return (
-    // The reason a pick was made rides along as the tooltip, so trimming
-    // a library in Build takes a hover, not a click.
-    <div style={{ position: "relative" }} title={reason || title}>
+    <div style={{ position: "relative" }} title={hint}>
       <button
         onClick={() => onPlay(id)}
         style={{ background: "#000", borderRadius: 3, overflow: "hidden", cursor: "pointer", position: "relative", border: "2px solid transparent", transition: "all 0.15s", aspectRatio: "16/9", display: "block", padding: 0, textAlign: "left", width: "100%" }}
         onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--board-secondary)"; e.currentTarget.style.transform = "translateY(-2px)"; }}
         onMouseLeave={e => { e.currentTarget.style.borderColor = "transparent"; e.currentTarget.style.transform = "translateY(0)"; }}
       >
-        <img src={youtubeThumb(id)} alt={title} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+        <img src={youtubeThumb(id)} alt={label} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
         <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
           <div style={{ width: 44, height: 32, borderRadius: 6, background: "rgba(232,119,34,0.92)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 8px rgba(0,0,0,0.4)" }}>
             <div style={{ width: 0, height: 0, borderTop: "8px solid transparent", borderBottom: "8px solid transparent", borderLeft: "13px solid white", marginLeft: 3 }} />
           </div>
         </div>
         <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "rgba(0,0,0,0.75)", color: "white", fontSize: 11, fontFamily: "Oswald, sans-serif", padding: "5px 8px", letterSpacing: 0.3 }}>
-          <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{title}</div>
+          <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontStyle: unavailable ? "italic" : undefined }}>{label}</div>
           {meta && <div style={{ fontFamily: "Lato, sans-serif", fontSize: 10, color: "rgba(255,255,255,0.65)", letterSpacing: 0, marginTop: 1 }}>{meta}</div>}
         </div>
       </button>
       {onRemove && (
         <button
           type="button"
-          aria-label={`Remove ${title}`}
+          aria-label={`Remove ${title || "this video"}`}
           title="Remove from this lesson"
           onClick={(e) => { e.stopPropagation(); onRemove(); }}
           style={{ position: "absolute", top: 6, right: 6, width: 24, height: 24, borderRadius: 12, border: "1px solid rgba(255,255,255,0.5)", background: "rgba(20,20,20,0.85)", color: "white", fontSize: 15, lineHeight: 1, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}
@@ -2038,7 +2046,7 @@ function AddVideoCard({ onAdd }) {
     setError(null);
     try {
       const meta = await lookupVideoTitle(id);
-      onAdd({ id: meta.id || id, title: meta.title || "YouTube video", channel: meta.channel || undefined });
+      onAdd({ id: meta.id || id, title: meta.title || "YouTube video", channel: meta.channel || undefined, fetchedAt: meta.fetchedAt });
       reset();
     } catch (err) {
       setError(err.message || "That video could not be added.");
@@ -2110,7 +2118,12 @@ const VIDEO_NOTE = { fontSize: 12, fontFamily: "Lato, sans-serif", color: "rgba(
 // thumbnails, and most teachers never get to it.
 function VideoLibrary({ videos, playingVideoId, setPlayingVideoId, build }) {
   const [request, setRequest] = useState("");
-  const list = Array.isArray(videos) ? videos : [];
+  const saved = Array.isArray(videos) ? videos : [];
+  // A video YouTube no longer has stays in Build, where the teacher can
+  // remove it, and off the live board, where it would be a tile that
+  // never plays. Build keeps the whole list so a tile's position is still
+  // its index for onRemove.
+  const list = build ? saved : saved.filter(v => !v.unavailable);
   if (!build && list.length === 0) return null;
   const playing = list.find(v => extractYouTubeId(v.id) === playingVideoId);
   const busy = !!build?.suggesting;
@@ -2184,7 +2197,7 @@ function VideoLibrary({ videos, playingVideoId, setPlayingVideoId, build }) {
             {list.map((v, vi) => (
               <VideoThumb
                 key={`${extractYouTubeId(v.id)}-${vi}`}
-                title={v.title} id={v.id} reason={v.reason} channel={v.channel} durationSec={v.durationSec}
+                title={v.title} id={v.id} reason={v.reason} channel={v.channel} durationSec={v.durationSec} unavailable={v.unavailable === true}
                 onPlay={(id) => setPlayingVideoId(extractYouTubeId(id))}
                 onRemove={build ? () => build.onRemove(vi) : undefined}
               />

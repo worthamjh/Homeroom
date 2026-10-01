@@ -2,7 +2,14 @@
   "functions": {
     "api/curriculum.js": { "maxDuration": 60 }
   },
+  "crons": [
+    { "path": "/api/video-refresh", "schedule": "0 10 * * *" }
+  ],
   "rewrites": [
+    {
+      "source": "/api/video-refresh",
+      "destination": "/api/curriculum?videos=refresh"
+    },
     {
       "source": "/api/(.*)",
       "destination": "/api/$1"

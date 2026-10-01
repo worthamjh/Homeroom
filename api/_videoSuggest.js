@@ -340,7 +340,7 @@ async function rankCandidates(lesson, candidates, count) {
     const c = byId.get(String(p?.id || "").trim());
     if (!c || seen.has(c.id)) continue;
     seen.add(c.id);
-    picks.push({ id: c.id, title: c.title, channel: c.channel, durationSec: c.durationSec, reason: clip(p.reason, 200) });
+    picks.push({ id: c.id, title: c.title, channel: c.channel, durationSec: c.durationSec, reason: clip(p.reason, 200), fetchedAt: c.fetchedAt });
     if (picks.length >= count) break;
   }
   return picks;
@@ -424,6 +424,9 @@ async function videoDetails(ids) {
         durationSec,
         views: Number(item.statistics?.viewCount) || 0,
         captions: item.contentDetails?.caption === "true",
+        // When YouTube was last asked; a pick the teacher keeps carries it
+        // into the lesson (see "Keeping saved videos current" below).
+        fetchedAt: Date.now(),
       });
     }
   }
@@ -493,7 +496,7 @@ export default async function handler(req, res) {
           res.status(404).json({ error: "That doesn't look like a YouTube video Gil-Bilt can show. Check the link, or the video may be private." });
           return;
         }
-        res.status(200).json({ id, ...meta });
+        res.status(200).json({ id, ...meta, fetchedAt: Date.now() });
         return;
       }
       if (!(await enforceRateLimit(req, res, { teacherId, bucket: "videoStatus" }))) return;
@@ -550,6 +553,226 @@ export default async function handler(req, res) {
       return;
     }
     console.error("[api/videoSuggest] error", err);
+    res.status(500).json({ error: "Internal error" });
+  }
+}
+
+// ── Keeping saved videos current ───────────────────────────────────────
+// YouTube's Developer Policies (III.E.4) let a site keep what the API
+// returned for thirty days; after that it must be refreshed or deleted.
+// The cache above deletes itself. A video kept in a lesson is different:
+// its title, channel and length sit in the teacher's curriculum, and in
+// the earlier versions kept beside it, for as long as the lesson does. So
+// each one carries the time YouTube was last asked about it (`fetchedAt`),
+// and this sweep -- served as /api/curriculum?videos=refresh, run once a
+// day by the cron entry in vercel.json -- asks again about the ones older
+// than REFRESH_AFTER_MS and writes back what YouTube says now. A video
+// YouTube no longer returns loses its saved details and is marked
+// unavailable: Build shows it so the teacher can remove it, the live
+// board leaves it out. If YouTube cannot be asked at all, details that
+// reach thirty days are deleted rather than kept.
+//
+// An entry with neither a stamp nor a channel is a title somebody typed
+// (the Webster Groves libraries a script copied in), not API data, and is
+// left alone.
+//
+// No session is needed: nothing here is anyone's to ask for, the work is
+// bounded by what is stale, and a second call inside the hour does
+// nothing. Set CRON_SECRET in Vercel and only Vercel's own cron call is
+// let in.
+const DAY_MS = 24 * 60 * 60 * 1000;
+// Five days of slack under the limit, so a missed run or a day without
+// quota does not turn into a deletion.
+const REFRESH_AFTER_MS = 25 * DAY_MS;
+const MAX_KEEP_MS = 30 * DAY_MS;
+const REFRESH_MIN_GAP_MS = 60 * 60 * 1000;
+const REFRESH_COLLECTIONS = ["curricula", "curriculaHistory"];
+// Per run. Fifty ids cost one unit of quota, so a full run is thirty.
+const REFRESH_MAX_DOCS = 400;
+const REFRESH_MAX_IDS = 1500;
+const REFRESH_LAST_RUN_ID = "videoRefresh:lastRun";
+
+function isStale(v, now) {
+  if (!v || typeof v.id !== "string") return false;
+  if (typeof v.fetchedAt === "number") return now - v.fetchedAt >= REFRESH_AFTER_MS;
+  // Saved before stamps existed: from YouTube if it has what only YouTube
+  // supplies.
+  return !!v.channel || v.durationSec != null;
+}
+
+// The same test in Mongo's terms, to find the documents worth opening.
+const staleFilter = (cutoff) => ({
+  "units.lessons.videos": {
+    $elemMatch: {
+      $or: [
+        { fetchedAt: { $lt: cutoff } },
+        { fetchedAt: { $exists: false }, channel: { $exists: true } },
+        { fetchedAt: { $exists: false }, durationSec: { $exists: true } },
+      ],
+    },
+  },
+});
+
+// One run per hour at most, whoever calls. The marker lives beside the
+// rate limiter's counters and, having no expiry, is never swept.
+async function claimRefreshRun(db, now) {
+  const col = db.collection(LIMITS_COLLECTION);
+  const claimed = await col.updateOne(
+    { _id: REFRESH_LAST_RUN_ID, at: { $lt: new Date(now - REFRESH_MIN_GAP_MS) } },
+    { $set: { at: new Date(now) } }
+  );
+  if (claimed.matchedCount) return true;
+  try {
+    await col.insertOne({ _id: REFRESH_LAST_RUN_ID, at: new Date(now) });
+    return true;
+  } catch {
+    return false;   // the marker exists and is recent
+  }
+}
+
+// What YouTube says now. `asked` is every id a successful call covered:
+// one of those missing from `found` is a video that is gone or private,
+// which is different from one YouTube was never reached about.
+async function currentDetails(ids) {
+  const found = new Map();
+  const asked = new Set();
+  if (!YOUTUBE_KEY) return { found, asked };
+  for (let i = 0; i < ids.length; i += 50) {
+    const chunk = ids.slice(i, i + 50);
+    let data;
+    try {
+      data = await youtubeGet("videos", { part: "snippet,contentDetails,status", id: chunk.join(","), maxResults: "50" });
+    } catch (err) {
+      console.error("[api/videoRefresh] YouTube could not be asked; the rest waits for the next run", err?.code || err?.message || err);
+      break;
+    }
+    for (const id of chunk) asked.add(id);
+    for (const item of data.items || []) {
+      if (item.status?.embeddable === false) continue;
+      found.set(item.id, {
+        title: clip(item.snippet?.title, 150),
+        channel: clip(item.snippet?.channelTitle, 80),
+        durationSec: parseDuration(item.contentDetails?.duration),
+      });
+    }
+  }
+  return { found, asked };
+}
+
+// A stale entry as it should be stored now, or the same object when there
+// is nothing to change.
+function refreshedVideo(v, { found, asked }, now) {
+  const id = extractYouTubeId(v.id);
+  if (id && asked.has(id)) {
+    const fresh = found.get(id);
+    if (!fresh) {
+      const { title: _title, channel: _channel, durationSec: _durationSec, ...rest } = v;
+      return { ...rest, title: "", unavailable: true, fetchedAt: now };
+    }
+    const next = { ...v, title: fresh.title || v.title || "", fetchedAt: now };
+    if (fresh.channel) next.channel = fresh.channel; else delete next.channel;
+    if (fresh.durationSec) next.durationSec = fresh.durationSec; else delete next.durationSec;
+    delete next.unavailable;
+    return next;
+  }
+  // YouTube was not reached about this one. An entry with no stamp gets
+  // one that says "due now", which starts its five days; one that has
+  // reached thirty days loses what YouTube supplied.
+  if (typeof v.fetchedAt !== "number") return { ...v, fetchedAt: now - REFRESH_AFTER_MS };
+  if (now - v.fetchedAt >= MAX_KEEP_MS && (v.title || v.channel || v.durationSec != null)) {
+    const { title: _title, channel: _channel, durationSec: _durationSec, ...rest } = v;
+    return { ...rest, title: "" };
+  }
+  return v;
+}
+
+// The units with every stale video passed through `apply`, or null when
+// nothing changed.
+function refreshUnits(units, now, apply) {
+  let changed = false;
+  const next = units.map(u => !Array.isArray(u?.lessons) ? u : {
+    ...u,
+    lessons: u.lessons.map(l => {
+      if (!Array.isArray(l?.videos) || l.videos.length === 0) return l;
+      let touched = false;
+      const videos = l.videos.map(v => {
+        if (!isStale(v, now)) return v;
+        const r = apply(v);
+        if (r !== v) touched = true;
+        return r;
+      });
+      if (!touched) return l;
+      changed = true;
+      return { ...l, videos };
+    }),
+  });
+  return changed ? next : null;
+}
+
+export async function videoRefreshHandler(req, res) {
+  try {
+    if (req.method !== "GET") {
+      res.status(405).json({ error: "Method not allowed" });
+      return;
+    }
+    const secret = process.env.CRON_SECRET;
+    if (secret && (req.headers?.authorization || "") !== `Bearer ${secret}`) {
+      res.status(401).json({ error: "Not allowed." });
+      return;
+    }
+    const now = Date.now();
+    const db = await getDb();
+    if (!(await claimRefreshRun(db, now))) {
+      res.status(200).json({ ran: false, reason: "Already ran within the last hour." });
+      return;
+    }
+
+    const batches = [];
+    const ids = new Set();
+    for (const name of REFRESH_COLLECTIONS) {
+      const docs = await db.collection(name)
+        .find(staleFilter(now - REFRESH_AFTER_MS))
+        .project({ units: 1, updatedAt: 1 })
+        .limit(REFRESH_MAX_DOCS)
+        .toArray();
+      for (const doc of docs) {
+        for (const u of Array.isArray(doc.units) ? doc.units : []) {
+          for (const l of Array.isArray(u?.lessons) ? u.lessons : []) {
+            for (const v of Array.isArray(l?.videos) ? l.videos : []) {
+              const id = isStale(v, now) ? extractYouTubeId(v.id) : null;
+              if (id && ids.size < REFRESH_MAX_IDS) ids.add(id);
+            }
+          }
+        }
+      }
+      batches.push({ name, docs });
+    }
+
+    const details = await currentDetails([...ids]);
+    let documents = 0;
+    for (const { name, docs } of batches) {
+      const col = db.collection(name);
+      for (const doc of docs) {
+        const units = Array.isArray(doc.units) ? refreshUnits(doc.units, now, v => refreshedVideo(v, details, now)) : null;
+        if (!units) continue;
+        // A teacher's save that landed since this run read the document
+        // wins: the filter misses, and tomorrow's run picks it up.
+        const filter = { _id: doc._id };
+        if (name === "curricula" && doc.updatedAt) filter.updatedAt = doc.updatedAt;
+        const result = await col.updateOne(filter, { $set: { units } });
+        if (result.matchedCount) documents += 1;
+      }
+    }
+    res.status(200).json({
+      ran: true,
+      videos: ids.size,
+      asked: details.asked.size,
+      current: details.found.size,
+      unavailable: [...details.asked].filter(id => !details.found.has(id)).length,
+      documents,
+    });
+  } catch (err) {
+    console.error("[api/videoRefresh] error", err);
     res.status(500).json({ error: "Internal error" });
   }
 }
