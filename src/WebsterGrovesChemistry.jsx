@@ -2001,11 +2001,11 @@ function VideoThumb({ title, id, reason, channel, durationSec, unavailable, onPl
         onMouseLeave={e => { e.currentTarget.style.borderColor = "transparent"; e.currentTarget.style.transform = "translateY(0)"; }}
       >
         <img src={youtubeThumb(id)} alt={label} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-        <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <div style={{ width: 44, height: 32, borderRadius: 6, background: "rgba(232,119,34,0.92)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 8px rgba(0,0,0,0.4)" }}>
-            <div style={{ width: 0, height: 0, borderTop: "8px solid transparent", borderBottom: "8px solid transparent", borderLeft: "13px solid white", marginLeft: 3 }} />
-          </div>
-        </div>
+        {/* No play-button overlay. YouTube's compliance review (2026-10-07,
+            Developer Policies III.F.2a) flagged the earlier orange
+            rounded-rectangle play button as an altered YouTube icon. The
+            thumbnail is shown as YouTube supplies it; the whole tile is the
+            play control, with the hover lift as its affordance. */}
         <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "rgba(0,0,0,0.75)", color: "white", fontSize: 11, fontFamily: "Oswald, sans-serif", padding: "5px 8px", letterSpacing: 0.3 }}>
           <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontStyle: unavailable ? "italic" : undefined }}>{label}</div>
           {meta && <div style={{ fontFamily: "Lato, sans-serif", fontSize: 10, color: "rgba(255,255,255,0.65)", letterSpacing: 0, marginTop: 1 }}>{meta}</div>}
