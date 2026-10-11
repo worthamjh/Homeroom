@@ -1526,7 +1526,7 @@ export const MISSOURI_SOCIAL_STUDIES_FRAMEWORKS = [
   {
     id: "mo-ss-6-8-geo",
     subject: "Social Studies",
-    band: "9-12",
+    band: "6-8",
     label: "Missouri Learning Standards · Geography 6-8",
     short: "MLS",
     blurb: "Missouri's middle school Geography expectations, across all five strands.",
