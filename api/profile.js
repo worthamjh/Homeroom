@@ -244,12 +244,16 @@ export default async function handler(req, res) {
   // keeps connect-src off googleusercontent.com on purpose). Only Google's
   // image hosts are fetched, so this is not a general proxy. Lives here
   // for the same twelve-function reason as the district lookup below.
+  // Google serves these renderings from two families of host: the older
+  // *.googleusercontent.com and, since autumn 2026, *.usercontent.google.com
+  // (seen as work.fife.usercontent.google.com, where drive.google.com's
+  // thumbnail redirect now lands). Both are Google's, both are allowed.
   if (req.method === "GET" && typeof req.query?.thumb === "string") {
     if (!(await enforceRateLimit(req, res, { teacherId: PUBLIC_TEACHER_ID, bucket: "thumb" }))) return;
     let target;
     try { target = new URL(req.query.thumb); } catch { res.status(400).json({ error: "bad url" }); return; }
     const host = target.hostname;
-    const allowed = target.protocol === "https:" && (host === "drive.google.com" || host === "lh3.googleusercontent.com" || host.endsWith(".googleusercontent.com"));
+    const allowed = target.protocol === "https:" && (host === "drive.google.com" || host === "lh3.googleusercontent.com" || host.endsWith(".googleusercontent.com") || host.endsWith(".usercontent.google.com"));
     if (!allowed) { res.status(400).json({ error: "not a Drive image" }); return; }
     const r = await fetchWithin(target.toString(), 8000);
     const type = r ? (r.headers.get("content-type") || "") : "";
