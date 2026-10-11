@@ -134,7 +134,8 @@ export default function StandardsLine({ frameworks, value, onSave, goalTexts = [
   const bodyText = surface?.bodyText || "rgba(255,255,255,0.88)";
   const dim = surface?.placeholderText || "rgba(255,255,255,0.4)";
   const border = surface?.checkboxBorder || "rgba(255,255,255,0.4)";
-  const showPrefix = new Set(frameworks.map(f => f.short)).size > 1;
+  const shorts = [...new Set(frameworks.map(f => f.short))]; // distinct prefixes, in the order first seen
+  const showPrefix = shorts.length > 1;
   const add = (key) => onSave?.(serializeLessonStandards([...chosenKeys, key]));
   const labelStyle = { fontFamily: "Oswald, sans-serif", fontSize: 10, letterSpacing: 1.5, textTransform: "uppercase", color: dim, marginRight: 2 };
   const hint = (text) => <span style={{ fontFamily: "Lato, sans-serif", fontSize: 11, color: dim, fontStyle: "italic" }}>{text}</span>;
@@ -174,7 +175,7 @@ export default function StandardsLine({ frameworks, value, onSave, goalTexts = [
             autoFocus
             value={query}
             onChange={e => setQuery(e.target.value)}
-            placeholder={`Search ${frameworks.map(f => f.short).join(", ")} by code or wording…`}
+            placeholder={`Search ${shorts.join(", ")} by code or wording…`}
             style={{ fontFamily: "Lato, sans-serif", fontSize: 12, padding: "5px 8px", borderRadius: 4, border: `1px solid ${border}`, background: "rgba(0,0,0,0.3)", color: "#fff", outline: "none" }}
           />
           {!catalog ? hint("loading standards…") : browseResults.length === 0 ? hint("no matches") : browseResults.map(s => (
