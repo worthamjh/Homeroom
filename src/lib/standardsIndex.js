@@ -470,7 +470,7 @@ export const STANDARDS_FRAMEWORK_INDEX = [
     "label": "Missouri Learning Standards · Geography 6-8",
     "short": "MLS",
     "subject": "Social Studies",
-    "band": "9-12",
+    "band": "6-8",
     "blurb": "Missouri's middle school Geography expectations, across all five strands.",
     "source": "https://dese.mo.gov/media/file/curr-mls-standards-ss-6-12-sboe-2016",
     "sampleCode": "6-8.GEO.1.CC.A",
