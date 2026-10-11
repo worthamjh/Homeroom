@@ -248,6 +248,7 @@ function FrontDoor() {
                 <li>Runs in a browser on any smartboard or laptop. Nothing to install or whitelist beyond gil-bilt.com.</li>
                 <li>Files stay in the teacher's Google Drive. The app can see only the files it creates or the teacher picks.</li>
                 <li>Sign-in through Google or email, with the district's own accounts.</li>
+                <li>A board's link drops into Google Classroom or a Canvas module like any other link. Nothing to install on the district's side.</li>
                 <li>No ads, nothing sold, nothing used to train AI.</li>
                 <li>A teacher can export or delete everything from their profile page.</li>
               </ul>
