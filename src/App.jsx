@@ -144,8 +144,17 @@ function App() {
         // teacher's MAIN board is shared, show that instead of bouncing
         // the visitor to the home page: drop the ?class= so every
         // request below asks for the main classroom.
+        //
+        // Not from a short address (/board/<slug>). That names its
+        // classroom by name, with no ?class= to drop, so the rewrite
+        // below produced the SAME address and the page reloaded itself
+        // without end: a blank board with the stop and reload buttons
+        // trading places (Jay, 2026-10-13, on the American History link
+        // while not signed in as its owner). The classroom exists and
+        // its owner has not shared it, so the honest answer is the front
+        // door, where Sign In is -- not a different course.
         const room = getActiveClassroomId()
-        if (room === DEFAULT_CLASSROOM_ID) { goHome(); return }
+        if (room === DEFAULT_CLASSROOM_ID || currentSlugRoute()) { goHome(); return }
         fetchBoardSettings(explicitTeacher, DEFAULT_CLASSROOM_ID)
           .then(() => {
             if (cancelled) return
