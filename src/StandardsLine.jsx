@@ -28,11 +28,12 @@ import { suggestStandards, searchStandards, parseLessonStandards, serializeLesso
  * once and the hover wording arrives a moment later. Only Build's
  * suggestions and browse list need the catalogue before they can show.
  *
- * The framework prefix ("MLS") is dropped while everything a teacher
- * owns comes from one family -- on a Missouri board it says nothing an
- * admin does not already know -- and comes back on its own once two
- * families are owned (Missouri and NGSS, say), so codes can be told
- * apart. Several Missouri items together still need no prefix. The "9-12" stays
+ * Every chip carries its framework's letters ("MLS 9-12.PS1.A.1",
+ * "MTS 2.2"). They used to be dropped while everything a teacher owned
+ * came from one family, on the reasoning that "MLS" on a Missouri board
+ * says nothing an admin does not know; but a Teacher Standards code on
+ * its own is a bare "2.2", which reads as nothing in particular (Jay,
+ * 2026-10-18: "the numbers only are a bit confusing"). The "9-12" stays
  * always: it is part of the official code (6-8.PS1.A.1 also exists).
  *
  * Presentational and stateless about the lesson: `value` is the saved
@@ -87,14 +88,13 @@ export function StandardsChips({ frameworks, value, onSave, surface, interactive
   const accent = surface?.accent || "var(--board-secondary-accent)";
   const bodyText = surface?.bodyText || "rgba(255,255,255,0.88)";
   const dim = surface?.placeholderText || "rgba(255,255,255,0.4)";
-  const showPrefix = new Set(frameworks.map(f => f.short)).size > 1;
   const remove = (key) => onSave?.(serializeLessonStandards(chosenKeys.filter(k => k !== key)));
 
   return (
     <span style={{ display: "inline-flex", flexWrap: "wrap", justifyContent: "flex-end", gap: 5, marginLeft: "auto" }}>
       {chosen.map(s => (
         <span key={s.key} title={tip(s)} style={{ ...chipBase, border: `1px solid ${accent}`, color: bodyText, textShadow: surface?.textShadow }}>
-          {showPrefix && <span style={{ opacity: 0.6, fontWeight: 400 }}>{s.framework.short}</span>}
+          <span style={{ opacity: 0.6, fontWeight: 400 }}>{s.framework.short}</span>
           {s.code}
           {interactive && (
             <button
@@ -135,7 +135,6 @@ export default function StandardsLine({ frameworks, value, onSave, goalTexts = [
   const dim = surface?.placeholderText || "rgba(255,255,255,0.4)";
   const border = surface?.checkboxBorder || "rgba(255,255,255,0.4)";
   const shorts = [...new Set(frameworks.map(f => f.short))]; // distinct prefixes, in the order first seen
-  const showPrefix = shorts.length > 1;
   const add = (key) => onSave?.(serializeLessonStandards([...chosenKeys, key]));
   const labelStyle = { fontFamily: "Oswald, sans-serif", fontSize: 10, letterSpacing: 1.5, textTransform: "uppercase", color: dim, marginRight: 2 };
   const hint = (text) => <span style={{ fontFamily: "Lato, sans-serif", fontSize: 11, color: dim, fontStyle: "italic" }}>{text}</span>;
@@ -157,7 +156,7 @@ export default function StandardsLine({ frameworks, value, onSave, goalTexts = [
               onClick={(e) => { e.stopPropagation(); add(s.key); }}
               style={{ ...chipBase, border: `1px dashed ${accent}`, color: accent, background: "transparent", cursor: "pointer" }}
             >
-              + {showPrefix ? `${s.framework.short} ` : ""}{s.code}
+              + {s.framework.short} {s.code}
             </button>
           ))}
         <button
@@ -186,7 +185,7 @@ export default function StandardsLine({ frameworks, value, onSave, goalTexts = [
               title={tip(s)}
               style={{ display: "flex", alignItems: "baseline", gap: 8, textAlign: "left", background: "transparent", border: "none", cursor: "pointer", padding: "3px 2px", color: bodyText, fontFamily: "Lato, sans-serif", fontSize: 11, lineHeight: 1.35 }}
             >
-              <span style={{ fontWeight: 700, color: accent, whiteSpace: "nowrap" }}>+ {showPrefix ? `${s.framework.short} ` : ""}{s.code}</span>
+              <span style={{ fontWeight: 700, color: accent, whiteSpace: "nowrap" }}>+ {s.framework.short} {s.code}</span>
               <span style={{ opacity: 0.85, overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>{s.text}</span>
             </button>
           ))}

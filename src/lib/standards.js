@@ -27,8 +27,8 @@
 // suggestions, the browse list.
 import { STANDARDS_FRAMEWORK_INDEX } from "./standardsIndex.js";
 
-// `short` is what a chip is prefixed with when a teacher owns frameworks
-// from more than one family (see StandardsChips): "MLS 9-12.PS1.A.1".
+// `short` is the letters every chip is prefixed with (see
+// StandardsChips): "MLS 9-12.PS1.A.1", "MTS 2.2".
 // K-5 first, so the shelf reads kindergarten upward when unfiltered.
 export const STANDARDS_FRAMEWORKS = STANDARDS_FRAMEWORK_INDEX;
 
