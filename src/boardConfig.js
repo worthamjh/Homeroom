@@ -714,8 +714,64 @@ const spider = `
 <circle cx='0' cy='-3.6' r='2.4' fill='${INK}'/>
 <circle cx='-.9' cy='-4' r='.55' fill='#fff'/><circle cx='.9' cy='-4' r='.55' fill='#fff'/>`;
 
+// ── Fall, without the Halloween ─────────────────────────────────────────
+// For the schools that do not decorate for Halloween, the same strip with
+// autumn leaves, and one for the Thanksgiving week. Nothing on the
+// Thanksgiving border but turkeys and pumpkins: no pilgrims, no Native
+// American imagery of any kind.
+const KRAFT = "#c8a97e";
+// Outline on every fall motif, so a gold acorn still reads on the kraft
+// band and a turkey's feathers stay separate on the cream one.
+const BARK = "#3d2314";
+
+// A sugar maple leaf, red on one side of the vein and orange on the other,
+// on a short stem. One half's points, mirrored for the other half, so the
+// two meet on the vein and the outline draws it.
+const MAPLE_HALF = "0,-11.2 2.8,-8 2.4,-5.6 8.6,-7.6 8.8,-4 6,-1.8 10.8,2.2 7,4 4,3.6 1.2,6.4 0,6.4";
+const mapleLeaf = `
+<g stroke='${BARK}' stroke-width='.7' stroke-linejoin='round'>
+<polygon points='${MAPLE_HALF}' fill='#e0661c'/>
+<polygon points='${MAPLE_HALF}' fill='#b22e1d' transform='scale(-1 1)'/>
+<rect x='-.7' y='5.8' width='1.4' height='5.4' rx='.6' fill='${BARK}'/>
+</g>`;
+
+// A gold acorn under a dark cap. The cap is a half-ellipse a little wider
+// than the nut, the way a real one overhangs.
+const acorn = `
+<g stroke='${BARK}' stroke-width='.7' stroke-linejoin='round'>
+<path d='M-5.6,0.4 C-5.6,5.2 -3,9.4 0,10.6 C3,9.4 5.6,5.2 5.6,0.4 Z' fill='#d49a3a'/>
+<path d='M-6.8,-1.2 A6.8,6 0 0 1 6.8,-1.2 L6.8,0.6 L-6.8,0.6 Z' fill='#5a3517'/>
+<rect x='-.8' y='-9.8' width='1.6' height='3' rx='.6' fill='#5a3517'/>
+</g>
+<ellipse cx='-2.2' cy='4' rx='.8' ry='1.8' fill='#fff' fill-opacity='.4'/>`;
+
+// A cartoon turkey seen from the front: a brown body and head, a fan of
+// five tail feathers behind it in autumn colours, a yellow beak, a red
+// wattle and two yellow feet.
+const TAIL_COLORS = ["#b8321f", "#e2711d", "#e8b32a", "#e2711d", "#b8321f"];
+const turkey = `
+<g stroke='${BARK}' stroke-width='.6' stroke-linejoin='round'>
+${[-72, -36, 0, 36, 72].map((a, i) => `<ellipse transform='rotate(${a})' cy='-6.6' rx='3.1' ry='5.8' fill='${TAIL_COLORS[i]}'/>`).join("")}
+<circle cy='3' r='5.2' fill='#6b4423'/>
+<circle cy='-3.2' r='3.3' fill='#6b4423'/>
+</g>
+<ellipse cx='1.6' cy='-.2' rx='1' ry='1.8' fill='#c62828'/>
+<polygon points='-1.5,-2.4 1.5,-2.4 0,-.2' fill='#f2b134'/>
+<circle cx='-1.3' cy='-4' r='.6' fill='#fff'/><circle cx='1.3' cy='-4' r='.6' fill='#fff'/>
+<path d='M-2.4,7.8 L-2.8,10.6 M-2.5,9 L-4,10.2 M-2.5,9 L-1.1,10.2 M2.4,7.8 L2.8,10.6 M2.5,9 L4,10.2 M2.5,9 L1.1,10.2' fill='none' stroke='#f2b134' stroke-width='1' stroke-linecap='round'/>`;
+
+// A plain pumpkin, no face: the jack-o'-lantern's shape in orange with its
+// ridges drawn on, a green stem and one leaf.
+const pumpkin = `
+<rect x='-1.5' y='-10' width='3' height='4' rx='1' fill='#3f6b2a'/>
+<path d='M1.5,-7.6 q3,-2.6 4.8,0 q-2.6,1.6 -4.8,0 Z' fill='#5a8a3a'/>
+<ellipse cy='1.6' rx='9.6' ry='7.6' fill='#e8761e'/>
+<ellipse cx='-4.4' cy='1.6' rx='3.4' ry='7.2' fill='none' stroke='#c25a10' stroke-width='.9'/>
+<ellipse cx='4.4' cy='1.6' rx='3.4' ry='7.2' fill='none' stroke='#c25a10' stroke-width='.9'/>
+<ellipse cy='1.6' rx='9.6' ry='7.6' fill='none' stroke='${BARK}' stroke-width='.6'/>`;
+
 // `season` is the shelf tag the store shows on the card, so a teacher
-// scanning fourteen plain strips and five Halloween ones can tell which
+// scanning fourteen plain strips and seven holiday ones can tell which
 // are which without reading every label.
 export const SEASONAL_BULLETIN_STYLES = [
   { id: "pumpkins",   label: "Jack-o'-Lanterns", season: "Halloween", background: "#1a1a1a", trim: null, scallop: edgeTiles(PUMPKIN_ORANGE, MOTIF_BAND, [jackOLantern("smile"), jackOLantern("o")]) },
@@ -723,6 +779,10 @@ export const SEASONAL_BULLETIN_STYLES = [
   { id: "candyCorn",  label: "Candy Corn",       season: "Halloween", background: "#f0a030", trim: null, scallop: edgeTiles(INK, MOTIF_BAND, [candyCorn(-14), candyCorn(14)]) },
   { id: "ghosts",     label: "Friendly Ghosts",  season: "Halloween", background: "#1c2a4a", trim: null, scallop: edgeTiles("#0d0d0d", MOTIF_BAND, [ghost, star]) },
   { id: "spiderWebs", label: "Spider Webs",      season: "Halloween", background: "#2b2b2b", trim: null, scallop: edgeTiles("#efe9df", MOTIF_BAND, [spiderWeb, spider]) },
+  // Fall without the Halloween: leaves and acorns on kraft over a rust strip,
+  // then turkeys and pumpkins on cream over forest green.
+  { id: "fallLeaves", label: "Fall Harvest",     season: "Fall",         background: "#7b3418", trim: null, scallop: edgeTiles(KRAFT, MOTIF_BAND, [mapleLeaf, acorn]) },
+  { id: "turkeys",    label: "Thanksgiving",     season: "Thanksgiving", background: "#2e5438", trim: null, scallop: edgeTiles("#f3e5c5", MOTIF_BAND, [turkey, pumpkin]) },
 ];
 
 // How tall the strip is. 112 with a plain or 14px-scalloped border; a wider
