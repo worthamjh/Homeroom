@@ -84,8 +84,12 @@ function Preview({ preview }) {
 
   if (preview.kind === "bulletin") {
     // Same miniature the settings swatch uses, just at full band width.
+    // Taller than the other previews so a seasonal border (26px top and
+    // bottom) leaves some strip showing between them, as the 112px strip
+    // on the board does; the plain strips get the same height so the shelf
+    // lines up.
     return (
-      <div style={{ ...box, border: "3px solid #8B6914", boxSizing: "border-box" }}>
+      <div style={{ ...box, height: 100, border: "3px solid #8B6914", boxSizing: "border-box" }}>
         <BulletinPreview style={preview.style} radius={0} />
       </div>
     );
@@ -400,8 +404,12 @@ export default function DesignStorePage() {
                 return (
                   <div key={opt.id} style={{ background: "#1d1d1d", border: `1px solid ${owned ? "var(--board-secondary)" : "#2e2e2e"}`, borderRadius: 6, padding: 10, display: "flex", flexDirection: "column", gap: 9 }}>
                     <Preview preview={opt.preview} />
-                    <div style={{ fontFamily: "var(--board-heading-font, 'Oswald', sans-serif)", fontSize: 13, letterSpacing: 0.4 }}>
-                      {opt.label}
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                      <div style={{ fontFamily: "var(--board-heading-font, 'Oswald', sans-serif)", fontSize: 13, letterSpacing: 0.4 }}>
+                        {opt.label}
+                      </div>
+                      {/* The holiday a seasonal design belongs to. */}
+                      {opt.tag && <StateChip>{opt.tag}</StateChip>}
                     </div>
                     <div style={{ marginTop: "auto", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
                       {included ? (

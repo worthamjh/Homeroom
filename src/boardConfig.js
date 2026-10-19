@@ -597,38 +597,141 @@ export const NEUTRAL_BULLETIN_NAVY = "#1a2a4a";
 // flags to get backwards. The tile is transparent apart from the border
 // itself, so the strip's own colour shows through between the bumps.
 export const SCALLOP_BAND = 14;             // band thickness, px
-const SCALLOP_TILE = SCALLOP_BAND * 2;      // two scallops per tile
-function scallopTile(color, edge) {
-  const t = SCALLOP_BAND;
+// One edge tile: two scallops long whichever way it runs, solid across its
+// outer half, and -- for the seasonal borders below -- a motif centred on
+// each scallop. `band` is the strip's thickness; the scallop radius is
+// half of it.
+function edgeTile(color, edge, band, motifs) {
+  const t = band;
   const r = t / 2;
   const horizontal = edge === "top" || edge === "bottom";
-  const w = horizontal ? SCALLOP_TILE : t;
-  const h = horizontal ? t : SCALLOP_TILE;
+  const w = horizontal ? t * 2 : t;
+  const h = horizontal ? t : t * 2;
   // The solid part hugs the OUTER edge; the circles sit on its inner line.
   const rect =
     edge === "top"    ? `<rect width='${w}' height='${r}'/>` :
     edge === "bottom" ? `<rect y='${r}' width='${w}' height='${r}'/>` :
     edge === "left"   ? `<rect width='${r}' height='${h}'/>` :
                         `<rect x='${r}' width='${r}' height='${h}'/>`;
-  const circles = horizontal
-    ? `<circle cx='${r}' cy='${r}' r='${r}'/><circle cx='${r * 3}' cy='${r}' r='${r}'/>`
-    : `<circle cx='${r}' cy='${r}' r='${r}'/><circle cx='${r}' cy='${r * 3}' r='${r}'/>`;
+  const centres = horizontal ? [[r, r], [r * 3, r]] : [[r, r], [r, r * 3]];
+  const circles = centres.map(([cx, cy]) => `<circle cx='${cx}' cy='${cy}' r='${r}'/>`).join("");
+  // Motifs alternate through the list, one per scallop, always upright:
+  // stickers on a border read that way, and a pumpkin on its side does not.
+  const art = motifs
+    ? centres.map(([cx, cy], i) => `<g transform='translate(${cx} ${cy})'>${motifs[i % motifs.length]}</g>`).join("")
+    : "";
   return `url("data:image/svg+xml,${encodeURIComponent(
-    `<svg xmlns='http://www.w3.org/2000/svg' width='${w}' height='${h}' fill='${color}'>${rect}${circles}</svg>`
+    `<svg xmlns='http://www.w3.org/2000/svg' width='${w}' height='${h}'><g fill='${color}'>${rect}${circles}</g>${art}</svg>`
   )}")`;
 }
-function scallopTiles(color) {
+function edgeTiles(color, band, motifs) {
   return {
-    band: SCALLOP_BAND,
+    band,
     // Needed as a plain colour too, for the solid corner patches where the
     // strips overlap -- see the bulletin strip in WebsterGrovesChemistry.
     color,
-    top: scallopTile(color, "top"),
-    bottom: scallopTile(color, "bottom"),
-    left: scallopTile(color, "left"),
-    right: scallopTile(color, "right"),
+    top: edgeTile(color, "top", band, motifs),
+    bottom: edgeTile(color, "bottom", band, motifs),
+    left: edgeTile(color, "left", band, motifs),
+    right: edgeTile(color, "right", band, motifs),
   };
 }
+const scallopTiles = (color) => edgeTiles(color, SCALLOP_BAND);
+
+// ── Seasonal borders ────────────────────────────────────────────────────
+// The same scalloped strip, nearly twice as wide, with a picture printed in
+// every scallop: the holiday border from the teacher-supply aisle (Jay,
+// 2026-10-19: "the border of the bulletin board are holiday themed ... a
+// couple of school appropriate spooky borders on the store").
+//
+// School-appropriate means the friendly end of that aisle -- pumpkins,
+// bats, candy corn, ghosts, spider webs -- and nothing with blood, weapons,
+// skulls, witches or anything else a parent could object to on a
+// classroom wall. A new holiday is more entries in SEASONAL_BULLETIN_STYLES
+// and nothing else; the ids are store SKUs and stay put once shipped.
+//
+// Fixed colours, like the neutrals: a Halloween border is its own palette,
+// not the school's. Built once at module load, since nothing here depends
+// on the profile and each tile is a few KB of data URI.
+//
+// Each motif is SVG markup centred on (0,0) that fits inside its scallop
+// (radius MOTIF_BAND / 2 = 13).
+export const MOTIF_BAND = 26;
+const INK = "#161616";
+const PUMPKIN_ORANGE = "#f28c28";
+
+// A black jack-o'-lantern on the orange band, its face cut out in the band
+// colour -- the classic silhouette border. Two faces, so a row of them is
+// not a row of the same stamp.
+const jackOLantern = (mouth) => `
+<rect x='-1.6' y='-10.5' width='3.2' height='4' rx='1' fill='#2f6b2f'/>
+<ellipse cx='0' cy='1.5' rx='9.5' ry='7.6' fill='${INK}'/>
+<ellipse cx='-4.6' cy='1.5' rx='3.2' ry='7.2' fill='none' stroke='${PUMPKIN_ORANGE}' stroke-opacity='.35' stroke-width='.8'/>
+<ellipse cx='4.6' cy='1.5' rx='3.2' ry='7.2' fill='none' stroke='${PUMPKIN_ORANGE}' stroke-opacity='.35' stroke-width='.8'/>
+<polygon points='-5.6,0 -2,0 -3.8,-3.2' fill='${PUMPKIN_ORANGE}'/>
+<polygon points='2,0 5.6,0 3.8,-3.2' fill='${PUMPKIN_ORANGE}'/>
+${mouth === "smile"
+  ? `<path d='M-6,2.6 L-4.2,4.8 L-2.6,2.9 L-1,5.2 L1,2.9 L2.6,5.2 L4.2,2.9 L6,2.6 L4.4,6.2 L-4.4,6.2 Z' fill='${PUMPKIN_ORANGE}'/>`
+  : `<ellipse cx='0' cy='4.2' rx='2.2' ry='2' fill='${PUMPKIN_ORANGE}'/>`}`;
+
+const bat = `
+<path fill='${INK}' d='M0,-2.2 C-1.4,-4.6 -4.2,-4.6 -5.6,-2.6 C-6.8,-1.8 -8.8,-1.6 -11,-0.6 C-9.2,0 -8.6,1.6 -8.6,3 C-7.2,2 -5.6,2.6 -4.6,4 C-3.4,2.4 -1.6,2.2 0,4.2 C1.6,2.2 3.4,2.4 4.6,4 C5.6,2.6 7.2,2 8.6,3 C8.6,1.6 9.2,0 11,-0.6 C8.8,-1.6 6.8,-1.8 5.6,-2.6 C4.2,-4.6 1.4,-4.6 0,-2.2 Z'/>
+<polygon points='-2.6,-3.4 -2,-6.2 -0.6,-3.6' fill='${INK}'/>
+<polygon points='2.6,-3.4 2,-6.2 0.6,-3.6' fill='${INK}'/>
+<circle cx='-1.1' cy='-1.6' r='.6' fill='#f5c542'/><circle cx='1.1' cy='-1.6' r='.6' fill='#f5c542'/>`;
+
+// The outer arc runs on a circle of radius 8 at the origin, the inner on
+// radius 7 centred 3.5 to the right, and they meet where those circles
+// cross. (Two arcs between the same diameter ends trace one semicircle
+// twice and enclose nothing.)
+const crescentMoon = `<path d='M3.89,-6.99 A8,8 0 1,0 3.89,6.99 A7,7 0 1,1 3.89,-6.99 Z' fill='#e9b949'/>`;
+const star = `<polygon points='0,-5.5 1.6,-1.7 5.5,-1.7 2.4,0.8 3.5,4.6 0,2.3 -3.5,4.6 -2.4,0.8 -5.5,-1.7 -1.6,-1.7' fill='#f5c542'/>`;
+
+// Yellow, orange, white from the base up, leaning one way then the other.
+const candyCorn = (tilt) => `
+<g transform='rotate(${tilt})' stroke-linejoin='round'>
+<polygon points='0,-9 7,8 -7,8' fill='#fbe24a' stroke='#fbe24a' stroke-width='1.5'/>
+<polygon points='0,-9 4.6,2.2 -4.6,2.2' fill='#f58a1f' stroke='#f58a1f' stroke-width='1.5'/>
+<polygon points='0,-9 2.3,-3.3 -2.3,-3.3' fill='#fdfaf0' stroke='#fdfaf0' stroke-width='1.5'/>
+</g>`;
+
+const ghost = `
+<path d='M-7,8.5 L-7,-1 A7,7 0 0,1 7,-1 L7,8.5 L4.7,6.3 L2.3,8.5 L0,6.3 L-2.3,8.5 L-4.7,6.3 Z' fill='#f7f7f2'/>
+<circle cx='-2.6' cy='-1.2' r='1.4' fill='${INK}'/><circle cx='2.6' cy='-1.2' r='1.4' fill='${INK}'/>
+<ellipse cx='0' cy='2.6' rx='1.3' ry='1.7' fill='${INK}'/>`;
+
+const spiderWeb = `
+<g fill='none' stroke='${INK}' stroke-width='.9'>
+<circle r='9.5'/><circle r='6'/><circle r='2.6'/>
+<path d='M-10,0 H10 M0,-10 V10 M-7.1,-7.1 L7.1,7.1 M-7.1,7.1 L7.1,-7.1'/>
+</g>`;
+const spider = `
+<g fill='none' stroke='${INK}' stroke-width='1.2' stroke-linecap='round'>
+<path d='M-3,-1 L-8,-5 M-3.5,0.5 L-9,0 M-3.5,2 L-8.5,4.5 M-3,3.5 L-7,8'/>
+<path d='M3,-1 L8,-5 M3.5,0.5 L9,0 M3.5,2 L8.5,4.5 M3,3.5 L7,8'/>
+</g>
+<ellipse cx='0' cy='2' rx='4' ry='4.6' fill='${INK}'/>
+<circle cx='0' cy='-3.6' r='2.4' fill='${INK}'/>
+<circle cx='-.9' cy='-4' r='.55' fill='#fff'/><circle cx='.9' cy='-4' r='.55' fill='#fff'/>`;
+
+// `season` is the shelf tag the store shows on the card, so a teacher
+// scanning fourteen plain strips and five Halloween ones can tell which
+// are which without reading every label.
+export const SEASONAL_BULLETIN_STYLES = [
+  { id: "pumpkins",   label: "Jack-o'-Lanterns", season: "Halloween", background: "#1a1a1a", trim: null, scallop: edgeTiles(PUMPKIN_ORANGE, MOTIF_BAND, [jackOLantern("smile"), jackOLantern("o")]) },
+  { id: "bats",       label: "Bats at Night",    season: "Halloween", background: "#2d1b4e", trim: null, scallop: edgeTiles("#d9cfea", MOTIF_BAND, [bat, crescentMoon]) },
+  { id: "candyCorn",  label: "Candy Corn",       season: "Halloween", background: "#f0a030", trim: null, scallop: edgeTiles(INK, MOTIF_BAND, [candyCorn(-14), candyCorn(14)]) },
+  { id: "ghosts",     label: "Friendly Ghosts",  season: "Halloween", background: "#1c2a4a", trim: null, scallop: edgeTiles("#0d0d0d", MOTIF_BAND, [ghost, star]) },
+  { id: "spiderWebs", label: "Spider Webs",      season: "Halloween", background: "#2b2b2b", trim: null, scallop: edgeTiles("#efe9df", MOTIF_BAND, [spiderWeb, spider]) },
+];
+
+// How tall the strip is. 112 with a plain or 14px-scalloped border; a wider
+// border grows it by its extra width on both edges, so the room the
+// notebooks and timer hang in stays what it was instead of being eaten by
+// the border (a notebook is 86px tall).
+export const BULLETIN_STRIP_MIN_HEIGHT = 112;
+export const bulletinStripMinHeight = (style) =>
+  BULLETIN_STRIP_MIN_HEIGHT + 2 * Math.max(0, (style?.scallop?.band || SCALLOP_BAND) - SCALLOP_BAND);
 
 
 export function bulletinStyles(primaryColor, secondaryColor) {
@@ -646,6 +749,9 @@ export function bulletinStyles(primaryColor, secondaryColor) {
     ...Object.fromEntries(NEUTRAL_BULLETIN_COLORS.map(c => [
       c.id, { id: c.id, label: c.label, background: c.background, trim: null },
     ])),
+    // Last, so the shelf reads everyday strips first and the holiday ones
+    // after them.
+    ...Object.fromEntries(SEASONAL_BULLETIN_STYLES.map(s => [s.id, s])),
   };
 }
 
@@ -654,6 +760,7 @@ export function bulletinStyles(primaryColor, secondaryColor) {
 export const BULLETIN_STYLE_IDS = [
   "primary", "secondary", "primaryTrim", "secondaryTrim", "primaryScallop", "secondaryScallop",
   ...NEUTRAL_BULLETIN_COLORS.map(c => c.id),
+  ...SEASONAL_BULLETIN_STYLES.map(s => s.id),
 ];
 export const isBulletinStyleId = k => BULLETIN_STYLE_IDS.includes(k);
 
@@ -1348,6 +1455,7 @@ const STORE_GATED_OPTIONS = {
   [DESIGN_AREAS.BULLETIN]: [
     "primaryTrim", "secondaryTrim", "primaryScallop", "secondaryScallop",
     ...NEUTRAL_BULLETIN_COLORS.map(c => c.id),
+    ...SEASONAL_BULLETIN_STYLES.map(s => s.id),
   ],
   [DESIGN_AREAS.WALL_TYPE]: [],
   [DESIGN_AREAS.WALL_COLOR]: [],
@@ -1450,7 +1558,7 @@ export function designCatalog(primaryColor, secondaryColor) {
       label: DESIGN_AREA_LABELS[DESIGN_AREAS.BULLETIN],
       blurb: "The board's top strip — its colour, and the border stapled around the inside.",
       options: Object.values(bulletins).map(b => ({
-        id: b.id, label: b.label,
+        id: b.id, label: b.label, tag: b.season,
         preview: { kind: "bulletin", style: b },
       })),
     },

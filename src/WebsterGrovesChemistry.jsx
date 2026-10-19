@@ -27,7 +27,7 @@ import {
   readLessonSlidesUrl, writeLessonSlidesUrl,
   readPendingSlidesSave, writePendingSlidesSave, clearPendingSlidesSave,
   BOARD_ARRANGEMENTS, DEFAULT_ARRANGEMENT, ARRANGEMENT_STORAGE_KEY,
-  bulletinStyles, isBulletinStyleId, migrateBulletinStyleId, DEFAULT_BULLETIN, BULLETIN_STORAGE_KEY,
+  bulletinStyles, isBulletinStyleId, migrateBulletinStyleId, DEFAULT_BULLETIN, BULLETIN_STORAGE_KEY, bulletinStripMinHeight,
   BOARD_COMPONENTS,
   DESIGN_AREAS, useOwnedDesignOptions,
   GOALS_STORAGE_KEY,
@@ -5058,7 +5058,7 @@ export default function App({ viewer = false } = {}) {
                 along the top/bottom edges, both driven by the selected
                 bulletinStyles() preset, whose colours come from the
                 teacher's profile. */}
-            <div style={{ background: bulletinStyle.background, position: "relative", minHeight: 112, flexShrink: 0, display: "flex", flexDirection: "column", ...dimUnless("bulletin"), ...highlightStyle("bulletin") }}>
+            <div style={{ background: bulletinStyle.background, position: "relative", minHeight: bulletinStripMinHeight(bulletinStyle), flexShrink: 0, display: "flex", flexDirection: "column", ...dimUnless("bulletin"), ...highlightStyle("bulletin") }}>
               {bulletinStyle.trim && (
                 <div style={{ height: 10, flexShrink: 0, backgroundImage: bulletinStyle.trim, backgroundRepeat: "repeat-x", backgroundSize: "24px 10px" }} />
               )}
